@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "schema": {
+    "users": {
+      "collection": {
+        "$userId": {
+          "fields": {
+            "name": { "type": "string" },
+            "email": { "type": "string" },
+            "avatarUrl": { "type": "string" },
+            "xp": { "type": "number", "description": "XP points from the game" },
+            "createdAt": { "type": "timestamp" }
+          },
+          "subcollections": {
+            "orders": {
+              "$orderId": {
+                "fields": {
+                  "items": { "type": "array" },
+                  "totalPrice": { "type": "number" },
+                  "totalPoints": { "type": "number" },
+                  "createdAt": { "type": "timestamp" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

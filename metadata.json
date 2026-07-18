@@ -1,0 +1,6 @@
+{
+  "name": "Nickel Lanches",
+  "description": "Um delivery espetacular e gamificado com tema neon preto e amarelo, mini-jogo do cachorrinho, e comanda eletrônica.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
