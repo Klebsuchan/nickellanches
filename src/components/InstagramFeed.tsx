@@ -23,7 +23,7 @@ export default function InstagramFeed() {
             <p className="text-stone-500 font-medium md:text-lg">Fique por dentro das novidades, promoções e bastidores da nossa cozinha.</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
-            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="bg-stone-100 text-stone-900 border border-stone-200 font-bold px-6 py-3 rounded-full flex items-center justify-center gap-2 hover:bg-stone-200 transition-colors shrink-0">
+            <a href="https://www.instagram.com/nickellanches?utm_source=ig_web_button_share_sheet&igsi=ZDNlZDc0MzIxNw==" target="_blank" rel="noopener noreferrer" className="bg-stone-100 text-stone-900 border border-stone-200 font-bold px-6 py-3 rounded-full flex items-center justify-center gap-2 hover:bg-stone-200 transition-colors shrink-0">
               <Instagram size={20} className="text-[#E1306C]" />
               Ver Perfil
             </a>
@@ -37,7 +37,7 @@ export default function InstagramFeed() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-4">
           {mockPosts.map((post, i) => (
             <motion.a 
-              href="https://instagram.com"
+              href="https://www.instagram.com/nickellanches?utm_source=ig_web_button_share_sheet&igsi=ZDNlZDc0MzIxNw=="
               target="_blank" rel="noopener noreferrer"
               key={i}
               initial={{ opacity: 0, y: 20 }}

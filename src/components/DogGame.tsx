@@ -15,6 +15,7 @@ interface DogGameProps {
 export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: DogGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState(0);
+  const [countdown, setCountdown] = useState<number | null>(null);
   const [gameOver, setGameOver] = useState(false);
   const { addToast } = useToast();
   
@@ -96,6 +97,42 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
   }, [orderStatus, order?.id, onFinishOrder, addToast]);
 
   // Game State Ref to avoid re-renders
+  
+  const playBark = () => {
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(400, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.15);
+      
+      gainNode.gain.setValueAtTime(0, ctx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.02);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+      
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.15);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const dogImageRef = useRef<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    const img = new Image();
+    img.src = '/cochirrinho16bit.png';
+    img.onload = () => {
+      dogImageRef.current = img;
+    };
+  }, []);
+
   const gameState = useRef({
     dogY: 150,
     vy: 0,
@@ -103,9 +140,12 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
     jumpPower: -12,
     isJumping: false,
     obstacles: [] as { x: number, y: number, type: 'bottom' | 'top' }[],
+    smokeParticles: [] as { x: number, y: number, life: number, maxLife: number, size: number }[],
+    internalScore: 0,
     speed: 5,
     frame: 0,
     active: true,
+    status: 'countdown' as 'countdown' | 'playing',
   });
 
   useEffect(() => {
@@ -117,6 +157,9 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
     let animationId: number;
     const state = gameState.current;
     state.active = true;
+    state.status = 'countdown';
+    state.smokeParticles = [];
+    state.internalScore = 0;
     state.obstacles = [];
     state.dogY = 150;
     state.vy = 0;
@@ -124,9 +167,22 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
     state.frame = 0;
     setScore(0);
     setGameOver(false);
+    
+    setCountdown(3);
+    let count = 3;
+    const interval = setInterval(() => {
+      count--;
+      if (count > 0) {
+        setCountdown(count);
+      } else {
+        setCountdown(null);
+        state.status = 'playing';
+        clearInterval(interval);
+      }
+    }, 1000);
 
     const jump = () => {
-      if (!state.isJumping && state.active) {
+      if (!state.isJumping && state.active && state.status === 'playing') {
         state.vy = state.jumpPower;
         state.isJumping = true;
       }
@@ -168,47 +224,106 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
         state.vy = 0;
       }
 
-      // Draw Dog (Cute emoji)
-      ctx.font = '40px Arial';
-      ctx.fillText('🐶', 50, state.dogY + 35);
-
-      // Obstacles
-      const spawnRate = Math.max(30, Math.floor(100 - (state.speed - 5) * 10));
-      if (state.frame % spawnRate === 0) {
-        const isTop = Math.random() > 0.5;
-        state.obstacles.push({ 
-          x: canvas.width, 
-          y: isTop ? 90 : 150,
-          type: isTop ? 'top' : 'bottom'
+      // Smoke Particles
+      if (state.frame % 3 === 0) {
+        // Spawn smoke at the back of the motorcycle (x approx 40, y approx state.dogY + 30)
+        state.smokeParticles.push({
+          x: 40 + Math.random() * 10,
+          y: state.dogY + 30 + Math.random() * 10,
+          life: 0,
+          maxLife: 20 + Math.random() * 10,
+          size: 5 + Math.random() * 5
         });
       }
-
-      for (let i = 0; i < state.obstacles.length; i++) {
-        const obs = state.obstacles[i];
-        obs.x -= state.speed;
-
-        ctx.font = '30px Arial';
-        ctx.fillText(obs.type === 'top' ? '🦅' : '🐈', obs.x, obs.y + 30);
-
-        // Collision Check
-        if (
-          obs.x < 90 &&
-          obs.x + 30 > 50 &&
-          state.dogY + 35 > obs.y &&
-          state.dogY < obs.y + 30
-        ) {
-          state.active = false;
-          setGameOver(true);
+      
+      for (let i = state.smokeParticles.length - 1; i >= 0; i--) {
+        const p = state.smokeParticles[i];
+        p.life++;
+        p.x -= 2; // move left
+        p.y -= 0.5; // drift up
+        if (p.life >= p.maxLife) {
+          state.smokeParticles.splice(i, 1);
+        } else {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size + (p.life * 0.2), 0, Math.PI * 2);
+          const alpha = Math.max(0, 1 - (p.life / p.maxLife));
+          ctx.fillStyle = `rgba(150, 150, 150, ${alpha * 0.5})`;
+          ctx.fill();
         }
       }
 
-      // Cleanup offscreen obstacles
-      if (state.obstacles.length > 0 && state.obstacles[0].x < -50) {
-        state.obstacles.shift();
-        setScore(s => s + 10);
+      // Draw Dog (Image)
+      if (dogImageRef.current) {
+        ctx.save();
+        ctx.translate(70, state.dogY + 30);
+        ctx.scale(-1, 1); // flip horizontally
+        // 70x70, posicionado para que as rodas fiquem em cima da linha (y=180 quando dogY=150)
+        ctx.drawImage(dogImageRef.current, -35, -70, 70, 70);
+        ctx.restore();
+      } else {
+        ctx.font = '40px Arial';
+        ctx.fillText('🐶', 50, state.dogY + 35);
       }
 
-      state.frame++;
+      // Restaura a opacidade e a cor antes de desenhar os obstáculos
+      ctx.fillStyle = '#000000';
+      ctx.globalAlpha = 1.0;
+
+      if (state.status === 'playing') {
+        // Obstacles
+        const spawnRate = Math.max(30, Math.floor(100 - (state.speed - 5) * 10));
+        if (state.frame % spawnRate === 0) {
+          const isTop = Math.random() > 0.5;
+          state.obstacles.push({ 
+            x: canvas.width, 
+            y: isTop ? 70 : 145,
+            type: isTop ? 'top' : 'bottom'
+          });
+        }
+
+        for (let i = 0; i < state.obstacles.length; i++) {
+          const obs = state.obstacles[i];
+          obs.x -= state.speed;
+          
+          ctx.font = '40px Arial';
+          ctx.fillText(obs.type === 'top' ? '🦅' : '🚧', obs.x, obs.y + 35);
+
+          // Collision Check
+          const dogHitX = 45;
+          const dogHitW = 35;
+          const dogHitY = state.dogY - 20;
+          const dogHitH = 45;
+          
+          const obsHitX = obs.x + 5;
+          const obsHitW = 30;
+          const obsHitY = obs.y + 5;
+          const obsHitH = 30;
+
+          if (
+            obsHitX < dogHitX + dogHitW &&
+            obsHitX + obsHitW > dogHitX &&
+            obsHitY < dogHitY + dogHitH &&
+            obsHitY + obsHitH > dogHitY
+          ) {
+            state.active = false;
+            setGameOver(true);
+          }
+        }
+
+        // Cleanup offscreen obstacles
+        if (state.obstacles.length > 0 && state.obstacles[0].x < -50) {
+          state.obstacles.shift();
+          state.internalScore += 1;
+          
+          if (state.internalScore % 2 === 0) {
+             playBark();
+          }
+          
+          setScore(state.internalScore * 10);
+        }
+        
+        state.frame++;
+      }
       state.speed += 0.005; // slowly increase speed faster than before
 
       animationId = requestAnimationFrame(loop);
@@ -411,6 +526,22 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
           SCORE: {score}
         </div>
 
+        {countdown !== null && !gameOver && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-none">
+             <motion.div
+               key={countdown}
+               initial={{ scale: 0.5, opacity: 0 }}
+               animate={{ scale: 1.5, opacity: 1 }}
+               exit={{ scale: 2, opacity: 0 }}
+               transition={{ duration: 0.5 }}
+               className="text-[120px] font-black text-[#F28B20] drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)] comic-text"
+               style={{ WebkitTextStroke: '3px black' }}
+             >
+               {countdown}
+             </motion.div>
+          </div>
+        )}
+        
         {gameOver && (
           <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center rounded-lg backdrop-blur-sm z-10 border border-stone-200 m-4">
             <h3 className="text-6xl font-display text-black comic-text-bold mb-4 rotate-[-2deg]">GAME OVER</h3>

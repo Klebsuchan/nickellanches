@@ -71,9 +71,9 @@ export default function Footer({ onOpenModal }: FooterProps) {
           <h3 className="text-lg font-black uppercase tracking-wider mb-6 text-stone-100">Fale Conosco</h3>
           <ul className="space-y-4">
             <li>
-              <a href="https://wa.me/5554999598389" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-stone-400 hover:text-[#25D366] transition-colors group">
+              <a href="https://wa.me/5554999598388" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-stone-400 hover:text-[#25D366] transition-colors group">
                 <MessageCircle size={18} className="shrink-0" />
-                <span className="font-medium text-sm">WhatsApp: (54) 99959-8389</span>
+                <span className="font-medium text-sm">WhatsApp: (54) 99959-8388</span>
               </a>
             </li>
             <li>
