@@ -29,8 +29,8 @@ export default function StorySection() {
         <div className="flex-1 w-full relative">
           <div className="absolute inset-0 bg-[#F28B20] rounded-[40px] rotate-3 opacity-20"></div>
           <img 
-            src="https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=800&auto=format&fit=crop" 
-            alt="Lanche artesanal" 
+            src="/historia.jpg" 
+            alt="Nossa história" 
             className="w-full h-[400px] object-cover rounded-[40px] shadow-2xl relative z-10"
             referrerPolicy="no-referrer"
           />

@@ -24,7 +24,7 @@ export default function Footer({ onOpenModal }: FooterProps) {
           </p>
           <div className="text-stone-500 text-xs font-bold uppercase tracking-wider space-y-1">
             <p>CNPJ: 12.345.678/0001-90</p>
-            <p>NICKEL LANCHES & BURGERS LTDA</p>
+            <p>NICKEL LANCHES LTDA</p>
           </div>
         </div>
 
@@ -37,16 +37,8 @@ export default function Footer({ onOpenModal }: FooterProps) {
                 Nossa História
               </button>
             </li>
-            <li>
-              <button onClick={() => onOpenModal('contact')} className="text-stone-400 hover:text-[#F28B20] transition-colors text-sm font-medium flex items-center gap-2">
-                Trabalhe Conosco
-              </button>
-            </li>
-            <li>
-              <button onClick={() => onOpenModal('contact')} className="text-stone-400 hover:text-[#F28B20] transition-colors text-sm font-medium flex items-center gap-2">
-                Seja um Franqueado
-              </button>
-            </li>
+
+
           </ul>
         </div>
 

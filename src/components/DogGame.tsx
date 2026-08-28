@@ -74,9 +74,6 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
           message: 'Seu lanche chegou. Bom apetite!',
           type: 'success'
         });
-        setTimeout(() => {
-          onFinishOrder();
-        }, 2000);
       }
     }
   }, [progress, orderStatus, addToast, onFinishOrder, order?.id]);
@@ -89,12 +86,18 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
         message: 'Seu lanche chegou. Bom apetite!',
         type: 'success'
       });
+    }
+  }, [orderStatus, order?.id, addToast]);
+
+  // Handle exiting only when game over AND order is done
+  useEffect(() => {
+    if (gameOver && orderStatus === 'entregue') {
       const t = setTimeout(() => {
         onFinishOrder();
-      }, 3000);
+      }, 2000);
       return () => clearTimeout(t);
     }
-  }, [orderStatus, order?.id, onFinishOrder, addToast]);
+  }, [gameOver, orderStatus, onFinishOrder]);
 
   // Game State Ref to avoid re-renders
   
@@ -545,15 +548,21 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
         {gameOver && (
           <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center rounded-lg backdrop-blur-sm z-10 border border-stone-200 m-4">
             <h3 className="text-6xl font-display text-black comic-text-bold mb-4 rotate-[-2deg]">GAME OVER</h3>
-            <p className="mb-8 text-center max-w-xs font-bold text-xl text-black">Mas não se preocupe, seu pedido continua a caminho!</p>
-            <div className="flex gap-4 flex-col sm:flex-row">
-              <button 
-                onClick={handleRestart}
-                className="px-8 py-3 bg-white border border-stone-200 text-black rounded-xl font-bold uppercase tracking-wider hover:bg-zinc-100 shadow-sm active:translate-y-1 active:shadow-none transition-all"
-              >
-                Tentar de Novo
-              </button>
-            </div>
+            {orderStatus === 'entregue' ? (
+              <p className="mb-8 text-center max-w-xs font-bold text-xl text-black">Seu pedido já foi entregue! Bom apetite!</p>
+            ) : (
+              <>
+                <p className="mb-8 text-center max-w-xs font-bold text-xl text-black">Mas não se preocupe, seu pedido continua a caminho!</p>
+                <div className="flex gap-4 flex-col sm:flex-row">
+                  <button 
+                    onClick={handleRestart}
+                    className="px-8 py-3 bg-white border border-stone-200 text-black rounded-xl font-bold uppercase tracking-wider hover:bg-zinc-100 shadow-sm active:translate-y-1 active:shadow-none transition-all"
+                  >
+                    Tentar de Novo
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
         </div>
