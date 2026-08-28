@@ -11,7 +11,13 @@ export default function Footer({ onOpenModal }: FooterProps) {
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
         {/* Brand & Location */}
         <div className="col-span-1 md:col-span-2 lg:col-span-1">
-          <h2 className="text-3xl font-black text-[#F28B20] font-display uppercase tracking-widest leading-none mb-4">NICKEL LANCHES</h2>
+          <div className="flex items-center gap-3 mb-6">
+            <img src="/logo.png" alt="Nickel Lanches" className="h-28 md:h-32 w-auto object-contain drop-shadow-md" />
+            <div className="flex flex-col justify-center -ml-2">
+              <h1 className="text-4xl md:text-5xl tracking-tighter leading-none" style={{ fontFamily: '"Russo One", sans-serif', fontStyle: 'italic', color: '#FFD700', WebkitTextStroke: '2px black', textShadow: '4px 4px 0px #000' }}>NICKEL</h1>
+              <h2 className="text-xl md:text-2xl tracking-tighter leading-none" style={{ fontFamily: '"Russo One", sans-serif', fontStyle: 'italic', color: '#FFFFFF', WebkitTextStroke: '1px black', textShadow: '3px 3px 0px #000' }}>LANCHES</h2>
+            </div>
+          </div>
           <p className="text-stone-400 font-medium mb-6 text-sm leading-relaxed">
             Desde 2015 entregando a melhor experiência em lanches artesanais. 
             Ingredientes selecionados e muito sabor em cada mordida.

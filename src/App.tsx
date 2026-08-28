@@ -19,6 +19,7 @@ import Sidebar from './components/Sidebar';
 import FloatingBackground from './components/FloatingBackground';
 import FeedbacksSection from './components/FeedbacksSection';
 import StorySection from './components/StorySection';
+import AppetiteVideo from './components/AppetiteVideo';
 import HeroVideo from './components/HeroVideo';
 import ProductModal from './components/ProductModal';
 import { useToast } from './components/Toast';
@@ -417,9 +418,12 @@ export default function App() {
       {/* Header com Navegação */}
       <header className="sticky top-0 z-50 bg-white border-b border-stone-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
-            <div className="bg-[#4E2A84] text-white p-2 rounded-xl"><Utensils size={24}/></div>
-            <h1 className="text-2xl font-black text-[#4E2A84] font-display uppercase tracking-widest leading-none mt-1">NICKEL LANCHES</h1>
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
+            <img src="/logo.png" alt="Nickel Lanches" className="h-16 sm:h-20 md:h-24 w-auto object-contain drop-shadow-md" />
+            <div className="flex flex-col justify-center -ml-2 sm:-ml-3">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl tracking-tighter leading-none" style={{ fontFamily: '"Russo One", sans-serif', fontStyle: 'italic', color: '#FFD700', WebkitTextStroke: '1.5px black', textShadow: '2px 2px 0px #000' }}>NICKEL</h1>
+              <h2 className="text-sm sm:text-lg md:text-xl tracking-tighter leading-none -mt-0.5 sm:-mt-1" style={{ fontFamily: '"Russo One", sans-serif', fontStyle: 'italic', color: '#FFFFFF', WebkitTextStroke: '1px black', textShadow: '1px 1px 0px #000' }}>LANCHES</h2>
+            </div>
           </div>
           
           <nav className="hidden lg:flex items-center gap-8">
@@ -468,6 +472,9 @@ export default function App() {
 
       {/* Quem Somos Section */}
       <div id="quem-somos" className="bg-white scroll-mt-20">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 py-8 md:py-16">
+          <AppetiteVideo onGoToStore={(showLastOrders) => { setView('store'); setShowLastOrdersState(showLastOrders); window.scrollTo(0, 0); }} />
+        </div>
         <StorySection />
         
         <div className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 mt-16 pb-16">
