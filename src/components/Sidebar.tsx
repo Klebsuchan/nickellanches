@@ -46,17 +46,17 @@ export default function Sidebar({ user, onReorder }: SidebarProps) {
           <div className="flex flex-col space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <img src={user.photoURL || ''} alt="Profile" className="w-12 h-12 rounded-full border-2 border-black shadow-[2px_2px_0px_#000]" />
+                <img src={user.photoURL || ''} alt="Profile" className="w-12 h-12 rounded-full border border-stone-200 shadow-sm" />
                 <div>
                   <h4 className="font-bold text-lg leading-tight">{user.displayName}</h4>
-                  <span className="text-xs font-bold text-zinc-600 bg-zinc-100 border border-black px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                  <span className="text-xs font-bold text-zinc-600 bg-zinc-100 border border-stone-200 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
                     <Star size={10} className="text-yellow-500" /> {profile?.xp || 0} XP
                   </span>
                 </div>
               </div>
               <button 
                 onClick={signOut}
-                className="p-2 border-2 border-black rounded-lg hover:bg-zinc-100 shadow-[2px_2px_0px_#000] hover:shadow-[4px_4px_0px_#000] transition-all hover:-translate-y-1 bg-white"
+                className="p-2 border border-stone-200 rounded-lg hover:bg-zinc-100 shadow-sm hover:shadow-sm transition-all hover:-translate-y-1 bg-white"
                 title="Sair"
               >
                 <LogOut size={16} />
@@ -70,18 +70,18 @@ export default function Sidebar({ user, onReorder }: SidebarProps) {
                 </h5>
                 <div className="space-y-2">
                   {latestOrders.map(order => (
-                    <div key={order.id} className="bg-zinc-100 p-3 rounded-lg border-2 border-black shadow-[1px_1px_0px_#000] flex flex-col gap-2">
+                    <div key={order.id} className="bg-zinc-100 p-3 rounded-lg border border-stone-200 shadow-sm flex flex-col gap-2">
                       <div className="flex justify-between items-center">
                         <div className="text-sm font-bold flex flex-wrap gap-1">
                           {order.items.map((item, i) => <span key={i} title={item.name}>{item.emoji}</span>)}
                         </div>
-                        <div className="text-xs font-bold font-display bg-white px-2 py-1 rounded-full border border-black">
+                        <div className="text-xs font-bold font-display bg-white px-2 py-1 rounded-full border border-stone-200">
                           R$ {order.totalPrice.toFixed(2)}
                         </div>
                       </div>
                       <button 
                         onClick={() => onReorder(order)}
-                        className="w-full py-1.5 bg-yellow-400 text-black text-xs font-display font-bold uppercase tracking-wider rounded-md border-2 border-black shadow-[2px_2px_0px_#000] hover:shadow-[3px_3px_0px_#000] active:translate-y-0.5 active:shadow-none transition-all flex items-center justify-center gap-1"
+                        className="w-full py-1.5 bg-yellow-400 text-black text-xs font-display font-bold uppercase tracking-wider rounded-md border border-stone-200 shadow-sm hover:shadow-sm active:translate-y-0.5 active:shadow-none transition-all flex items-center justify-center gap-1"
                       >
                         <RotateCcw size={14} /> Pedir Novamente
                       </button>
@@ -97,7 +97,7 @@ export default function Sidebar({ user, onReorder }: SidebarProps) {
             <p className="text-xs font-bold text-zinc-600 mb-4">Faça login para salvar seus pedidos e acumular pontos de XP.</p>
             <button 
               onClick={signInWithGoogle}
-              className="w-full py-3 flex items-center justify-center gap-2 bg-white border-2 border-black text-black font-bold rounded-xl hover:bg-zinc-100 shadow-[2px_2px_0px_#000] hover:shadow-[4px_4px_0px_#000] transition-all hover:-translate-y-1"
+              className="w-full py-3 flex items-center justify-center gap-2 bg-white border border-stone-200 text-black font-bold rounded-xl hover:bg-zinc-100 shadow-sm hover:shadow-sm transition-all hover:-translate-y-1"
             >
               <LogIn size={20} /> Entrar com Google
             </button>
@@ -127,22 +127,22 @@ export default function Sidebar({ user, onReorder }: SidebarProps) {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.1 }}
-                className={`flex items-center justify-between p-2 rounded-xl border-2 border-black ${
+                className={`flex items-center justify-between p-2 rounded-xl border border-stone-200 ${
                   index === 0 
-                    ? 'bg-yellow-400 shadow-[2px_2px_0px_#000]' 
-                    : 'bg-zinc-100 shadow-[1px_1px_0px_#000]'
+                    ? 'bg-yellow-400 shadow-sm' 
+                    : 'bg-zinc-100 shadow-sm'
                 }`}
               >
                 <div className="flex items-center space-x-3">
                   <span className={`text-sm font-display ${index === 0 ? 'text-black' : 'text-zinc-500'}`}>
                     {index + 1}º
                   </span>
-                  <div className="w-8 h-8 bg-white border-2 border-black rounded-full flex items-center justify-center text-sm overflow-hidden shadow-[1px_1px_0px_#000]">
+                  <div className="w-8 h-8 bg-white border border-stone-200 rounded-full flex items-center justify-center text-sm overflow-hidden shadow-sm">
                     {avatar}
                   </div>
                   <span className="text-sm font-bold truncate max-w-[100px]">{name} {isCurrentUser && '(Você)'}</span>
                 </div>
-                <span className="text-sm font-bold bg-white border-2 border-black px-2 py-0.5 rounded-full shadow-[1px_1px_0px_#000] whitespace-nowrap">
+                <span className="text-sm font-bold bg-white border border-stone-200 px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">
                   {xp} XP
                 </span>
               </motion.div>

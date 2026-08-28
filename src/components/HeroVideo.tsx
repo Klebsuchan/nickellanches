@@ -1,93 +1,111 @@
-import React, { useEffect, useRef } from 'react';
-import { motion } from 'motion/react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 
-export default function HeroVideo() {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const isReversing = useRef(false);
-  const intervalId = useRef<any>(null);
+interface HeroVideoProps {
+  onGoToStore: (showLastOrders: boolean) => void;
+}
+
+export default function HeroVideo({ onGoToStore }: HeroVideoProps) {
+  const scrollToMenu = () => {
+    document.getElementById('cardapio')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const promos = [
+    {
+      id: 1,
+      image: "https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=1200&auto=format&fit=crop",
+      title: "Promoção Loucura",
+      description: "4 X-Especiais por R$ 90 + Refri 2L Charrua"
+    },
+    {
+      id: 2,
+      image: "https://images.unsplash.com/photo-1576107232684-1279f390859f?q=80&w=1200&auto=format&fit=crop",
+      title: "Promoção Fim de Mês",
+      description: "Batata Frita com Maionese Caseira por R$ 6!"
+    }
+  ];
+
+  const [currentPromo, setCurrentPromo] = useState(0);
+
+  const nextPromo = () => setCurrentPromo((prev) => (prev + 1) % promos.length);
+  const prevPromo = () => setCurrentPromo((prev) => (prev - 1 + promos.length) % promos.length);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    video.loop = false;
-
-    const startReverse = () => {
-      if (isReversing.current) return;
-      isReversing.current = true;
-      video.pause();
-
-      if (intervalId.current) clearInterval(intervalId.current);
-
-      // The video is 12 fps, so each frame is ~0.083s
-      // We step back 0.083s every 83ms to play smoothly backwards
-      intervalId.current = setInterval(() => {
-        if (video.currentTime <= 0.09) {
-          clearInterval(intervalId.current);
-          intervalId.current = null;
-          isReversing.current = false;
-          video.currentTime = 0;
-          video.play().catch(() => {});
-        } else {
-          video.currentTime -= 0.083;
-        }
-      }, 83);
-    };
-
-    const handleEnded = () => {
-      startReverse();
-    };
-
-    // Fallback in case ended doesn't fire correctly in some browsers
-    const handleTimeUpdate = () => {
-      if (!isReversing.current && video.duration && video.currentTime >= video.duration - 0.05) {
-        startReverse();
-      }
-    };
-
-    video.addEventListener('timeupdate', handleTimeUpdate);
-    video.addEventListener('ended', handleEnded);
-
-    return () => {
-      video.removeEventListener('timeupdate', handleTimeUpdate);
-      video.removeEventListener('ended', handleEnded);
-      if (intervalId.current) clearInterval(intervalId.current);
-    };
+    const interval = setInterval(nextPromo, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="relative w-full mb-12 rounded-3xl overflow-hidden p-6 sm:p-8 md:p-12 flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 bg-zinc-900 border-4 border-black shadow-[8px_8px_0px_#000]"
-    >
-      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\\"20\\" height=\\"20\\" viewBox=\\"0 0 20 20\\" xmlns=\\"http://www.w3.org/2000/svg\\"%3E%3Cg fill=\\"%23ffffff\\" fill-opacity=\\"1\\" fill-rule=\\"evenodd\\"%3E%3Ccircle cx=\\"3\\" cy=\\"3\\" r=\\"3\\"%2F%3E%3Ccircle cx=\\"13\\" cy=\\"13\\" r=\\"3\\"%2F%3E%3C/g%3E%3C/svg%3E")', backgroundSize: '20px 20px' }} />
+    <div className="w-full relative rounded-[24px] md:rounded-[32px] overflow-hidden shadow-xl min-h-[500px] flex items-center justify-center bg-stone-900">
+      {/* Video Background */}
+      <video 
+        autoPlay loop muted playsInline 
+        className="absolute inset-0 w-full h-full object-cover z-0 filter brightness-[0.25]"
+      >
+        <source src="https://assets.mixkit.co/videos/preview/mixkit-burger-with-a-lot-of-cheese-and-bacon-43013-large.mp4" type="video/mp4" />
+        Seu navegador não suporta vídeos.
+      </video>
       
-      <div className="flex-1 text-center md:text-left text-white relative z-10 w-full mt-4 md:mt-0 order-2 md:order-1">
-        <div className="inline-block bg-yellow-400 text-black font-black uppercase tracking-widest px-4 py-1 rounded-full text-xs sm:text-sm mb-4 md:mb-6 border-2 border-black shadow-[2px_2px_0px_#000] rotate-[-2deg]">
-          A Construção do Sabor
-        </div>
-        <h2 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-display comic-text-bold uppercase leading-[1.1] md:leading-[0.9] tracking-tighter mb-4 md:mb-6 text-yellow-400 drop-shadow-[4px_4px_0px_#000]">
-          Sinta a <br className="hidden md:block" /><span className="text-white">Fome!</span>
-        </h2>
-        <p className="text-base sm:text-lg md:text-xl font-bold uppercase tracking-widest opacity-90 border-t-2 md:border-t-0 md:border-l-4 border-yellow-400 pt-4 md:pt-0 md:pl-4 mx-auto md:mx-0 max-w-sm md:max-w-none">
-          Ingredientes frescos, montados na hora e queijo derretendo de verdade.
-        </p>
-      </div>
-      
-      <div className="w-full md:w-1/2 relative h-[250px] sm:h-[300px] md:h-[450px] flex items-center justify-center order-1 md:order-2">
-        {/* Glow effect */}
-        <div className="absolute inset-0 bg-yellow-400/30 blur-3xl rounded-full w-full h-full scale-100 md:scale-110"></div>
+      <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-6xl mx-auto py-10 md:py-16 px-4">
         
-        <video 
-          ref={videoRef}
-          src="/videosemfundo-1_seekable3.webm" 
-          autoPlay 
-          muted 
-          playsInline
-          className="relative z-10 w-full h-full object-contain scale-100 sm:scale-110 md:scale-125 origin-center transition-transform hover:scale-105 md:hover:scale-[1.4] duration-500"
-        />
+        {/* Banner Carousel */}
+        <div className="relative w-full aspect-[4/4] sm:aspect-[16/9] md:aspect-[21/9] rounded-2xl md:rounded-[32px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.5)] mb-8 border border-white/10 group">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentPromo}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.8, ease: "easeInOut" }}
+              className="absolute inset-0 w-full h-full bg-stone-900"
+            >
+              <img src={promos[currentPromo].image} alt={promos[currentPromo].title} className="w-full h-full object-cover opacity-90" referrerPolicy="no-referrer" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end items-start p-6 md:p-12 text-left">
+                <span className="bg-[#F28B20] text-white font-black px-4 py-1.5 rounded-full text-xs md:text-sm uppercase tracking-widest shadow-lg mb-3">
+                  🔥 Destaque
+                </span>
+                <h3 className="text-3xl md:text-5xl lg:text-6xl font-black uppercase tracking-tight text-white mb-2 leading-none drop-shadow-xl">
+                  {promos[currentPromo].title}
+                </h3>
+                <p className="text-stone-200 font-bold text-sm md:text-xl drop-shadow-md max-w-3xl">
+                  {promos[currentPromo].description}
+                </p>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Controls */}
+          <button onClick={prevPromo} className="absolute left-2 md:left-6 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity border border-white/20">
+            <ChevronLeft size={24} />
+          </button>
+          <button onClick={nextPromo} className="absolute right-2 md:right-6 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity border border-white/20">
+            <ChevronRight size={24} />
+          </button>
+
+          {/* Dots */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+            {promos.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setCurrentPromo(idx)}
+                className={`h-2 rounded-full transition-all duration-300 ${idx === currentPromo ? 'w-8 bg-[#F28B20]' : 'w-2 bg-white/50 hover:bg-white/80'}`}
+              />
+            ))}
+          </div>
+        </div>
+        
+        
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="w-full flex flex-col sm:flex-row justify-center gap-4 max-w-2xl mx-auto">
+          <button onClick={() => onGoToStore(false)} className="bg-stone-900/50 backdrop-blur-sm border-2 border-white/20 text-white font-black px-8 py-4 md:px-10 md:py-5 rounded-full flex items-center justify-center gap-3 hover:bg-white/10 hover:border-white/40 transition-all uppercase tracking-widest text-sm md:text-base w-full sm:w-auto shadow-lg">
+            Cardápio Completo
+          </button>
+          <button onClick={() => onGoToStore(true)} className="bg-[#F28B20] text-white font-black px-8 py-4 md:px-10 md:py-5 rounded-full flex items-center justify-center gap-3 hover:bg-orange-500 transition-transform hover:scale-105 shadow-[0_8px_30px_rgba(242,139,32,0.4)] uppercase tracking-widest text-sm md:text-base w-full sm:w-auto">
+            Faça seu Pedido <ArrowRight size={24} />
+          </button>
+        </motion.div>
+
       </div>
-    </motion.div>
+    </div>
   );
 }

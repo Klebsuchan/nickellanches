@@ -45,7 +45,7 @@ export default function FloatingBackground() {
             </div>
           )}
           {item.type === 'boom' && (
-            <div className="bg-yellow-400 border-[4px] border-black px-4 py-2 rounded-full shadow-[6px_6px_0px_#5A4E2F] transform -rotate-12">
+            <div className="bg-yellow-400 border-[4px] border-black px-4 py-2 rounded-full shadow-sm transform -rotate-12">
               <span className={`font-display comic-text-bold ${item.size}`}>{item.text}</span>
             </div>
           )}

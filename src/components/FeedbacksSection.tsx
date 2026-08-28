@@ -120,7 +120,7 @@ export default function FeedbacksSection({ user, orderHistory }: FeedbacksSectio
         </div>
         <button 
           onClick={() => setIsFormOpen(!isFormOpen)}
-          className="bg-yellow-400 border-2 border-black font-display font-bold px-6 py-3 rounded-xl shadow-[2px_2px_0px_#000] hover:shadow-[4px_4px_0px_#000] transition-all hover:-translate-y-1 flex items-center gap-2 whitespace-nowrap"
+          className="bg-yellow-400 border border-stone-200 font-display font-bold px-6 py-3 rounded-xl shadow-sm hover:shadow-sm transition-all hover:-translate-y-1 flex items-center gap-2 whitespace-nowrap"
         >
           <MessageSquare size={20} />
           Deixar Avaliação
@@ -136,7 +136,7 @@ export default function FeedbacksSection({ user, orderHistory }: FeedbacksSectio
             className="overflow-hidden mb-8"
           >
             {user ? (
-              <form onSubmit={handleSubmit} className="bg-white border-2 border-black rounded-xl p-6 shadow-[2px_2px_0px_#000]">
+              <form onSubmit={handleSubmit} className="bg-white border border-stone-200 rounded-xl p-6 shadow-sm">
                 <h3 className="font-display font-bold uppercase mb-4 text-xl">Mande sua mensagem pras estrelas!</h3>
                 {orderedItems.length > 0 && (
                   <div className="mb-4">
@@ -145,7 +145,7 @@ export default function FeedbacksSection({ user, orderHistory }: FeedbacksSectio
                       <select 
                         value={selectedItemId}
                         onChange={(e) => setSelectedItemId(e.target.value)}
-                        className="w-full border-2 border-black rounded-lg p-3 font-bold outline-none focus:ring-4 focus:ring-yellow-400/50 appearance-none bg-zinc-50 pr-10"
+                        className="w-full border border-stone-200 rounded-lg p-3 font-bold outline-none focus:ring-4 focus:ring-yellow-400/50 appearance-none bg-zinc-50 pr-10"
                       >
                         <option value="">(Opcional) Escolha um item do seu histórico...</option>
                         {orderedItems.map(item => (
@@ -164,7 +164,7 @@ export default function FeedbacksSection({ user, orderHistory }: FeedbacksSectio
                   value={newFeedbackText}
                   onChange={(e) => setNewFeedbackText(e.target.value)}
                   placeholder="Conte pra gente como foi sua experiência..."
-                  className="w-full border-2 border-black rounded-lg p-3 mb-4 min-h-[100px] font-bold outline-none focus:ring-4 focus:ring-yellow-400/50 resize-y"
+                  className="w-full border border-stone-200 rounded-lg p-3 mb-4 min-h-[100px] font-bold outline-none focus:ring-4 focus:ring-yellow-400/50 resize-y"
                   required
                 />
                 <div className="flex justify-end gap-3">
@@ -178,14 +178,14 @@ export default function FeedbacksSection({ user, orderHistory }: FeedbacksSectio
                   <button 
                     type="submit"
                     disabled={isSubmitting || !newFeedbackText.trim()}
-                    className="bg-zinc-900 text-yellow-400 border-2 border-black px-6 py-2 rounded-lg font-display uppercase tracking-widest shadow-[2px_2px_0px_#000] hover:shadow-[4px_4px_0px_#000] transition-all hover:-translate-y-1 disabled:opacity-50"
+                    className="bg-zinc-900 text-yellow-400 border border-stone-200 px-6 py-2 rounded-lg font-display uppercase tracking-widest shadow-sm hover:shadow-sm transition-all hover:-translate-y-1 disabled:opacity-50"
                   >
                     {isSubmitting ? 'Enviando...' : 'Enviar'}
                   </button>
                 </div>
               </form>
             ) : (
-              <div className="bg-white border-2 border-black rounded-xl p-6 shadow-[2px_2px_0px_#000] text-center">
+              <div className="bg-white border border-stone-200 rounded-xl p-6 shadow-sm text-center">
                 <p className="font-bold text-lg mb-2">Ops! Você precisa estar logado.</p>
                 <p className="text-zinc-600 font-bold">Faça login ali em cima para deixar sua avaliação intergaláctica.</p>
               </div>
@@ -201,11 +201,11 @@ export default function FeedbacksSection({ user, orderHistory }: FeedbacksSectio
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.1 }}
-            className="bg-white border-2 border-black rounded-xl p-6 shadow-[4px_4px_0px_#000] flex flex-col h-full relative"
+            className="bg-white border border-stone-200 rounded-xl p-6 shadow-sm flex flex-col h-full relative"
           >
             <div className="absolute -top-3 -right-3 text-4xl opacity-20">"</div>
             {fb.foodPhoto && (
-              <div className="w-full h-32 mb-4 border-2 border-black rounded-lg overflow-hidden shadow-[2px_2px_0px_#000]">
+              <div className="w-full h-32 mb-4 border border-stone-200 rounded-lg overflow-hidden shadow-sm">
                 <img src={fb.foodPhoto} alt="Foto do lanche" className="w-full h-full object-cover" />
               </div>
             )}
@@ -219,9 +219,9 @@ export default function FeedbacksSection({ user, orderHistory }: FeedbacksSectio
             </p>
             <div className="flex items-center gap-3 pt-4 border-t-2 border-dashed border-zinc-200">
               {fb.userAvatar ? (
-                <img src={fb.userAvatar} alt={fb.userName} className="w-10 h-10 rounded-full border-2 border-black" />
+                <img src={fb.userAvatar} alt={fb.userName} className="w-10 h-10 rounded-full border border-stone-200" />
               ) : (
-                <div className="w-10 h-10 bg-yellow-400 border-2 border-black rounded-full flex items-center justify-center font-bold text-xl">
+                <div className="w-10 h-10 bg-yellow-400 border border-stone-200 rounded-full flex items-center justify-center font-bold text-xl">
                   {fb.userName.charAt(0)}
                 </div>
               )}

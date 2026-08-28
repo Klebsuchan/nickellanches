@@ -66,13 +66,13 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="bg-white border-4 border-black rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden shadow-[8px_8px_0px_#000] relative z-10 text-black"
+            className="bg-white border border-stone-200 rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden shadow-sm relative z-10 text-black"
           >
             <div className="p-6 border-b-2 border-black flex justify-between items-center bg-yellow-400">
               <h2 className="text-2xl font-display comic-text-bold uppercase tracking-wider line-clamp-1">{product.name} {product.emoji}</h2>
               <button 
                 onClick={onClose}
-                className="w-10 h-10 bg-white border-2 border-black rounded-full flex items-center justify-center hover:bg-zinc-100 shadow-[2px_2px_0px_#000] transition-transform active:scale-95 flex-shrink-0"
+                className="w-10 h-10 bg-white border border-stone-200 rounded-full flex items-center justify-center hover:bg-zinc-100 shadow-sm transition-transform active:scale-95 flex-shrink-0"
               >
                 <X size={20} className="text-black" />
               </button>
@@ -90,12 +90,12 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
                     return (
                       <label 
                         key={extra.id} 
-                        className={`flex items-center justify-between p-3 border-2 border-black rounded-xl cursor-pointer transition-colors ${
-                          isSelected ? 'bg-yellow-100 shadow-[2px_2px_0px_#000]' : 'bg-white hover:bg-zinc-50'
+                        className={`flex items-center justify-between p-3 border border-stone-200 rounded-xl cursor-pointer transition-colors ${
+                          isSelected ? 'bg-yellow-100 shadow-sm' : 'bg-white hover:bg-zinc-50'
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`w-6 h-6 border-2 border-black rounded-md flex items-center justify-center ${isSelected ? 'bg-yellow-400' : 'bg-white'}`}>
+                          <div className={`w-6 h-6 border border-stone-200 rounded-md flex items-center justify-center ${isSelected ? 'bg-yellow-400' : 'bg-white'}`}>
                             {isSelected && <Check size={16} className="text-black" />}
                           </div>
                           <span className="font-bold">{extra.name}</span>
@@ -114,24 +114,24 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
                   value={observation}
                   onChange={(e) => setObservation(e.target.value)}
                   placeholder="Ex: Tirar cebola, maionese à parte..."
-                  className="w-full border-2 border-black rounded-xl p-3 font-bold outline-none focus:ring-4 focus:ring-yellow-400/50 min-h-[100px] resize-y"
+                  className="w-full border border-stone-200 rounded-xl p-3 font-bold outline-none focus:ring-4 focus:ring-yellow-400/50 min-h-[100px] resize-y"
                 />
               </div>
 
               {/* Quantity */}
-              <div className="flex items-center justify-between bg-zinc-100 p-4 border-2 border-black rounded-xl">
+              <div className="flex items-center justify-between bg-zinc-100 p-4 border border-stone-200 rounded-xl">
                 <span className="font-display font-bold uppercase">Quantidade</span>
                 <div className="flex items-center gap-4">
                   <button 
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-10 h-10 bg-white border-2 border-black rounded-full flex items-center justify-center shadow-[2px_2px_0px_#000] active:scale-95 transition-transform"
+                    className="w-10 h-10 bg-white border border-stone-200 rounded-full flex items-center justify-center shadow-sm active:scale-95 transition-transform"
                   >
                     <Minus size={20} />
                   </button>
                   <span className="text-2xl font-bold font-display w-8 text-center">{quantity}</span>
                   <button 
                     onClick={() => setQuantity(quantity + 1)}
-                    className="w-10 h-10 bg-yellow-400 border-2 border-black rounded-full flex items-center justify-center shadow-[2px_2px_0px_#000] active:scale-95 transition-transform"
+                    className="w-10 h-10 bg-yellow-400 border border-stone-200 rounded-full flex items-center justify-center shadow-sm active:scale-95 transition-transform"
                   >
                     <Plus size={20} />
                   </button>
@@ -142,7 +142,7 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
             <div className="p-6 border-t-2 border-black bg-white">
               <button 
                 onClick={handleAddToCart}
-                className="w-full py-4 bg-black text-yellow-400 border-2 border-black rounded-xl font-display font-bold uppercase tracking-widest text-xl shadow-[4px_4px_0px_#F9E822] hover:shadow-[6px_6px_0px_#F9E822] transition-all hover:-translate-y-1 flex items-center justify-between px-6"
+                className="w-full py-4 bg-black text-yellow-400 border border-stone-200 rounded-xl font-display font-bold uppercase tracking-widest text-xl shadow-sm hover:shadow-sm transition-all hover:-translate-y-1 flex items-center justify-between px-6"
               >
                 <span>Adicionar</span>
                 <span>R$ {totalPrice.toFixed(2)}</span>

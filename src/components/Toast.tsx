@@ -43,7 +43,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               initial={{ opacity: 0, x: 50, scale: 0.9 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 50, scale: 0.9 }}
-              className={`pointer-events-auto flex items-start gap-4 p-4 min-w-[300px] border-2 border-black rounded-xl shadow-[4px_4px_0px_#000] relative overflow-hidden
+              className={`pointer-events-auto flex items-start gap-4 p-4 min-w-[300px] border border-stone-200 rounded-xl shadow-sm relative overflow-hidden
                 ${toast.type === 'xp' ? 'bg-purple-100 text-purple-900' : 
                   toast.type === 'success' ? 'bg-green-100 text-green-900' :
                   toast.type === 'info' ? 'bg-blue-100 text-blue-900' : 'bg-yellow-100 text-yellow-900'}

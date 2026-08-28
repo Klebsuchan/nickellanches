@@ -1,39 +1,43 @@
-import React from 'react';
-import { motion } from 'motion/react';
+import React, { useState } from 'react';
+import { ArrowRight } from 'lucide-react';
+import DeliveryInfoModal from './DeliveryInfoModal';
 
 export default function StorySection() {
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
+
   return (
-    <div className="comic-panel p-8 rounded-2xl bg-zinc-100 mb-12 relative overflow-hidden">
-      <div className="absolute -top-24 -right-24 text-[200px] opacity-5">🤘</div>
-      
-      <div className="flex flex-col md:flex-row gap-8 items-center relative z-10">
-        <div className="w-full md:w-1/3 flex justify-center">
-          <motion.div 
-            whileHover={{ scale: 1.05, rotate: -2 }}
-            className="w-48 h-48 md:w-64 md:h-64 bg-yellow-400 rounded-full border-4 border-black shadow-[8px_8px_0px_#000] flex items-center justify-center text-8xl overflow-hidden relative"
-          >
-            <span className="relative z-10">🎸🐶</span>
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+CgkJPGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMCwwLDAsMC4xKSIvPgoJPC9zdmc+')] opacity-50" />
-          </motion.div>
-        </div>
-        
-        <div className="flex-1 text-black">
-          <h2 className="text-3xl font-display comic-text-bold tracking-widest uppercase mb-4">
-            Do Cachorro Louco ao Nickel
+    <div className="w-full bg-[#FCF9F5] py-16 border-y border-stone-100">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 flex flex-col md:flex-row items-center gap-12">
+        <div className="flex-1">
+          <h2 className="text-3xl md:text-5xl font-black text-stone-900 mb-6 uppercase tracking-tighter">
+            A HISTÓRIA DA <span className="text-[#4E2A84]">NICKEL LANCHES</span>
           </h2>
-          <div className="space-y-4 font-bold text-zinc-800 text-lg">
-            <p>
-              Tudo começou ao som de guitarras distorcidas e fitas K7. Antes de ser o Nickel Lanches, nós éramos o lendário 'Cachorro Louco Lanches'. O point oficial da galera que curtia um bom rock dos anos 80 e 90!
-            </p>
-            <p>
-              Entre um solo do Guns N' Roses e um clássico do Nirvana, nossos lanches foram ganhando a cidade de Passo Fundo. A nossa famosa maionese caseira? Dizem que a receita foi criada em um improviso após um show histórico na garagem de casa.
-            </p>
-            <p>
-              O tempo passou, as fitas viraram playlists, e o 'Cachorro Louco' evoluiu. Hoje somos o Nickel Lanches: a mesma atitude rock 'n' roll, a mesma energia contagiante, mas agora com um cardápio ainda mais animal para matar a sua fome!
-            </p>
-          </div>
+          <p className="text-stone-600 font-medium leading-relaxed md:text-lg mb-6">
+            Tudo começou com uma paixão gigante por lanches de verdade. Na Nickel Lanches, nós não fazemos apenas comida, nós construímos momentos. Acreditamos que um xis bem feito e um cachorro-quente no capricho podem transformar o seu dia.
+          </p>
+          <p className="text-stone-600 font-medium leading-relaxed md:text-lg mb-8">
+            Nossa missão é entregar sabor épico direto na sua casa, com uma qualidade que você sente em cada mordida.
+          </p>
+          
+          <button 
+            onClick={() => setIsDeliveryModalOpen(true)}
+            className="bg-[#4E2A84] text-white px-8 py-4 rounded-full font-black uppercase tracking-widest hover:bg-purple-900 transition-all flex items-center gap-3 shadow-lg"
+          >
+            Conheça Nosso Delivery <ArrowRight size={20} />
+          </button>
+        </div>
+        <div className="flex-1 w-full relative">
+          <div className="absolute inset-0 bg-[#F28B20] rounded-[40px] rotate-3 opacity-20"></div>
+          <img 
+            src="https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=800&auto=format&fit=crop" 
+            alt="Lanche artesanal" 
+            className="w-full h-[400px] object-cover rounded-[40px] shadow-2xl relative z-10"
+            referrerPolicy="no-referrer"
+          />
         </div>
       </div>
+
+      {isDeliveryModalOpen && <DeliveryInfoModal onClose={() => setIsDeliveryModalOpen(false)} />}
     </div>
   );
 }

@@ -8,9 +8,11 @@ import { subscribeToOrder } from '../lib/db';
 interface DogGameProps {
   order: OrderInfo | null;
   onFinishOrder: () => void;
+  onClose?: () => void;
+  onViewAbout?: () => void;
 }
 
-export default function DogGame({ order, onFinishOrder }: DogGameProps) {
+export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: DogGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
@@ -237,14 +239,14 @@ export default function DogGame({ order, onFinishOrder }: DogGameProps) {
       <motion.div 
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="w-full bg-white border-4 border-black rounded-3xl p-8 mb-8 shadow-[8px_8px_0px_#000] relative overflow-hidden text-black"
+        className="w-full bg-white border border-stone-200 rounded-3xl p-8 mb-8 shadow-sm relative overflow-hidden text-black"
       >
         <h3 className="font-display font-bold uppercase text-xl mb-12 text-center">Status da Missão</h3>
 
         <div className="relative flex justify-between items-center w-full max-w-3xl mx-auto px-4">
           
           {/* Animated Progress Line */}
-          <div className="absolute top-1/2 left-0 w-full h-3 bg-zinc-100 border-2 border-black -z-20 transform -translate-y-1/2 rounded-full overflow-hidden">
+          <div className="absolute top-1/2 left-0 w-full h-3 bg-zinc-100 border border-stone-200 -z-20 transform -translate-y-1/2 rounded-full overflow-hidden">
             <motion.div 
               className="h-full bg-yellow-400"
               initial={{ width: 0 }}
@@ -267,7 +269,7 @@ export default function DogGame({ order, onFinishOrder }: DogGameProps) {
             <motion.div 
               animate={orderStatus === 'pendente' ? { scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] } : {}}
               transition={{ repeat: Infinity, duration: 2 }}
-              className={`w-10 h-10 md:w-14 md:h-14 rounded-full border-4 border-black flex items-center justify-center shadow-[4px_4px_0px_#000] transition-colors ${progress >= 10 ? 'bg-yellow-400' : 'bg-white text-zinc-300'}`}
+              className={`w-10 h-10 md:w-14 md:h-14 rounded-full border border-stone-200 flex items-center justify-center shadow-sm transition-colors ${progress >= 10 ? 'bg-yellow-400' : 'bg-white text-zinc-300'}`}
             >
               <Clock size={20} />
             </motion.div>
@@ -278,7 +280,7 @@ export default function DogGame({ order, onFinishOrder }: DogGameProps) {
              <motion.div 
                animate={orderStatus === 'cozinha_confirmou' ? { scale: [1, 1.2, 1], y: [0, -5, 0] } : {}}
                transition={{ repeat: Infinity, duration: 1.5 }}
-               className={`w-10 h-10 md:w-14 md:h-14 rounded-full border-4 border-black flex items-center justify-center shadow-[4px_4px_0px_#000] transition-colors ${progress >= 30 ? 'bg-yellow-400' : 'bg-white text-zinc-300'}`}
+               className={`w-10 h-10 md:w-14 md:h-14 rounded-full border border-stone-200 flex items-center justify-center shadow-sm transition-colors ${progress >= 30 ? 'bg-yellow-400' : 'bg-white text-zinc-300'}`}
              >
               <CheckCircle size={20} />
             </motion.div>
@@ -289,7 +291,7 @@ export default function DogGame({ order, onFinishOrder }: DogGameProps) {
              <motion.div 
                animate={orderStatus === 'em_preparo' ? { scale: [1, 1.2, 1], y: [0, -5, 0] } : {}}
                transition={{ repeat: Infinity, duration: 1.5 }}
-               className={`w-10 h-10 md:w-14 md:h-14 rounded-full border-4 border-black flex items-center justify-center shadow-[4px_4px_0px_#000] transition-colors ${progress >= 60 ? 'bg-yellow-400' : 'bg-white text-zinc-300'}`}
+               className={`w-10 h-10 md:w-14 md:h-14 rounded-full border border-stone-200 flex items-center justify-center shadow-sm transition-colors ${progress >= 60 ? 'bg-yellow-400' : 'bg-white text-zinc-300'}`}
              >
               <Flame size={20} />
             </motion.div>
@@ -300,7 +302,7 @@ export default function DogGame({ order, onFinishOrder }: DogGameProps) {
              <motion.div 
                animate={orderStatus === 'a_caminho' ? { scale: [1, 1.2, 1], x: [0, 5, 0] } : {}}
                transition={{ repeat: Infinity, duration: 1.5 }}
-               className={`w-10 h-10 md:w-14 md:h-14 rounded-full border-4 border-black flex items-center justify-center shadow-[4px_4px_0px_#000] transition-colors ${progress >= 85 ? 'bg-yellow-400' : 'bg-white text-zinc-300'}`}
+               className={`w-10 h-10 md:w-14 md:h-14 rounded-full border border-stone-200 flex items-center justify-center shadow-sm transition-colors ${progress >= 85 ? 'bg-yellow-400' : 'bg-white text-zinc-300'}`}
              >
               <Truck size={20} />
             </motion.div>
@@ -311,17 +313,88 @@ export default function DogGame({ order, onFinishOrder }: DogGameProps) {
             <motion.div 
                animate={orderStatus === 'entregue' ? { scale: [1, 1.5, 1], rotate: [0, 360] } : {}}
                transition={{ duration: 0.5 }}
-               className={`w-10 h-10 md:w-14 md:h-14 rounded-full border-4 border-black flex items-center justify-center shadow-[4px_4px_0px_#000] transition-colors ${progress >= 100 ? 'bg-green-400' : 'bg-white text-zinc-300'}`}
+               className={`w-10 h-10 md:w-14 md:h-14 rounded-full border border-stone-200 flex items-center justify-center shadow-sm transition-colors ${progress >= 100 ? 'bg-green-400' : 'bg-white text-zinc-300'}`}
             >
               <CheckCircle size={20} />
             </motion.div>
             <span className={`mt-2 text-[10px] md:text-xs text-center font-bold font-display uppercase leading-tight ${progress >= 100 ? 'text-black' : 'text-zinc-400'}`}>Concluído</span>
           </div>
         </div>
+
+        {/* Live Processing Animation */}
+        <div className="mt-10 md:mt-12 text-center flex flex-col items-center justify-center min-h-[40px]">
+          <AnimatePresence mode="wait">
+            {orderStatus === 'pendente' && (
+              <motion.div 
+                key="pendente"
+                initial={{ opacity: 0, y: 5 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: -5 }}
+                className="flex items-center gap-2 text-stone-500 bg-stone-100 px-4 py-2 rounded-full border border-stone-200"
+              >
+                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 3, ease: "linear" }}>
+                  <Clock size={16} />
+                </motion.div>
+                <span className="text-xs font-bold uppercase tracking-widest">Aguardando Restaurante...</span>
+              </motion.div>
+            )}
+
+            {(orderStatus === 'cozinha_confirmou' || orderStatus === 'em_preparo') && (
+              <motion.div 
+                key="preparo"
+                initial={{ opacity: 0, y: 5 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: -5 }}
+                className="flex items-center gap-3 text-[#F28B20] bg-[#FCF5E3] px-5 py-2.5 rounded-full border border-[#F28B20]/20 shadow-sm"
+              >
+                <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1.5 }}>
+                  <Flame size={18} />
+                </motion.div>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-black uppercase tracking-widest">Montando seu lanche</span>
+                  <motion.span 
+                    animate={{ opacity: [0, 1, 0] }} 
+                    transition={{ repeat: Infinity, duration: 1.5, times: [0, 0.5, 1] }}
+                    className="text-xs font-black"
+                  >
+                    ...
+                  </motion.span>
+                </div>
+              </motion.div>
+            )}
+
+            {orderStatus === 'a_caminho' && (
+              <motion.div 
+                key="caminho"
+                initial={{ opacity: 0, y: 5 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: -5 }}
+                className="flex items-center gap-3 text-[#4E2A84] bg-[#F4EBF6] px-5 py-2.5 rounded-full border border-[#4E2A84]/20 shadow-sm"
+              >
+                <motion.div animate={{ x: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>
+                  <Truck size={18} />
+                </motion.div>
+                <span className="text-xs font-black uppercase tracking-widest">Motorista a caminho!</span>
+              </motion.div>
+            )}
+
+            {orderStatus === 'entregue' && (
+              <motion.div 
+                key="entregue"
+                initial={{ opacity: 0, scale: 0.9 }} 
+                animate={{ opacity: 1, scale: 1 }} 
+                className="flex items-center gap-2 text-green-600 bg-green-50 px-5 py-2.5 rounded-full border border-green-200 shadow-sm"
+              >
+                <CheckCircle size={18} />
+                <span className="text-xs font-black uppercase tracking-widest">Entregue com Sucesso!</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </motion.div>
 
       {/* Game Section */}
-      <div className="w-full max-w-2xl bg-white border-4 border-black rounded-3xl flex flex-col overflow-hidden relative shadow-[8px_8px_0px_#000]">
+      <div className="w-full max-w-2xl bg-white border border-stone-200 rounded-3xl flex flex-col overflow-hidden relative shadow-sm">
         <div className="bg-yellow-400 border-b-4 border-black text-black px-4 py-2 text-xs font-black uppercase text-center tracking-widest font-display">
           O entregador está chegando! Jogue para passar o tempo.
         </div>
@@ -339,13 +412,13 @@ export default function DogGame({ order, onFinishOrder }: DogGameProps) {
         </div>
 
         {gameOver && (
-          <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center rounded-lg backdrop-blur-sm z-10 border-4 border-black m-4">
+          <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center rounded-lg backdrop-blur-sm z-10 border border-stone-200 m-4">
             <h3 className="text-6xl font-display text-black comic-text-bold mb-4 rotate-[-2deg]">GAME OVER</h3>
             <p className="mb-8 text-center max-w-xs font-bold text-xl text-black">Mas não se preocupe, seu pedido continua a caminho!</p>
             <div className="flex gap-4 flex-col sm:flex-row">
               <button 
                 onClick={handleRestart}
-                className="px-8 py-3 bg-white border-4 border-black text-black rounded-xl font-bold uppercase tracking-wider hover:bg-zinc-100 shadow-[4px_4px_0px_#000] active:translate-y-1 active:shadow-none transition-all"
+                className="px-8 py-3 bg-white border border-stone-200 text-black rounded-xl font-bold uppercase tracking-wider hover:bg-zinc-100 shadow-sm active:translate-y-1 active:shadow-none transition-all"
               >
                 Tentar de Novo
               </button>
@@ -358,11 +431,110 @@ export default function DogGame({ order, onFinishOrder }: DogGameProps) {
       {!gameOver && (
         <button 
           onClick={onFinishOrder}
-          className="mt-12 px-8 py-3 bg-white border-4 border-black text-black font-bold uppercase tracking-widest rounded-xl hover:bg-zinc-100 transition-all shadow-[4px_4px_0px_#000] active:translate-y-1 active:shadow-none"
+          className="mt-12 px-8 py-3 bg-white border border-stone-200 text-black font-bold uppercase tracking-widest rounded-xl hover:bg-zinc-100 transition-all shadow-sm active:translate-y-1 active:shadow-none"
         >
           (Dev: Pular para "Entregue")
         </button>
       )}
+
+      {/* Ações Pós Jogo */}
+      <div className="w-full max-w-2xl mt-8 flex flex-col sm:flex-row gap-4 mb-12">
+        <button onClick={() => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }} className="flex-1 bg-[#F28B20] text-white font-black uppercase tracking-widest py-4 rounded-2xl hover:bg-orange-500 transition-colors shadow-lg">
+          Acompanhar Pedido
+        </button>
+        {onClose && (
+          <button onClick={onClose} className="flex-1 bg-white border border-stone-200 text-stone-900 font-black uppercase tracking-widest py-4 rounded-2xl hover:bg-stone-50 transition-colors shadow-sm">
+            Voltar ao Início
+          </button>
+        )}
+      </div>
+
+      {/* Entretenimento: Jornada e Cozinha */}
+      <div className="w-full max-w-2xl bg-white border border-stone-200 rounded-3xl p-8 mb-12 shadow-sm text-left relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-[#F4EBF6] rounded-bl-full -z-10 opacity-50"></div>
+        <h3 className="font-display font-black uppercase text-2xl mb-4 text-[#4E2A84] tracking-tight">Saiba um pouco mais sobre a nossa jornada</h3>
+        <p className="text-stone-600 font-medium mb-6 leading-relaxed">Enquanto seu lanche está sendo preparado com todo carinho, que tal conhecer a história de quem faz a mágica acontecer? Nossa paixão por qualidade vem de longe.</p>
+        
+        {onViewAbout && (
+          <button onClick={onViewAbout} className="text-[#F28B20] font-bold uppercase tracking-wider text-sm flex items-center gap-2 hover:gap-3 transition-all">
+            Ler História Completa <span>&rarr;</span>
+          </button>
+        )}
+      </div>
+
+      <div className="w-full max-w-2xl bg-stone-900 text-white border border-stone-800 rounded-3xl p-8 mb-16 shadow-xl text-left relative overflow-hidden">
+        <h3 className="font-display font-black uppercase text-2xl mb-6 text-[#F28B20] tracking-tight">Como é a nossa cozinha</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div className="bg-stone-800 rounded-2xl p-4 flex flex-col items-center justify-center text-center">
+            <span className="text-4xl mb-3">🔥</span>
+            <h4 className="font-bold text-sm mb-1 uppercase tracking-wider">Chapa a 200°C</h4>
+            <p className="text-xs text-stone-400">Selando a carne no ponto certo</p>
+          </div>
+          <div className="bg-stone-800 rounded-2xl p-4 flex flex-col items-center justify-center text-center">
+            <span className="text-4xl mb-3">🧼</span>
+            <h4 className="font-bold text-sm mb-1 uppercase tracking-wider">Higiene Nível Ouro</h4>
+            <p className="text-xs text-stone-400">Limpeza rigorosa e industrial</p>
+          </div>
+          <div className="bg-stone-800 rounded-2xl p-4 flex flex-col items-center justify-center text-center">
+            <span className="text-4xl mb-3">🥬</span>
+            <h4 className="font-bold text-sm mb-1 uppercase tracking-wider">Ingredientes Frescos</h4>
+            <p className="text-xs text-stone-400">Selecionados todos os dias</p>
+          </div>
+          <div className="bg-stone-800 rounded-2xl p-4 flex flex-col items-center justify-center text-center">
+            <span className="text-4xl mb-3">📦</span>
+            <h4 className="font-bold text-sm mb-1 uppercase tracking-wider">Embalagem Térmica</h4>
+            <p className="text-xs text-stone-400">O lanche chega quente e crocante</p>
+          </div>
+        </div>
+
+        {/* Imagens da Cozinha */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6 mt-8">
+          <img src="https://images.unsplash.com/photo-1583337130417-3346a1be7dee?q=80&w=600&auto=format&fit=crop" alt="Preparo cuidadoso" className="w-full h-32 object-cover rounded-xl shadow-md hover:scale-105 transition-transform duration-300" referrerPolicy="no-referrer" />
+          <img src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=600&auto=format&fit=crop" alt="Chapa quente" className="w-full h-32 object-cover rounded-xl shadow-md hover:scale-105 transition-transform duration-300 hidden md:block" referrerPolicy="no-referrer" />
+          <img src="https://images.unsplash.com/photo-1572656306390-40a9fc3899f7?q=80&w=600&auto=format&fit=crop" alt="Ingredientes frescos" className="w-full h-32 object-cover rounded-xl shadow-md hover:scale-105 transition-transform duration-300" referrerPolicy="no-referrer" />
+        </div>
+
+        <div className="bg-[#F28B20] text-stone-900 rounded-2xl p-6 text-center shadow-lg relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/20 rounded-bl-full -z-10"></div>
+          <h4 className="font-display font-black uppercase text-xl mb-2">Feito com muito carinho! ❤️</h4>
+          <p className="text-sm font-bold opacity-90 leading-relaxed">
+            Seu lanche está sendo preparado agora mesmo, com os melhores ingredientes.
+            Nossa embalagem térmica especial garante que ele chegue fresquinho, quentinho e MUITO gostoso até você!
+          </p>
+        </div>
+      </div>
+
+      {/* Feedbacks de Clientes */}
+      <div className="w-full max-w-2xl mb-16">
+        <h3 className="font-display font-black uppercase text-2xl mb-6 text-[#4E2A84] tracking-tight text-center">O que dizem sobre nós</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="text-[#F28B20] text-sm">⭐⭐⭐⭐⭐</div>
+              <span className="text-stone-400 text-xs font-bold">Há 2 dias</span>
+            </div>
+            <p className="text-stone-700 text-sm italic mb-4">"Melhor lanche da cidade! Chegou super quente e o pão é incrivelmente macio. Recomendo de olhos fechados."</p>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-stone-200 flex items-center justify-center font-bold text-stone-500 text-xs">M</div>
+              <span className="font-bold text-stone-900 text-sm">Mariana Silva</span>
+            </div>
+          </div>
+          
+          <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="text-[#F28B20] text-sm">⭐⭐⭐⭐⭐</div>
+              <span className="text-stone-400 text-xs font-bold">Hoje</span>
+            </div>
+            <p className="text-stone-700 text-sm italic mb-4">"A batata frita chegou crocante, o que é um milagre no delivery! O molho verde é um espetáculo à parte."</p>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-stone-200 flex items-center justify-center font-bold text-stone-500 text-xs">R</div>
+              <span className="font-bold text-stone-900 text-sm">Rafael Costa</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

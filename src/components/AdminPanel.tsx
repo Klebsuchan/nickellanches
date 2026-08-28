@@ -114,7 +114,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           onSubmit={handleLogin} 
-          className="bg-white p-8 rounded-2xl border-4 border-black shadow-[8px_8px_0px_#F9E822] max-w-sm w-full relative"
+          className="bg-white p-8 rounded-2xl border border-stone-200 shadow-sm max-w-sm w-full relative"
         >
           <button type="button" onClick={onClose} className="absolute top-4 right-4 text-black hover:bg-zinc-100 p-2 rounded-full"><X size={20}/></button>
           <div className="flex justify-center mb-6 text-yellow-500">
@@ -126,15 +126,15 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
             placeholder="Senha administrativa"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full border-2 border-black rounded-lg p-3 mb-6 outline-none focus:ring-4 focus:ring-yellow-400 font-bold text-black"
+            className="w-full border border-stone-200 rounded-lg p-3 mb-6 outline-none focus:ring-4 focus:ring-yellow-400 font-bold text-black"
           />
-          <button type="submit" className="w-full bg-black text-yellow-400 font-display uppercase tracking-widest py-3 rounded-lg border-2 border-black hover:-translate-y-1 hover:shadow-[4px_4px_0px_#F9E822] transition-all">
+          <button type="submit" className="w-full bg-black text-yellow-400 font-display uppercase tracking-widest py-3 rounded-lg border border-stone-200 hover:-translate-y-1 hover:shadow-sm transition-all">
             Entrar
           </button>
         </motion.form>
       ) : (
         <>
-          <div className="w-full max-w-6xl flex-1 bg-white rounded-2xl border-4 border-black shadow-[8px_8px_0px_#F9E822] flex flex-col overflow-hidden admin-panel-container">
+          <div className="w-full max-w-6xl flex-1 bg-white rounded-2xl border border-stone-200 shadow-sm flex flex-col overflow-hidden admin-panel-container">
              {/* Header */}
              <div className="bg-black text-yellow-400 p-6 border-b-4 border-black flex justify-between items-center">
                <h1 className="text-3xl font-display uppercase tracking-widest flex items-center gap-3">
@@ -172,7 +172,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                {activeTab === 'orders' && (
                  <div className="grid gap-6 md:grid-cols-2">
                    {orders.map(order => (
-                      <div key={order.id} className="bg-white border-2 border-black rounded-xl p-6 relative shadow-[4px_4px_0px_#000]">
+                      <div key={order.id} className="bg-white border border-stone-200 rounded-xl p-6 relative shadow-sm">
                         <div className="flex justify-between items-start mb-4">
                           <div>
                             <h3 className="text-xl font-display uppercase">Cliente: {order.userName || 'Anônimo'}</h3>
@@ -180,7 +180,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                               Data: {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString() : 'Recente'}
                             </span>
                           </div>
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase border-2 border-black ${order.status === 'entregue' ? 'bg-green-400' : 'bg-yellow-400'}`}>
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase border border-stone-200 ${order.status === 'entregue' ? 'bg-green-400' : 'bg-yellow-400'}`}>
                             {order.status || 'Pendente'}
                           </span>
                         </div>
@@ -210,14 +210,14 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                           <div className="flex gap-2">
                             <button 
                               onClick={() => handlePrint(order)}
-                              className="flex-1 py-2 bg-zinc-100 border-2 border-black rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-zinc-200"
+                              className="flex-1 py-2 bg-zinc-100 border border-stone-200 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-zinc-200"
                             >
                               <Printer size={18} /> Comanda
                             </button>
                             <select 
                               value={order.status || 'pendente'}
                               onChange={(e) => handleUpdateStatus(order.id!, e.target.value)}
-                              className="flex-1 py-2 px-2 bg-white border-2 border-black rounded-lg font-bold uppercase text-sm cursor-pointer"
+                              className="flex-1 py-2 px-2 bg-white border border-stone-200 rounded-lg font-bold uppercase text-sm cursor-pointer"
                             >
                               <option value="pendente">Pendente</option>
                               <option value="cozinha_confirmou">Conf. Cozinha</option>
@@ -339,31 +339,31 @@ function ProductEditor({ products, onUpdate }: { products: Product[], onUpdate: 
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-display uppercase font-bold">Gerenciar Produtos</h2>
-        <button onClick={handleAdd} className="bg-yellow-400 text-black px-4 py-2 rounded-lg font-bold border-2 border-black flex items-center gap-2 hover:bg-yellow-500 shadow-[2px_2px_0px_#000]">
+        <button onClick={handleAdd} className="bg-yellow-400 text-black px-4 py-2 rounded-lg font-bold border border-stone-200 flex items-center gap-2 hover:bg-yellow-500 shadow-sm">
           <Plus size={18} /> Novo Produto
         </button>
       </div>
       
       {editingId && (
-        <div className="bg-zinc-100 p-6 rounded-xl border-2 border-black shadow-[4px_4px_0px_#000] mb-8">
+        <div className="bg-zinc-100 p-6 rounded-xl border border-stone-200 shadow-sm mb-8">
           <h3 className="font-bold text-lg mb-4">{editingId === 'new' ? 'Novo Produto' : 'Editar Produto'}</h3>
           <div className="grid grid-cols-2 gap-4">
-            <input placeholder="Nome" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} className="border-2 border-black p-2 rounded-lg" />
-            <input placeholder="Emoji" value={formData.emoji || ''} onChange={e => setFormData({...formData, emoji: e.target.value})} className="border-2 border-black p-2 rounded-lg" />
-            <input type="number" placeholder="Preço" value={formData.price || 0} onChange={e => setFormData({...formData, price: Number(e.target.value)})} className="border-2 border-black p-2 rounded-lg" />
-            <input type="number" placeholder="XP (Pontos)" value={formData.points || 0} onChange={e => setFormData({...formData, points: Number(e.target.value)})} className="border-2 border-black p-2 rounded-lg" />
-            <textarea placeholder="Descrição" value={formData.description || ''} onChange={e => setFormData({...formData, description: e.target.value})} className="border-2 border-black p-2 rounded-lg col-span-2" />
+            <input placeholder="Nome" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} className="border border-stone-200 p-2 rounded-lg" />
+            <input placeholder="Emoji" value={formData.emoji || ''} onChange={e => setFormData({...formData, emoji: e.target.value})} className="border border-stone-200 p-2 rounded-lg" />
+            <input type="number" placeholder="Preço" value={formData.price || 0} onChange={e => setFormData({...formData, price: Number(e.target.value)})} className="border border-stone-200 p-2 rounded-lg" />
+            <input type="number" placeholder="XP (Pontos)" value={formData.points || 0} onChange={e => setFormData({...formData, points: Number(e.target.value)})} className="border border-stone-200 p-2 rounded-lg" />
+            <textarea placeholder="Descrição" value={formData.description || ''} onChange={e => setFormData({...formData, description: e.target.value})} className="border border-stone-200 p-2 rounded-lg col-span-2" />
           </div>
           <div className="flex gap-2 mt-4">
-            <button onClick={handleSave} className="bg-green-400 px-4 py-2 rounded-lg font-bold border-2 border-black flex items-center gap-2 hover:bg-green-500"><Save size={18}/> Salvar</button>
-            <button onClick={() => setEditingId(null)} className="bg-white px-4 py-2 rounded-lg font-bold border-2 border-black">Cancelar</button>
+            <button onClick={handleSave} className="bg-green-400 px-4 py-2 rounded-lg font-bold border border-stone-200 flex items-center gap-2 hover:bg-green-500"><Save size={18}/> Salvar</button>
+            <button onClick={() => setEditingId(null)} className="bg-white px-4 py-2 rounded-lg font-bold border border-stone-200">Cancelar</button>
           </div>
         </div>
       )}
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {products.map(p => (
-          <div key={p.id} className="bg-white p-4 rounded-xl border-2 border-black shadow-[2px_2px_0px_#000] flex flex-col justify-between">
+          <div key={p.id} className="bg-white p-4 rounded-xl border border-stone-200 shadow-sm flex flex-col justify-between">
             <div>
               <div className="text-3xl mb-2">{p.emoji}</div>
               <h4 className="font-bold text-lg">{p.name}</h4>
@@ -374,8 +374,8 @@ function ProductEditor({ products, onUpdate }: { products: Product[], onUpdate: 
               </div>
             </div>
             <div className="flex gap-2 mt-4 pt-4 border-t-2 border-black border-dashed">
-              <button onClick={() => handleEdit(p)} className="flex-1 py-1 bg-yellow-400 border-2 border-black rounded flex items-center justify-center"><Edit2 size={16}/></button>
-              <button onClick={() => handleDelete(p.id!)} className="flex-1 py-1 bg-red-400 text-white border-2 border-black rounded flex items-center justify-center"><Trash2 size={16}/></button>
+              <button onClick={() => handleEdit(p)} className="flex-1 py-1 bg-yellow-400 border border-stone-200 rounded flex items-center justify-center"><Edit2 size={16}/></button>
+              <button onClick={() => handleDelete(p.id!)} className="flex-1 py-1 bg-red-400 text-white border border-stone-200 rounded flex items-center justify-center"><Trash2 size={16}/></button>
             </div>
           </div>
         ))}
@@ -422,35 +422,35 @@ function PromoEditor({ promos, onUpdate }: { promos: PromoCode[], onUpdate: () =
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-display uppercase font-bold">Gerenciar Cupons</h2>
-        <button onClick={handleAdd} className="bg-yellow-400 text-black px-4 py-2 rounded-lg font-bold border-2 border-black flex items-center gap-2 hover:bg-yellow-500 shadow-[2px_2px_0px_#000]">
+        <button onClick={handleAdd} className="bg-yellow-400 text-black px-4 py-2 rounded-lg font-bold border border-stone-200 flex items-center gap-2 hover:bg-yellow-500 shadow-sm">
           <Plus size={18} /> Novo Cupom
         </button>
       </div>
       
       {editingId && (
-        <div className="bg-zinc-100 p-6 rounded-xl border-2 border-black shadow-[4px_4px_0px_#000] mb-8">
+        <div className="bg-zinc-100 p-6 rounded-xl border border-stone-200 shadow-sm mb-8">
           <h3 className="font-bold text-lg mb-4">{editingId === 'new' ? 'Novo Cupom' : 'Editar Cupom'}</h3>
           <div className="grid grid-cols-2 gap-4">
-            <input placeholder="Código (ex: NICKEL10)" value={formData.code || ''} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} className="border-2 border-black p-2 rounded-lg uppercase" />
-            <input type="number" placeholder="Desconto (ex: 0.1 para 10% ou 15 para R$15)" value={formData.discount || 0} onChange={e => setFormData({...formData, discount: Number(e.target.value)})} className="border-2 border-black p-2 rounded-lg" step="0.01" />
+            <input placeholder="Código (ex: NICKEL10)" value={formData.code || ''} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} className="border border-stone-200 p-2 rounded-lg uppercase" />
+            <input type="number" placeholder="Desconto (ex: 0.1 para 10% ou 15 para R$15)" value={formData.discount || 0} onChange={e => setFormData({...formData, discount: Number(e.target.value)})} className="border border-stone-200 p-2 rounded-lg" step="0.01" />
           </div>
           <div className="flex gap-2 mt-4">
-            <button onClick={handleSave} className="bg-green-400 px-4 py-2 rounded-lg font-bold border-2 border-black flex items-center gap-2 hover:bg-green-500"><Save size={18}/> Salvar</button>
-            <button onClick={() => setEditingId(null)} className="bg-white px-4 py-2 rounded-lg font-bold border-2 border-black">Cancelar</button>
+            <button onClick={handleSave} className="bg-green-400 px-4 py-2 rounded-lg font-bold border border-stone-200 flex items-center gap-2 hover:bg-green-500"><Save size={18}/> Salvar</button>
+            <button onClick={() => setEditingId(null)} className="bg-white px-4 py-2 rounded-lg font-bold border border-stone-200">Cancelar</button>
           </div>
         </div>
       )}
       
       <div className="grid gap-4 md:grid-cols-3">
         {promos.map(p => (
-          <div key={p.id} className="bg-white p-4 rounded-xl border-2 border-black shadow-[2px_2px_0px_#000] flex flex-col justify-between">
+          <div key={p.id} className="bg-white p-4 rounded-xl border border-stone-200 shadow-sm flex flex-col justify-between">
             <div>
               <h4 className="font-bold text-xl uppercase tracking-widest text-blue-600">{p.code}</h4>
               <p className="text-sm font-bold mt-2">Desconto: {p.discount < 1 ? `${p.discount * 100}%` : `R$ ${p.discount.toFixed(2)}`}</p>
             </div>
             <div className="flex gap-2 mt-4 pt-4 border-t-2 border-black border-dashed">
-              <button onClick={() => handleEdit(p)} className="flex-1 py-1 bg-yellow-400 border-2 border-black rounded flex items-center justify-center"><Edit2 size={16}/></button>
-              <button onClick={() => handleDelete(p.id!)} className="flex-1 py-1 bg-red-400 text-white border-2 border-black rounded flex items-center justify-center"><Trash2 size={16}/></button>
+              <button onClick={() => handleEdit(p)} className="flex-1 py-1 bg-yellow-400 border border-stone-200 rounded flex items-center justify-center"><Edit2 size={16}/></button>
+              <button onClick={() => handleDelete(p.id!)} className="flex-1 py-1 bg-red-400 text-white border border-stone-200 rounded flex items-center justify-center"><Trash2 size={16}/></button>
             </div>
           </div>
         ))}

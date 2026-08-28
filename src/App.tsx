@@ -5,20 +5,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShoppingCart, Star, ChefHat, LogOut, ArrowRight, Dog, Tag, Heart } from 'lucide-react';
+import { MessageCircle, Plus, Menu, Search, SlidersHorizontal, Bell, ShoppingCart, Star, ChefHat, LogOut, ArrowRight, Dog, Tag, Heart, Utensils, BookOpen, Flame, Info, Home, ShoppingBag, User, LayoutGrid } from 'lucide-react';
 import { MENU_ITEMS, DISCOUNT_CODES } from './data';
 import { CartItem, Product, OrderInfo } from './types';
+import AutoMarquee from './components/AutoMarquee';
+import InstagramFeed from './components/InstagramFeed';
+import OpeningHours from './components/OpeningHours';
+import Footer from './components/Footer';
 import DogGame from './components/DogGame';
 import AdminPanel from './components/AdminPanel';
+import ProfileView from './components/ProfileView';
 import Sidebar from './components/Sidebar';
 import FloatingBackground from './components/FloatingBackground';
 import FeedbacksSection from './components/FeedbacksSection';
-import PromoSection from './components/PromoSection';
 import StorySection from './components/StorySection';
-import GallerySection from './components/GallerySection';
-import LoyaltyLevels from './components/LoyaltyLevels';
-import FAQSection from './components/FAQSection';
-import LocationSection from './components/LocationSection';
 import HeroVideo from './components/HeroVideo';
 import ProductModal from './components/ProductModal';
 import { useToast } from './components/Toast';
@@ -28,7 +28,9 @@ import { subscribeToProducts, subscribeToPromos, seedDatabase, createUserProfile
 import { playSound } from './lib/audio';
 
 export default function App() {
-  const [view, setView] = useState<'menu' | 'game' | 'admin'>('menu');
+  const [activeTab, setActiveTab] = useState<'cardapio' | 'historia' | 'cozinha' | 'comunidade'>('cardapio');
+  const [selectedCategory, setSelectedCategory] = useState<'Todos' | 'Xis' | 'Cachorro Quente' | 'Porções' | 'Bebidas'>('Todos');
+  const [view, setView] = useState<'menu' | 'store' | 'game' | 'admin' | 'about' | 'profile'>('menu');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [activeOrder, setActiveOrder] = useState<OrderInfo | null>(null);
@@ -37,8 +39,9 @@ export default function App() {
   const [userPoints, setUserPoints] = useState(0);
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [activeModal, setActiveModal] = useState<'privacy' | 'contact' | null>(null);
-  const [showCookies, setShowCookies] = useState(false);
+  const [activeModal, setActiveModal] = useState<'privacy' | 'contact' | 'terms' | 'cookies' | null>(null);
+  const [showCookies, setShowCookies] = useState(true);
+  const [showLastOrdersState, setShowLastOrdersState] = useState(false);
   const [menuItems, setMenuItems] = useState<Product[]>([]);
   const [discountCodes, setDiscountCodes] = useState<Record<string, number>>({});
 
@@ -194,7 +197,7 @@ export default function App() {
         items: cart,
         totalPrice: totalCart,
         totalPoints: totalPoints,
-        status: 'pendente', // initial status
+        status: 'preparando', // initial status
         userName: user?.displayName || 'Anônimo'
       });
     } catch(e) {
@@ -208,7 +211,7 @@ export default function App() {
       discount: discountAmount,
       total: totalCart,
       pointsEarned: totalPoints,
-      status: 'pendente',
+      status: 'preparando',
       timestamp: new Date()
     };
     
@@ -250,327 +253,301 @@ export default function App() {
   const portionItems = menuItems.filter(i => i.name.toLowerCase().includes('batata frita') && !i.name.toLowerCase().includes('combo') && !i.name.toLowerCase().includes('trio'));
   const extraItems = menuItems.filter(i => !i.name.toLowerCase().includes('xis') && !i.name.toLowerCase().includes('cachorro quente') && !i.name.toLowerCase().includes('batata frita') && !i.id.startsWith('c') && !i.name.toLowerCase().includes('combo') && !i.name.toLowerCase().includes('trio'));
 
-  const renderProductGrid = (items: Product[], title: string) => {
+    const renderProductGrid = (items: Product[], title: string) => {
     if (items.length === 0) return null;
     return (
-      <div className="mb-10">
-        <h3 className="text-2xl md:text-3xl font-display uppercase mb-4 border-b-4 border-black border-dashed pb-2 inline-block text-white">{title}</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 flex-grow">
-          {items.map((item) => (
+      <div className="flex overflow-x-auto gap-4 md:grid md:grid-cols-2 xl:grid-cols-3 md:gap-6 pb-6 snap-x hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
+        {items.map((item, index) => {
+          let badge = null;
+          if (index === 0) badge = <span className="bg-[#4E2A84] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Bestseller</span>;
+          else if (index === 1) badge = <span className="bg-[#F28B20] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Popular</span>;
+          else if (index === 2) badge = <span className="bg-[#4E2A84] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Save 15%</span>;
+
+          return (
             <motion.div
               key={item.id}
-              whileHover={{ scale: 1.05, zIndex: 10 }}
-              transition={{ duration: 0.3, ease: [0.175, 0.885, 0.32, 1.275] }}
-              className="comic-panel rounded-xl p-3 md:p-4 flex flex-col justify-between overflow-hidden relative cursor-pointer transition-transform hover:-translate-y-2 group"
+              whileHover={{ y: -5 }}
+              className="min-w-[260px] md:min-w-0 bg-white rounded-3xl p-5 flex flex-col justify-between shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative cursor-pointer border border-stone-100 snap-start shrink-0"
               onClick={() => handleProductClick(item)}
             >
-              <div className="absolute -right-4 -top-4 w-16 h-16 md:w-20 md:h-20 bg-yellow-400 rounded-full blur-xl md:blur-2xl opacity-20 group-hover:opacity-40 transition-opacity" />
-              
-              <div className="h-20 md:h-28 w-full bg-zinc-100 border-2 border-dashed border-zinc-300 rounded-lg mb-2 flex items-center justify-center relative z-10">
-                <button
-                  onClick={(e) => toggleFavorite(item.id, e)}
-                  className="absolute top-1 left-1 md:top-2 md:left-2 z-20 w-6 h-6 md:w-8 md:h-8 bg-white border-2 border-black rounded-full flex items-center justify-center hover:bg-zinc-100 transition-colors shadow-[2px_2px_0px_#000] active:translate-y-0.5 active:shadow-none"
+              {badge}
+              <div className="absolute top-4 right-4 z-20">
+                <button 
+                  onClick={(e) => toggleFavorite(item.id, e)} 
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-stone-400 hover:text-red-500 transition-colors bg-white/50 backdrop-blur-sm"
                 >
-                  <Heart size={14} className={favorites.includes(item.id) ? 'fill-red-500 text-red-500' : 'text-zinc-400'} />
+                  <Heart size={22} className={favorites.includes(item.id) ? 'fill-red-500 text-red-500' : ''} strokeWidth={2} />
                 </button>
-                <span className="text-4xl md:text-6xl drop-shadow-md group-hover:scale-125 transition-transform duration-300">
-                  {item.emoji}
-                </span>
-                <div className="absolute top-1 right-1 md:top-2 md:right-2 flex items-center gap-1 bg-white px-1.5 py-0.5 md:px-2 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold text-zinc-900 border-2 border-black shadow-[1px_1px_0px_#F9E822] md:shadow-[2px_2px_0px_#F9E822]">
-                  <Star size={8} className="text-yellow-500" /> +{item.points}
+              </div>
+              
+              <div className="h-44 w-full bg-[#FCF9F5] rounded-[24px] mb-5 flex items-center justify-center relative overflow-hidden group">
+                 {item.image ? (
+                   <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                 ) : (
+                   <span className="text-8xl group-hover:scale-110 transition-transform duration-300 drop-shadow-xl translate-y-2">
+                      {item.emoji}
+                   </span>
+                 )}
+              </div>
+              
+              <div className="flex flex-col gap-1 z-10 relative px-1">
+                <h4 className="font-bold text-stone-900 leading-tight line-clamp-1 text-lg tracking-tight">{item.name}</h4>
+                <p className="text-xs text-stone-500 line-clamp-2 min-h-[2rem] leading-relaxed font-medium mb-1.5">{item.description}</p>
+                
+                <div className="flex items-center gap-1.5 mb-4">
+                  <Star size={14} className="text-[#F28B20]" fill="currentColor" />
+                  <span className="text-xs font-bold text-stone-700">{(4 + Math.random()).toFixed(1)}</span>
+                  <span className="text-xs text-stone-400">({(Math.random() * 20).toFixed(1)}K+)</span>
+                </div>
+
+                <div className="flex items-center justify-between mt-auto">
+                  <span className="text-2xl font-black text-stone-900 tracking-tighter">
+                    ${(item.price / 4).toFixed(2)}
+                  </span>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); handleAddToCart({ ...item, quantity: 1, cartItemId: Math.random().toString(36).substring(2, 9) }); }}
+                    className="w-10 h-10 bg-[#F28B20] text-white rounded-full flex items-center justify-center hover:bg-orange-500 transition-transform hover:scale-105 shadow-[0_4px_15px_rgba(242,139,32,0.4)]"
+                  >
+                    <Plus size={20} strokeWidth={3} />
+                  </button>
                 </div>
               </div>
-              
-              <div className="flex justify-between items-start mb-1 relative z-10 text-black">
-                <h3 className="text-sm md:text-xl font-bold font-display tracking-wide leading-tight">{item.name}</h3>
-              </div>
-              <p className="text-[9px] md:text-[10px] text-zinc-600 font-bold uppercase leading-tight mb-3 min-h-[30px] relative z-10 line-clamp-3 md:line-clamp-none">{item.description}</p>
-              
-              <div className="flex justify-between items-center mt-auto relative z-10">
-                <span className="text-black font-display text-sm md:text-xl tracking-wider">R$ {item.price.toFixed(2)}</span>
-                <button className="w-8 h-8 md:w-10 md:h-10 bg-yellow-400 text-black border-2 border-black rounded-full flex items-center justify-center hover:bg-yellow-300 transition-colors shadow-[2px_2px_0px_#000] hover:shadow-[4px_4px_0px_#000] shrink-0">
-                  <ShoppingCart size={14} className="md:w-[18px] md:h-[18px]" />
-                </button>
-              </div>
             </motion.div>
-          ))}
+          );
+        })}
+      </div>
+    );
+  };
+
+  
+  const renderStore = () => {
+    // Collect unique products from order history if needed
+    const lastOrderedProducts = [];
+    if (showLastOrdersState && orderHistory.length > 0) {
+      const seenIds = new Set();
+      orderHistory.forEach(order => {
+        order.items.forEach(item => {
+          if (!seenIds.has(item.id)) {
+            seenIds.add(item.id);
+            lastOrderedProducts.push(item);
+          }
+        });
+      });
+    }
+
+    return (
+      <div className="w-full pb-0 bg-[#FCF9F5] min-h-screen">
+        {/* Header Store */}
+        <header className="sticky top-0 z-50 bg-white border-b border-stone-100 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 py-4 flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <button onClick={() => { setView('menu'); window.scrollTo(0,0); }} className="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center text-stone-900 hover:bg-stone-200 transition-colors">
+                <ArrowRight size={20} className="rotate-180" />
+              </button>
+              <h1 className="text-xl md:text-2xl font-black text-[#4E2A84] font-display uppercase tracking-widest leading-none mt-1">VOLTAR AO INÍCIO</h1>
+            </div>
+            
+            <div className="flex items-center gap-2 md:gap-3">
+              <button onClick={() => setIsCartOpen(true)} className="w-10 h-10 md:w-12 md:h-12 bg-[#F28B20] rounded-full flex items-center justify-center text-white relative shadow-md hover:bg-orange-500 transition-colors">
+                <ShoppingBag size={20} />
+                {cart.reduce((sum, item) => sum + item.quantity, 0) > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#4E2A84] rounded-full flex items-center justify-center text-[10px] text-white font-bold border-2 border-white">
+                    {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {showLastOrdersState && lastOrderedProducts.length > 0 && (
+          <AutoMarquee items={lastOrderedProducts} onItemClick={setSelectedProduct} />
+        )}
+
+        <div id="cardapio" className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 py-12">
+          <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+            <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-stone-900">Nosso Cardápio</h2>
+            <div className="bg-white rounded-full px-4 py-2 shadow-sm border border-stone-200 flex items-center w-full md:w-auto">
+              <Search size={18} className="text-stone-400 mr-2" />
+              <input type="text" placeholder="Buscar..." className="bg-transparent border-none outline-none text-stone-900 w-full font-medium placeholder:text-stone-400 text-sm" />
+            </div>
+          </div>
+
+          <div className="flex overflow-x-auto gap-4 mb-10 pb-2 hide-scrollbar">
+            {[
+              { id: 'Todos', emoji: '🍔', label: 'Todos' },
+              { id: 'Xis', emoji: '🍔', label: 'Xis' },
+              { id: 'Cachorro Quente', emoji: '🌭', label: 'Cachorros' },
+              { id: 'Porções', emoji: '🍟', label: 'Porções' },
+              { id: 'Bebidas', emoji: '🥤', label: 'Bebidas' }
+            ].map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id as any)}
+                className="flex flex-col items-center gap-2 group shrink-0"
+              >
+                <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center text-3xl transition-all shadow-sm ${
+                  selectedCategory === cat.id ? 'bg-[#FCF5E3] ring-2 ring-[#F28B20]' : 'bg-white hover:bg-stone-50 border border-stone-100'
+                }`}>
+                  {cat.emoji}
+                </div>
+                <span className={`text-sm font-bold transition-colors uppercase tracking-wider ${
+                  selectedCategory === cat.id ? 'text-[#F28B20]' : 'text-stone-500'
+                }`}>
+                  {cat.label}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {renderProductGrid(
+            selectedCategory === 'Todos' 
+               ? menuItems 
+               : menuItems.filter(item => item.category === selectedCategory.toLowerCase().replace('xis', 'lanches').replace('cachorro quente', 'lanches')),
+            selectedCategory === 'Todos' ? 'Todos os Lanches' : selectedCategory
+          )}
         </div>
       </div>
     );
   };
 
+
   const renderMenu = () => (
-    <div className="w-full px-4 md:px-10 py-8 mx-auto max-w-[2560px]">
-      {/* Header */}
-      <header className="flex flex-col xl:flex-row justify-between items-center xl:items-center border-b-4 border-black border-dashed pb-6 mb-8 relative gap-6">
-        <div className="flex flex-col md:flex-row items-center gap-4 relative z-10 w-full xl:w-auto text-center md:text-left">
-          <motion.div 
-            animate={{ rotate: [-3, 3, -3], y: [-2, 2, -2] }}
-            transition={{ repeat: Infinity, duration: 5, ease: "easeInOut" }}
-            onClick={handleLogoClick}
-            className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 shrink-0 drop-shadow-[0_0_15px_rgba(244,228,45,0.4)] cursor-pointer mx-auto md:mx-0"
-          >
-            <img src="/logonickel-1.png" alt="Nickel Lanches" className="w-full h-full object-contain" />
-          </motion.div>
-          <div className="flex flex-col mt-4 md:mt-0">
-            <motion.h1 
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-5xl sm:text-6xl md:text-6xl lg:text-7xl xl:text-8xl font-logo leading-none tracking-tight flex flex-wrap justify-center md:justify-start gap-x-2 md:gap-x-4"
-            >
-              <span className="comic-text-bold">NICKEL</span>
-              <span className="comic-text-bold !text-white">LANCHES</span>
-            </motion.h1>
-            <p className="text-xs sm:text-xs md:text-sm tracking-[0.2em] uppercase text-yellow-400 neon-text font-bold mt-2">O lanche mais divertido e animal do planeta! 🐶🚀</p>
-          </div>
-        </div>
-        
-        <div className="flex flex-wrap items-center justify-center gap-4 mt-2 xl:mt-0 w-full xl:w-auto">
-          <div className="flex text-center md:text-right flex-col bg-zinc-900 md:bg-transparent border-2 border-black md:border-transparent p-2 md:p-0 rounded-xl shadow-[2px_2px_0px_#000] md:shadow-none">
-            <span className="block text-[10px] md:text-[10px] uppercase opacity-50 text-yellow-400 md:text-white">Seus Pontos</span>
-            <span className="text-xl md:text-2xl font-display text-yellow-400 flex items-center justify-center md:justify-end gap-1"><Star size={20} className="text-yellow-400" /> {userPoints} XP</span>
+    <div className="w-full pb-0 bg-white">
+      {/* Header com Navegação */}
+      <header className="sticky top-0 z-50 bg-white border-b border-stone-100 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
+            <div className="bg-[#4E2A84] text-white p-2 rounded-xl"><Utensils size={24}/></div>
+            <h1 className="text-2xl font-black text-[#4E2A84] font-display uppercase tracking-widest leading-none mt-1">NICKEL LANCHES</h1>
           </div>
           
-          <button 
-            onClick={() => setView('admin')}
-            className="p-3 bg-white text-black border-2 border-black rounded-xl hover:bg-zinc-100 shadow-[2px_2px_0px_#000] hover:shadow-[4px_4px_0px_#000] transition-all hover:-translate-y-1"
-            title="Painel do Garçom"
-          >
-            <ChefHat size={24} />
-          </button>
+          <nav className="hidden lg:flex items-center gap-8">
+            <button onClick={() => { setView('store'); setShowLastOrdersState(false); window.scrollTo(0,0); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Cardápio</button>
+            <button onClick={() => { document.getElementById('quem-somos')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Quem Somos</button>
+            <button onClick={() => { document.getElementById('contato')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Contato</button>
+            <button onClick={() => setView('game')} className="text-sm font-bold uppercase tracking-wider text-[#4E2A84] hover:text-[#F28B20] transition-colors flex items-center gap-2"><Dog size={16}/> Jogue nosso jogo</button>
+            <button onClick={() => { setView('store'); setShowLastOrdersState(true); window.scrollTo(0,0); }} className="bg-[#F28B20] text-white px-6 py-2.5 rounded-full text-sm font-bold uppercase tracking-wider hover:bg-orange-500 transition-colors shadow-sm">Faça seu Pedido</button>
+          </nav>
+
+          <div className="flex items-center gap-2 md:gap-3 lg:hidden">
+            <button onClick={() => setView('profile')} className="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center text-[#F28B20]">
+              <User size={18} />
+            </button>
+            <button onClick={() => setIsCartOpen(true)} className="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center text-stone-900 relative">
+              <ShoppingBag size={18} />
+              {cart.reduce((sum, item) => sum + item.quantity, 0) > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#4E2A84] rounded-full flex items-center justify-center text-[10px] text-white font-bold">
+                  {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                </span>
+              )}
+            </button>
+          </div>
+          
+          {/* Desktop User/Cart icons */}
+          <div className="hidden lg:flex items-center gap-3">
+             <button onClick={() => setView('profile')} className="w-12 h-12 bg-stone-50 rounded-full flex items-center justify-center text-[#F28B20] border border-stone-200 hover:bg-stone-100 transition-colors">
+              <User size={20} />
+            </button>
+            <button onClick={() => setIsCartOpen(true)} className="w-12 h-12 bg-stone-50 rounded-full flex items-center justify-center text-stone-900 border border-stone-200 hover:bg-stone-100 transition-colors relative">
+              <ShoppingBag size={20} />
+              {cart.reduce((sum, item) => sum + item.quantity, 0) > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#4E2A84] rounded-full border-2 border-white flex items-center justify-center text-[10px] text-white font-bold">
+                  {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 
-      <HeroVideo />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
-        {/* Products Grid */}
-        <div className="lg:col-span-2 flex flex-col space-y-4">
-          
-          <PromoSection 
-            combos={menuItems.filter(i => i.id.startsWith('c') || i.name.toLowerCase().includes('combo') || i.name.toLowerCase().includes('trio'))} 
-            onComboClick={setSelectedProduct} 
-          />
-
-          {/* Fun Banner */}
-          <div className="relative comic-panel-alt rounded-2xl p-6 md:p-8 mb-4 overflow-hidden">
-            <div className="absolute inset-0 opacity-5 game-bg" style={{ backgroundAttachment: 'fixed' }}></div>
-            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 text-black">
-              <motion.div 
-                animate={{ y: [-15, 15, -15], rotate: [-10, 10, -10] }}
-                transition={{ repeat: Infinity, duration: 5 }}
-                className="text-6xl md:text-8xl drop-shadow-md"
-              >
-                🌭
-              </motion.div>
-              <div className="text-center md:text-left flex-1">
-                <h3 className="text-3xl md:text-4xl lg:text-5xl font-display text-black comic-text-bold uppercase mb-2 leading-none">HORA DO LANCHE!</h3>
-                <p className="text-xs md:text-sm uppercase tracking-widest text-zinc-800 font-bold">Peça agora, jogue com o doguinho e suba no ranking!</p>
-              </div>
-              <motion.div 
-                animate={{ y: [15, -15, 15], rotate: [10, -10, 10], scale: [1, 1.1, 1] }}
-                transition={{ repeat: Infinity, duration: 4 }}
-                className="text-6xl md:text-8xl drop-shadow-[0_0_30px_rgba(255,255,0,0.8)] hidden md:block"
-              >
-                🎮
-              </motion.div>
-            </div>
-          </div>
-
-          <h2 className="text-3xl md:text-5xl font-display uppercase mb-6 drop-shadow-[2px_2px_0px_#fff]">O Cardápio Mágico</h2>
-          <div className="flex flex-col gap-4 flex-grow">
-            {renderProductGrid(xisItems, 'Xis')}
-            {renderProductGrid(hotDogItems, 'Cachorro Quente')}
-            {renderProductGrid(portionItems, 'Porções')}
-            {renderProductGrid(extraItems, 'Bebidas e Extras')}
-          </div>
-        </div>
-
-        {/* Sidebar */}
-        <div className="lg:col-span-1">
-          <Sidebar user={user} onReorder={handleReorder} />
-        </div>
+      {/* Hero Section */}
+      <div className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 mt-6 mb-8">
+        <HeroVideo onGoToStore={(showLastOrders) => { setView('store'); setShowLastOrdersState(showLastOrders); window.scrollTo(0, 0); }} />
       </div>
 
-      {/* Info Sections */}
-      <div className="mt-16 space-y-8 relative z-10 text-black">
-        <LoyaltyLevels />
+      {/* Quem Somos Section */}
+      <div id="quem-somos" className="bg-white scroll-mt-20">
         <StorySection />
-        <GallerySection />
-        <LocationSection />
-        <FAQSection />
-
-        {/* Feedbacks Section */}
-        <FeedbacksSection user={user} orderHistory={orderHistory} />
+        
+        <div className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 mt-16 pb-16">
+          <FeedbacksSection user={user} orderHistory={orderHistory} />
+        </div>
       </div>
 
-      {/* Footer */}
-      <footer className="mt-16 pt-8 border-t-4 border-black border-dashed flex flex-col md:flex-row justify-between items-center text-zinc-500 font-bold relative z-10 gap-4 text-center md:text-left">
-        <div className="flex flex-col md:flex-row items-center gap-2">
-          <Dog size={24} className="text-yellow-500" />
-          <span className="text-sm md:text-base">© 2024 Nickel Lanches. Todos os direitos caninos reservados.</span>
-        </div>
-        <div className="flex flex-wrap justify-center gap-4 text-sm mt-2 md:mt-0">
-          <button onClick={() => setActiveModal('privacy')} className="hover:text-black hover:underline underline-offset-4 decoration-yellow-400 decoration-4">Termos de Privacidade</button>
-          <button onClick={() => setActiveModal('contact')} className="hover:text-black hover:underline underline-offset-4 decoration-yellow-400 decoration-4">Contato</button>
-        </div>
-      </footer>
+      <OpeningHours />
 
-      {/* Cart Slide-over */}
-      <AnimatePresence>
-        {isCartOpen && (
-          <>
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsCartOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
-            />
-            <motion.div 
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 right-0 h-full w-full max-w-md bg-white border-l-4 border-black z-50 p-6 flex flex-col text-black shadow-[-10px_0_0px_#F9E822]"
-            >
-              <div className="flex justify-between items-center mb-8">
-                <h2 className="text-3xl font-display uppercase comic-text-bold tracking-wider">Sua Sacola</h2>
-                <button onClick={() => setIsCartOpen(false)} className="p-2 border-2 border-transparent hover:border-black rounded-xl hover:shadow-[2px_2px_0px_#000] transition-all bg-white hover:-translate-y-1">
-                  <ArrowRight size={24} />
-                </button>
-              </div>
-              
-              <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-                {cart.length === 0 ? (
-                  <div className="text-center text-zinc-500 mt-20">
-                    <ShoppingCart size={48} className="mx-auto mb-4 opacity-50" />
-                    <p className="font-bold">Sua sacola está vazia.</p>
-                    <p className="text-sm">Que tal adicionar um lanche animal?</p>
-                  </div>
-                ) : (
-                  cart.map(item => (
-                    <div key={item.cartItemId} className="flex flex-col gap-2 bg-zinc-100 p-4 rounded-xl border-2 border-black shadow-[2px_2px_0px_#000]">
-                      <div className="flex gap-4 items-center">
-                        <span className="text-3xl bg-white w-12 h-12 flex items-center justify-center rounded-full border-2 border-black shadow-[1px_1px_0px_#000]">{item.emoji}</span>
-                        <div className="flex-1">
-                          <h4 className="font-bold font-display tracking-wide">{item.name}</h4>
-                          <p className="text-zinc-800 font-bold">R$ {item.price.toFixed(2)}</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-bold text-lg font-display">x{item.quantity}</span>
-                          <button 
-                            onClick={() => removeFromCart(item.cartItemId)}
-                            className="text-red-500 hover:text-red-600 text-sm font-bold bg-white px-2 py-1 border-2 border-black rounded-lg shadow-[1px_1px_0px_#000]"
-                          >
-                            Remover
-                          </button>
-                        </div>
-                      </div>
-                      {item.extras && item.extras.length > 0 && (
-                        <div className="text-xs text-zinc-600 font-bold mt-1">
-                          <span className="text-black">+ Extras:</span> {item.extras.map(e => e.name).join(', ')} (+ R$ {item.extras.reduce((s, e) => s + e.price, 0).toFixed(2)})
-                        </div>
-                      )}
-                      {item.observation && (
-                        <div className="text-xs text-zinc-600 font-bold italic mt-1 bg-white p-2 border border-zinc-300 rounded">
-                          " {item.observation} "
-                        </div>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-              
-              {cart.length > 0 && (
-                <div className="border-t-4 border-black border-dashed pt-6 mt-6">
-                  <div className="flex gap-2 mb-4">
-                    <input 
-                      type="text" 
-                      placeholder="Cupom (ex: NICKEL10)" 
-                      value={discountCode}
-                      onChange={(e) => setDiscountCode(e.target.value)}
-                      className="flex-1 border-2 border-black rounded-lg p-2 font-bold outline-none focus:ring-4 focus:ring-yellow-400/50 uppercase"
-                    />
-                    <button 
-                      onClick={applyDiscount}
-                      className="bg-black text-yellow-400 font-display uppercase px-4 rounded-lg border-2 border-black shadow-[2px_2px_0px_#F9E822] hover:shadow-[4px_4px_0px_#F9E822] transition-all active:-translate-y-0.5"
-                    >
-                      Aplicar
-                    </button>
-                  </div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-bold text-zinc-600">Subtotal:</span>
-                    <span className="font-bold">R$ {totalCartBase.toFixed(2)}</span>
-                  </div>
-                  {appliedDiscount !== null && (
-                    <div className="flex justify-between items-center mb-2 text-green-600">
-                      <span className="font-bold flex items-center gap-1"><Tag size={16} /> Desconto</span>
-                      <span className="font-bold">- R$ {discountAmount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center mb-2 mt-4 pt-2 border-t-2 border-zinc-200">
-                    <span className="text-zinc-600 font-bold uppercase">Total:</span>
-                    <span className="text-2xl font-bold font-display">R$ {totalCart.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center mb-6 text-sm text-yellow-500">
-                    <span className="font-bold">Pontos a ganhar:</span>
-                    <span className="font-bold flex items-center gap-1 bg-white border-2 border-black px-2 py-0.5 rounded-full shadow-[1px_1px_0px_#000] text-black"><Star size={14} className="text-yellow-500"/> {totalPoints} pts</span>
-                  </div>
-                  <button 
-                    onClick={handleCheckout}
-                    disabled={cart.length === 0}
-                    className="w-full py-4 bg-yellow-400 text-black border-2 border-black font-display text-xl tracking-widest uppercase rounded-xl shadow-[4px_4px_0px_#000] hover:shadow-[6px_6px_0px_#000] transition-all hover:-translate-y-1 flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0px_#000]"
-                  >
-                    Finalizar Pedido
-                    <ArrowRight size={20} />
-                  </button>
-                </div>
-              )}
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-      
-      {/* Review Modal */}
-      <AnimatePresence>
-        {showReview && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              className="bg-white border-4 border-black rounded-2xl p-8 max-w-sm w-full text-center shadow-[8px_8px_0px_#000]"
-            >
-              <span className="text-6xl mb-4 block drop-shadow-md">🤩</span>
-              <h2 className="text-4xl font-display uppercase text-black comic-text-bold tracking-wide mb-2">O que achou do lanche?</h2>
-              <p className="text-zinc-600 font-bold text-sm mb-6 uppercase tracking-widest">Sua avaliação ajuda a melhorar a casa!</p>
-              
-              <div className="flex justify-center gap-2 mb-8">
-                {[1,2,3,4,5].map(star => (
-                  <button key={star} className="text-yellow-400 hover:scale-125 transition-transform" onClick={() => setShowReview(false)}>
-                    <Star size={32} fill="currentColor" className="drop-shadow-[1px_1px_0px_#000]" />
-                  </button>
-                ))}
-              </div>
-              
-              <button 
-                onClick={() => setShowReview(false)}
-                className="w-full py-3 bg-yellow-400 border-2 border-black text-black font-display tracking-widest uppercase rounded-xl hover:bg-yellow-500 shadow-[2px_2px_0px_#000] hover:shadow-[4px_4px_0px_#000] transition-all hover:-translate-y-1"
-              >
-                Pular
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Instagram Feed */}
+      <InstagramFeed />
+
+      {/* Footer / Contato */}
+      <div id="contato">
+        <Footer onOpenModal={setActiveModal} />
+      </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-black relative overflow-hidden">
+    <div className="min-h-screen bg-[#FCF9F5] relative overflow-hidden text-stone-900">
+            {view === 'store' && renderStore()}
+      {view === 'profile' && (
+        <ProfileView onClose={() => setView('menu')} />
+      )}
+      {view === 'about' && (
+        <div className="w-full min-h-screen bg-white relative z-50">
+          <header className="py-4 px-6 flex items-center gap-4 bg-white sticky top-0 z-50 border-b border-stone-100 shadow-sm">
+            <button onClick={() => { setView('menu'); window.scrollTo(0,0); }} className="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center text-stone-900 hover:bg-stone-200 transition-colors">
+              <ArrowRight size={20} className="rotate-180" />
+            </button>
+            <h1 className="text-lg font-black text-stone-900 tracking-tight uppercase">Quem Somos</h1>
+          </header>
+          
+          <div className="max-w-4xl mx-auto px-6 py-10 pb-32">
+            <div className="mb-12">
+              <h2 className="text-3xl md:text-5xl font-black text-[#4E2A84] mb-4 uppercase tracking-tighter">Nossa História</h2>
+              <p className="text-stone-600 font-medium leading-relaxed md:text-lg">Tudo começou com uma paixão gigante por lanches de verdade. Na Nickel Lanches, nós não fazemos apenas comida, nós construímos momentos. Acreditamos que um xis bem feito e um cachorro-quente no capricho podem transformar o seu dia.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+              <div className="bg-[#FCF9F5] p-8 rounded-[32px] border border-[#F2E8D5]">
+                 <div className="text-5xl mb-4">👨‍🍳</div>
+                 <h3 className="text-2xl font-black text-stone-900 mb-2 tracking-tight">Nossa Equipe</h3>
+                 <p className="text-stone-500 text-sm leading-relaxed">Uma família de chapeiros, atendentes e entregadores dedicados. Nossa equipe trabalha em sincronia perfeita para garantir que cada ingrediente seja tratado com o respeito que a sua fome merece.</p>
+              </div>
+              <div className="bg-[#F4EBF6] p-8 rounded-[32px] border border-[#E9D9EE]">
+                 <div className="text-5xl mb-4">🍳</div>
+                 <h3 className="text-2xl font-black text-[#4E2A84] mb-2 tracking-tight">A Cozinha</h3>
+                 <p className="text-stone-600 text-sm leading-relaxed">Nosso santuário. Uma cozinha industrial moderna, higienizada rigorosamente e otimizada para que os lanches saiam na chapa na temperatura exata, selando o sabor da carne e derretendo o queijo perfeitamente.</p>
+              </div>
+            </div>
+
+            <div className="bg-stone-900 text-white p-8 md:p-12 rounded-[32px] mb-12 shadow-xl relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2"></div>
+               <h3 className="text-3xl font-black mb-4 uppercase tracking-tight text-[#F28B20]">Como é feito & Embalado</h3>
+               <p className="text-stone-300 font-medium leading-relaxed mb-6">Cada lanche é montado passo a passo seguindo um padrão rigoroso. A maionese é caseira, o pão é sempre fresco. Na hora de embalar, usamos materiais térmicos especiais que conservam o calor e a crocância até a sua porta, evitando que o lanche chegue murcho.</p>
+               <ul className="space-y-4">
+                 <li className="flex items-center gap-3">
+                   <div className="w-8 h-8 bg-stone-800 rounded-full flex items-center justify-center text-green-400">✓</div>
+                   <span className="font-bold text-sm">Ingredientes Selecionados Diariamente</span>
+                 </li>
+                 <li className="flex items-center gap-3">
+                   <div className="w-8 h-8 bg-stone-800 rounded-full flex items-center justify-center text-green-400">✓</div>
+                   <span className="font-bold text-sm">Chapa na Temperatura Ideal (200°C)</span>
+                 </li>
+                 <li className="flex items-center gap-3">
+                   <div className="w-8 h-8 bg-stone-800 rounded-full flex items-center justify-center text-green-400">✓</div>
+                   <span className="font-bold text-sm">Embalagem Térmica Anti-Umidade</span>
+                 </li>
+               </ul>
+            </div>
+            
+            <button onClick={() => { setView('menu'); window.scrollTo(0,0); }} className="w-full bg-[#F28B20] text-white font-black uppercase tracking-widest py-4 rounded-2xl hover:bg-orange-500 transition-colors shadow-lg">
+              Voltar e Pedir Agora
+            </button>
+          </div>
+        </div>
+      )}
+      <div style={{ display: view === 'about' || view === 'profile' ? 'none' : 'block' }}>
       {/* Parallax Background */}
       <div className="fixed inset-0 pointer-events-none z-0 game-bg opacity-20" style={{ backgroundAttachment: 'fixed', backgroundPosition: 'center' }}></div>
       <div className="fixed inset-0 pointer-events-none z-0" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(255, 255, 0, 0.1) 0%, transparent 70%)', backgroundAttachment: 'fixed' }}></div>
@@ -654,7 +631,7 @@ export default function App() {
 
       {/* WhatsApp Button */}
       <a 
-        href="https://wa.me/5511999999999" 
+        href="https://wa.me/5554999598389" 
         target="_blank" 
         rel="noopener noreferrer"
         className="fixed bottom-4 right-4 md:bottom-8 md:right-8 bg-[#25D366] text-white p-4 rounded-full border-2 border-black shadow-[4px_4px_0px_#000] hover:shadow-[6px_6px_0px_#000] hover:-translate-y-2 transition-all z-[90] flex items-center justify-center group"
@@ -669,7 +646,7 @@ export default function App() {
 
       <div className="relative z-10">
         {view === 'menu' && renderMenu()}
-        {view === 'game' && <DogGame order={activeOrder} onFinishOrder={handleFinishOrder} />}
+        {view === 'game' && <DogGame order={activeOrder} onFinishOrder={handleFinishOrder} onClose={() => { setView('menu'); window.scrollTo(0,0); }} onViewAbout={() => { setView('about'); window.scrollTo(0,0); }} />}
         {view === 'admin' && <AdminPanel onClose={() => setView('menu')} />}
       </div>
       
@@ -687,12 +664,75 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      
+      {/* Modals Popups */}
+      <AnimatePresence>
+        {activeModal && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+            onClick={() => setActiveModal(null)}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+              onClick={e => e.stopPropagation()}
+              className="bg-white rounded-3xl p-6 md:p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto relative text-left"
+            >
+              <button onClick={() => setActiveModal(null)} className="absolute top-4 right-4 w-8 h-8 bg-stone-100 rounded-full flex items-center justify-center hover:bg-stone-200">
+                <Plus className="rotate-45" size={20} />
+              </button>
+              
+              {activeModal === 'privacy' && (
+                <>
+                  <h2 className="text-2xl font-black uppercase text-[#4E2A84] mb-4">Política de Privacidade</h2>
+                  <div className="space-y-4 text-stone-600 text-sm font-medium leading-relaxed">
+                    <p>Sua privacidade é muito importante para nós. Esta política descreve como coletamos, usamos e protegemos as suas informações pessoais ao utilizar nosso aplicativo de delivery.</p>
+                    <h3 className="text-lg font-bold text-stone-900 mt-6">1. Coleta de Dados</h3>
+                    <p>Coletamos informações necessárias para processar seu pedido, como nome, endereço de entrega e dados de contato. Seus dados de pagamento são processados de forma segura e não armazenados em nossos servidores.</p>
+                    <h3 className="text-lg font-bold text-stone-900 mt-4">2. Uso das Informações</h3>
+                    <p>Utilizamos seus dados exclusivamente para garantir a entrega rápida do seu lanche, informar sobre o status do pedido e, caso você autorize, enviar promoções exclusivas da Nickel Lanches.</p>
+                    <p>Ao continuar usando nosso serviço, você concorda com nossa política.</p>
+                  </div>
+                </>
+              )}
+
+              {activeModal === 'cookies' && (
+                <>
+                  <h2 className="text-2xl font-black uppercase text-[#4E2A84] mb-4">Política de Cookies</h2>
+                  <div className="space-y-4 text-stone-600 text-sm font-medium leading-relaxed">
+                    <p>Utilizamos cookies para melhorar sua experiência em nossa plataforma, entender como você interage com nosso cardápio e oferecer recursos personalizados.</p>
+                    <h3 className="text-lg font-bold text-stone-900 mt-6">1. O que são Cookies?</h3>
+                    <p>Cookies são pequenos arquivos de texto salvos no seu dispositivo que ajudam o site a se lembrar de suas preferências, como os itens no seu carrinho.</p>
+                    <h3 className="text-lg font-bold text-stone-900 mt-4">2. Gerenciamento</h3>
+                    <p>Você pode desativar os cookies nas configurações do seu navegador, mas isso pode impedir o funcionamento correto de algumas funções, como salvar seus itens favoritos.</p>
+                  </div>
+                </>
+              )}
+
+              {activeModal === 'terms' && (
+                <>
+                  <h2 className="text-2xl font-black uppercase text-[#4E2A84] mb-4">Termos de Uso</h2>
+                  <div className="space-y-4 text-stone-600 text-sm font-medium leading-relaxed">
+                    <p>Estes Termos de Uso regulam a utilização do nosso serviço de delivery.</p>
+                    <h3 className="text-lg font-bold text-stone-900 mt-6">1. Pedidos</h3>
+                    <p>Ao realizar um pedido, você concorda com os preços, taxas de entrega e tempos estimados informados no checkout. As imagens do cardápio são ilustrativas, mas garantimos a qualidade e o sabor.</p>
+                    <h3 className="text-lg font-bold text-stone-900 mt-4">2. Cancelamentos</h3>
+                    <p>Cancelamentos só podem ser realizados antes da confirmação pela cozinha. Uma vez em preparo, não poderemos estornar o valor integral.</p>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <ProductModal 
         product={selectedProduct}
         isOpen={selectedProduct !== null}
         onClose={() => setSelectedProduct(null)}
         onAddToCart={handleAddToCart}
       />
+      </div>
     </div>
   );
 }
