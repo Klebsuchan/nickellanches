@@ -1,0 +1,13 @@
+# robots.txt for Nickel Lanches - Passo Fundo - RS
+User-agent: *
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Image
+Allow: /images/
+Allow: /
+
+# Sitemap Index
+Sitemap: https://nickellanches.com.br/sitemap.xml

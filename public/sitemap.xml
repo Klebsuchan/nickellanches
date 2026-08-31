@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>https://nickellanches.com.br/</loc>
+    <lastmod>2026-08-31</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://nickellanches.com.br/images/comboloucura.jpg</image:loc>
+      <image:title>Nickel Lanches - O Melhor Xis Gourmet e Cachorro-Quente de Passo Fundo - RS</image:title>
+      <image:caption>Xis Artesanal Prensado e Cachorro Quente em Passo Fundo</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://nickellanches.com.br/images/nickeldog-1.avif</image:loc>
+      <image:title>Cachorro Quente Prensado Especial Nickel Lanches Passo Fundo</image:title>
+      <image:caption>Cachorro Quente no capricho em Passo Fundo - RS</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://nickellanches.com.br/logo.png</image:loc>
+      <image:title>Logo Oficial Nickel Lanches</image:title>
+    </image:image>
+  </url>
+</urlset>

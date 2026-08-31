@@ -773,7 +773,7 @@ export default function App() {
           msg += `Endereço: ${details.address}\n`;
           msg += `Forma de Pagamento: ${details.paymentMethod}\n`;
           
-          const phone = '5551980302275'; // Dummy number
+          const phone = '5554999598388';
           window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
           
           setCart([]);

@@ -20,8 +20,8 @@ export default function Footer({ onOpenModal }: FooterProps) {
             </div>
           </div>
           <p className="text-stone-400 font-medium mb-6 text-sm leading-relaxed">
-            Entregando a melhor experiência em lanches artesanais. 
-            Ingredientes selecionados e muito sabor em cada mordida.
+            O autêntico xis gourmet e cachorro-quente de Passo Fundo - RS. 
+            Ingredientes nobres, receitas exclusivas e muito sabor em cada mordida.
           </p>
           <div className="text-stone-500 text-xs font-bold uppercase tracking-wider space-y-1">
             <p>CNPJ: 63.024.150/0001-55</p>
