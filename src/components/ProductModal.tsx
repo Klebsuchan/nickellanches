@@ -13,16 +13,76 @@ interface ProductModalProps {
 
 export default function ProductModal({ product, isOpen, onClose, onAddToCart }: ProductModalProps) {
   const [quantity, setQuantity] = useState(1);
+  const [selectedChoice, setSelectedChoice] = useState<{ name: string; price?: number; image?: string } | null>(null);
   const [selectedExtras, setSelectedExtras] = useState<Extra[]>([]);
   const [observation, setObservation] = useState('');
 
+  // Determine choices (with smart fallbacks for beverages if not explicitly present in database)
+  const productChoices = React.useMemo(() => {
+    if (!product) return [];
+    if (product.choices && product.choices.length > 0) return product.choices;
+
+    const lowerName = (product.name || '').toLowerCase();
+    const lowerCat = (product.category || '').toLowerCase();
+
+    if (lowerCat === 'bebidas' || lowerName.includes('água') || lowerName.includes('agua')) {
+      if (lowerName.includes('água') || lowerName.includes('agua')) {
+        return [
+          { name: "Sem Gás", image: "/images/aguasemgas-1.jpg" },
+          { name: "Com Gás", image: "/images/aguagas-1.jpg" }
+        ];
+      }
+      if (lowerName.includes('200ml')) {
+        return [
+          { name: "Coca Cola", image: "/images/coca200ml-1.jpg" },
+          { name: "Guaraná", image: "/images/gurana200ml-1.jpg" },
+          { name: "Pepsi", image: "/images/pepsi2l-1.jpg" }
+        ];
+      }
+      if (lowerName.includes('lata')) {
+        return [
+          { name: "Coca Cola", image: "/images/cocalata-1.jpg" },
+          { name: "Coca Cola Zero", image: "/images/cocazero-1.jpg" },
+          { name: "Guaraná", image: "/images/guarana600-1.avif" },
+          { name: "Pepsi", image: "/images/pepsi600ml-1.jpg" },
+          { name: "Sprite", image: "/images/sprite600ml-1.jpg" }
+        ];
+      }
+      if (lowerName.includes('600ml')) {
+        return [
+          { name: "Coca Cola", image: "/images/coca600ml-1.jpg" },
+          { name: "Guaraná", image: "/images/guarana600-1.avif" },
+          { name: "Pepsi", image: "/images/pepsi600ml-1.jpg" },
+          { name: "Sprite", image: "/images/sprite600ml-1.jpg" }
+        ];
+      }
+      if (lowerName.includes('2 litro') || lowerName.includes('2l')) {
+        return [
+          { name: "Coca Cola", image: "/images/cocacola2l-1.jpg" },
+          { name: "Guaraná", image: "/images/guarana600-1.avif" },
+          { name: "Pepsi", image: "/images/pepsi2l-1.jpg" },
+          { name: "Charrua", image: "/images/charrua2l-1.jpg" }
+        ];
+      }
+      if (lowerName.includes('refri') || lowerName.includes('refrigerante')) {
+        return [
+          { name: "Coca Cola" },
+          { name: "Guaraná" },
+          { name: "Pepsi" }
+        ];
+      }
+    }
+    return [];
+  }, [product]);
+
   React.useEffect(() => {
-    if (isOpen) {
+    if (isOpen && product) {
       setQuantity(1);
+      setSelectedChoice(productChoices.length > 0 ? productChoices[0] : null);
       setSelectedExtras([]);
       setObservation('');
     }
-  }, [isOpen, product]);
+  }, [isOpen, product, productChoices]);
 
   if (!product) return null;
 
@@ -35,13 +95,17 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
     }
   };
 
+  const basePrice = selectedChoice?.price !== undefined ? selectedChoice.price : product.price;
   const extrasTotal = selectedExtras.reduce((sum, extra) => sum + extra.price, 0);
-  const unitPrice = product.price + extrasTotal;
+  const unitPrice = basePrice + extrasTotal;
   const totalPrice = unitPrice * quantity;
 
   const handleAddToCart = () => {
     onAddToCart({
       ...product,
+      name: selectedChoice ? `${product.name} (${selectedChoice.name})` : product.name,
+      price: basePrice,
+      image: selectedChoice?.image || product.image || (product.images && product.images.length > 0 ? product.images[0] : undefined),
       quantity,
       extras: selectedExtras,
       observation,
@@ -50,9 +114,12 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
     onClose();
   };
 
-  const displayExtras = (product.productExtras && product.productExtras.length > 0) ? product.productExtras : (product.category?.toLowerCase() !== "bebidas" ? AVAILABLE_EXTRAS : []);
+  const isBeverage = product.category?.toLowerCase() === "bebidas" || (product.name || '').toLowerCase().includes('água') || (product.name || '').toLowerCase().includes('refri');
+  const displayExtras = (product.productExtras && product.productExtras.length > 0) ? product.productExtras : (!isBeverage ? AVAILABLE_EXTRAS : []);
 
-  const displayImage = product.image || (product.images && product.images.length > 0 ? product.images[0] : null);
+  const displayImage = selectedChoice?.image || product.image || (product.images && product.images.length > 0 ? product.images[0] : null);
+
+  const choiceTitle = product.choiceName || (isBeverage ? ((product.name || '').toLowerCase().includes('água') ? 'Tipo de Água' : 'Sabor do Refrigerante') : 'Escolha uma opção');
 
   return (
     <AnimatePresence>
@@ -75,12 +142,12 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
             {/* Header Image or Solid Bar */}
             <div className="relative shrink-0">
               {displayImage ? (
-                <div className="w-full h-48 md:h-64 bg-stone-100 relative">
+                <div className="w-full h-48 md:h-64 bg-stone-100 relative flex items-center justify-center overflow-hidden">
                   <img src={displayImage} alt={product.name} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-b from-black/40 to-transparent"></div>
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent"></div>
                   <button 
                     onClick={onClose}
-                    className="absolute top-4 left-4 md:top-4 md:right-4 md:left-auto w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/40 transition-colors"
+                    className="absolute top-4 left-4 md:top-4 md:right-4 md:left-auto w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/40 transition-colors z-20"
                   >
                     <X size={24} />
                   </button>
@@ -105,49 +172,115 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
                   {product.description}
                 </p>
                 <div className="text-[#F28B20] font-black text-2xl">
-                  R$ {product.price.toFixed(2).replace('.', ',')}
+                  R$ {basePrice.toFixed(2).replace('.', ',')}
                 </div>
               </div>
 
-              <div className="w-full h-2 bg-stone-100"></div>
-
-              {/* Extras Section */}
-              <div className="p-4 md:p-6 bg-white">
-                <h3 className="font-black uppercase mb-1 text-lg">Adicionais</h3>
-                <p className="text-sm text-stone-500 mb-4 font-medium">Turbine seu pedido</p>
-                
-                <div className="space-y-3">
-                  {displayExtras.length > 0 ? (
-                    displayExtras.map(extra => {
-                      const isSelected = selectedExtras.find(e => e.id === extra.id);
-                      return (
-                        <label 
-                          key={extra.id} 
-                          onClick={(e) => { e.preventDefault(); handleToggleExtra(extra); }} 
-                          className="flex items-center justify-between p-0 cursor-pointer group"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className={`w-6 h-6 border-2 rounded flex items-center justify-center transition-colors ${isSelected ? 'bg-[#F28B20] border-[#F28B20]' : 'border-stone-300 group-hover:border-[#F28B20]'}`}>
-                              {isSelected && <Check size={16} className="text-white" strokeWidth={3} />}
+              {/* Choices Section (e.g. Sabor / Tipo de Água) */}
+              {productChoices.length > 0 && (
+                <>
+                  <div className="w-full h-2 bg-stone-100"></div>
+                  <div className="p-4 md:p-6 bg-white">
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="font-black uppercase text-lg">{choiceTitle}</h3>
+                      <span className="text-[11px] font-black bg-orange-100 text-[#F28B20] px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                        1 Obrigatório
+                      </span>
+                    </div>
+                    <p className="text-sm text-stone-500 mb-4 font-medium">Selecione uma das opções abaixo</p>
+                    
+                    <div className="space-y-2.5">
+                      {productChoices.map((choice, idx) => {
+                        const isSelected = selectedChoice?.name === choice.name;
+                        return (
+                          <div
+                            key={idx}
+                            onClick={() => setSelectedChoice(choice)}
+                            className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                              isSelected 
+                                ? 'border-[#F28B20] bg-orange-50/50 shadow-sm' 
+                                : 'border-stone-200 hover:border-stone-300 bg-white'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                                isSelected ? 'border-[#F28B20]' : 'border-stone-300'
+                              }`}>
+                                {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-[#F28B20]" />}
+                              </div>
+                              {choice.image && (
+                                <img 
+                                  src={choice.image} 
+                                  alt={choice.name} 
+                                  className="w-9 h-9 object-contain rounded-lg border border-stone-100 p-0.5 bg-stone-50"
+                                  referrerPolicy="no-referrer" 
+                                />
+                              )}
+                              <div>
+                                <span className={`font-bold text-sm md:text-base ${isSelected ? 'text-stone-900' : 'text-stone-700'}`}>
+                                  {choice.name}
+                                </span>
+                                {choice.price !== undefined && choice.price !== product.price && (
+                                  <span className="block text-xs text-stone-500 font-medium">
+                                    R$ {choice.price.toFixed(2).replace('.', ',')}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <span className="font-bold text-stone-700">{extra.name}</span>
+                            
+                            <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded-md ${
+                              isSelected ? 'bg-orange-200 text-[#F28B20]' : 'text-stone-400'
+                            }`}>
+                              {isSelected ? 'Escolhido' : 'Selecionar'}
+                            </span>
                           </div>
-                          <span className="font-bold text-stone-500">+ R$ {extra.price.toFixed(2).replace('.', ',')}</span>
-                        </label>
-                      );
-                    })
-                  ) : (
-                    <div className="text-sm font-medium text-stone-400 py-2">Nenhum adicional disponível para este item.</div>
-                  )}
-                </div>
-              </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Extras Section (Only for products with available extras) */}
+              {displayExtras.length > 0 && (
+                <>
+                  <div className="w-full h-2 bg-stone-100"></div>
+                  <div className="p-4 md:p-6 bg-white">
+                    <h3 className="font-black uppercase mb-1 text-lg">Adicionais</h3>
+                    <p className="text-sm text-stone-500 mb-4 font-medium">Turbine seu pedido</p>
+                    
+                    <div className="space-y-3">
+                      {displayExtras.map(extra => {
+                        const isSelected = selectedExtras.find(e => e.id === extra.id);
+                        return (
+                          <label 
+                            key={extra.id} 
+                            onClick={(e) => { e.preventDefault(); handleToggleExtra(extra); }} 
+                            className="flex items-center justify-between p-0 cursor-pointer group"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className={`w-6 h-6 border-2 rounded flex items-center justify-center transition-colors ${isSelected ? 'bg-[#F28B20] border-[#F28B20]' : 'border-stone-300 group-hover:border-[#F28B20]'}`}>
+                                {isSelected && <Check size={16} className="text-white" strokeWidth={3} />}
+                              </div>
+                              <span className="font-bold text-stone-700">{extra.name}</span>
+                            </div>
+                            <span className="font-bold text-stone-500">+ R$ {extra.price.toFixed(2).replace('.', ',')}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div className="w-full h-2 bg-stone-100"></div>
 
               {/* Observations */}
               <div className="p-4 md:p-6 bg-white">
                 <h3 className="font-black uppercase mb-1 text-lg">Alguma observação?</h3>
-                <p className="text-sm text-stone-500 mb-4 font-medium">Ex: Tirar cebola, maionese à parte...</p>
+                <p className="text-sm text-stone-500 mb-4 font-medium">
+                  {isBeverage ? 'Ex: Com gelo e limão, bem gelada...' : 'Ex: Tirar cebola, maionese à parte...'}
+                </p>
                 <textarea 
                   value={observation}
                   onChange={(e) => setObservation(e.target.value)}
@@ -192,3 +325,4 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
     </AnimatePresence>
   );
 }
+

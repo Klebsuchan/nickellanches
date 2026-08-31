@@ -29,7 +29,7 @@ export const MENU_ITEMS: Product[] = [
     "emoji": "💧",
     "image": "/images/aguasemgas-1.jpg",
     "category": "bebidas",
-    "choiceName": "Tipo",
+    "choiceName": "Tipo de Água",
     "choices": [
       { "name": "Sem Gás", "image": "/images/aguasemgas-1.jpg" },
       { "name": "Com Gás", "image": "/images/aguagas-1.jpg" }
@@ -44,9 +44,10 @@ export const MENU_ITEMS: Product[] = [
     "emoji": "🥤",
     "image": "/images/cocacola2l-1.jpg",
     "category": "bebidas",
-    "choiceName": "Sabor",
+    "choiceName": "Sabor do Refrigerante",
     "choices": [
       { "name": "Coca Cola", "image": "/images/cocacola2l-1.jpg" },
+      { "name": "Guaraná", "image": "/images/guarana600-1.avif" },
       { "name": "Pepsi", "image": "/images/pepsi2l-1.jpg" },
       { "name": "Charrua", "image": "/images/charrua2l-1.jpg" }
     ]
@@ -60,42 +61,46 @@ export const MENU_ITEMS: Product[] = [
     "emoji": "🥤",
     "image": "/images/coca600ml-1.jpg",
     "category": "bebidas",
-    "choiceName": "Sabor",
+    "choiceName": "Sabor do Refrigerante",
     "choices": [
       { "name": "Coca Cola", "image": "/images/coca600ml-1.jpg" },
-      { "name": "Pepsi", "image": "/images/pepsi600ml-1.jpg" },
       { "name": "Guaraná", "image": "/images/guarana600-1.avif" },
+      { "name": "Pepsi", "image": "/images/pepsi600ml-1.jpg" },
       { "name": "Sprite", "image": "/images/sprite600ml-1.jpg" }
     ]
   },
   {
     "id": "b_refrilata",
     "name": "Refrigerante Lata",
-    "description": "Refrigerante em lata geladinho.",
+    "description": "Refrigerante em lata 350ml geladinho.",
     "price": 7,
     "points": 10,
     "emoji": "🥤",
     "image": "/images/cocalata-1.jpg",
     "category": "bebidas",
-    "choiceName": "Sabor",
+    "choiceName": "Sabor do Refrigerante",
     "choices": [
       { "name": "Coca Cola", "image": "/images/cocalata-1.jpg" },
-      { "name": "Coca Cola Zero", "image": "/images/cocazero-1.jpg" }
+      { "name": "Coca Cola Zero", "image": "/images/cocazero-1.jpg" },
+      { "name": "Guaraná", "image": "/images/guarana600-1.avif" },
+      { "name": "Pepsi", "image": "/images/pepsi600ml-1.jpg" },
+      { "name": "Sprite", "image": "/images/sprite600ml-1.jpg" }
     ]
   },
   {
     "id": "b_refri200",
     "name": "Refrigerante 200ml",
-    "description": "Refrigerante 200ml caçulinha.",
+    "description": "Refrigerante 200ml caçulinha geladinho.",
     "price": 4,
     "points": 6,
     "emoji": "🥤",
     "image": "/images/coca200ml-1.jpg",
     "category": "bebidas",
-    "choiceName": "Sabor",
+    "choiceName": "Sabor do Refrigerante",
     "choices": [
       { "name": "Coca Cola", "image": "/images/coca200ml-1.jpg" },
-      { "name": "Guaraná", "image": "/images/gurana200ml-1.jpg" }
+      { "name": "Guaraná", "image": "/images/gurana200ml-1.jpg" },
+      { "name": "Pepsi", "image": "/images/pepsi2l-1.jpg" }
     ]
   },
   {
