@@ -49,6 +49,8 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
     onClose();
   };
 
+  const displayExtras = (product.productExtras && product.productExtras.length > 0) ? product.productExtras : (product.category?.toLowerCase() !== "bebidas" ? AVAILABLE_EXTRAS : []);
+
   const displayImage = product.image || (product.images && product.images.length > 0 ? product.images[0] : null);
 
   return (
@@ -114,8 +116,8 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
                 <p className="text-sm text-stone-500 mb-4 font-medium">Turbine seu pedido</p>
                 
                 <div className="space-y-3">
-                  {(product.productExtras || []).length > 0 ? (
-                    product.productExtras!.map(extra => {
+                  {displayExtras.length > 0 ? (
+                    displayExtras.map(extra => {
                       const isSelected = selectedExtras.find(e => e.id === extra.id);
                       return (
                         <label 
