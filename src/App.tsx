@@ -285,7 +285,7 @@ export default function App() {
     const renderProductGrid = (items: Product[], title: string) => {
     if (items.length === 0) return null;
     return (
-      <div className="flex overflow-x-auto gap-4 md:grid md:grid-cols-2 xl:grid-cols-3 md:gap-6 pb-6 snap-x hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6 pb-6">
         {items.map((item, index) => {
           let badge = null;
           if (index === 0) badge = <span className="bg-[#4E2A84] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Bestseller</span>;
@@ -296,7 +296,7 @@ export default function App() {
             <motion.div
               key={item.id}
               whileHover={{ y: -5 }}
-              className="min-w-[260px] md:min-w-0 bg-white rounded-3xl p-5 flex flex-col justify-between shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative cursor-pointer border border-stone-100 snap-start shrink-0"
+              className="bg-white rounded-2xl md:rounded-3xl p-3 md:p-5 flex flex-col justify-between shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative cursor-pointer border border-stone-100"
               onClick={() => handleProductClick(item)}
             >
               {badge}
@@ -320,8 +320,8 @@ export default function App() {
               </div>
               
               <div className="flex flex-col gap-1 z-10 relative px-1">
-                <h4 className="font-bold text-stone-900 leading-tight line-clamp-1 text-lg tracking-tight"><RenderWithNickel text={item.name} /></h4>
-                <p className="text-xs text-stone-500 line-clamp-2 min-h-[2rem] leading-relaxed font-medium mb-1.5">{item.description}</p>
+                <h4 className="font-bold text-stone-900 leading-tight line-clamp-2 md:line-clamp-1 text-sm md:text-lg tracking-tight h-10 md:h-auto"><RenderWithNickel text={item.name} /></h4>
+                <p className="hidden md:block text-xs text-stone-500 line-clamp-2 min-h-[2rem] leading-relaxed font-medium mb-1.5">{item.description}</p>
                 
                 <div className="flex items-center gap-1.5 mb-4">
                   <Star size={14} className="text-[#F28B20]" fill="currentColor" />
@@ -329,15 +329,15 @@ export default function App() {
                   <span className="text-xs text-stone-400">({(Math.random() * 20).toFixed(1)}K+)</span>
                 </div>
 
-                <div className="flex items-center justify-between mt-auto">
-                  <span className="text-2xl font-black text-stone-900 tracking-tighter">
+                <div className="flex items-center justify-between mt-auto md:mt-4">
+                  <span className="text-base md:text-2xl font-black text-stone-900 tracking-tighter">
                     R$ {item.price.toFixed(2).replace('.', ',')}
                   </span>
                   <button 
                     onClick={(e) => { e.stopPropagation(); handleAddToCart({ ...item, quantity: 1, cartItemId: Math.random().toString(36).substring(2, 9) }); }}
-                    className="w-10 h-10 bg-[#F28B20] text-white rounded-full flex items-center justify-center hover:bg-orange-500 transition-transform hover:scale-105 shadow-[0_4px_15px_rgba(242,139,32,0.4)]"
+                    className="w-8 h-8 md:w-10 md:h-10 bg-[#F28B20] text-white rounded-full flex items-center justify-center hover:bg-orange-500 transition-transform hover:scale-105 shadow-[0_4px_15px_rgba(242,139,32,0.4)]"
                   >
-                    <Plus size={20} strokeWidth={3} />
+                    <Plus size={16} strokeWidth={3} className="md:w-5 md:h-5" />
                   </button>
                 </div>
               </div>
