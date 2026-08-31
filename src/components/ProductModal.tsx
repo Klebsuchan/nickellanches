@@ -13,6 +13,7 @@ interface ProductModalProps {
 
 export default function ProductModal({ product, isOpen, onClose, onAddToCart }: ProductModalProps) {
   const [quantity, setQuantity] = useState(1);
+  const [selectedChoice, setSelectedChoice] = useState<{name: string, price?: number, image?: string} | null>(null);
   const [selectedExtras, setSelectedExtras] = useState<Extra[]>([]);
   const [observation, setObservation] = useState('');
 
@@ -20,6 +21,7 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
   React.useEffect(() => {
     if (isOpen) {
       setQuantity(1);
+      setSelectedChoice(product?.choices?.[0] || null);
       setSelectedExtras([]);
       setObservation('');
     }
@@ -37,12 +39,16 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
   };
 
   const extrasTotal = selectedExtras.reduce((sum, extra) => sum + extra.price, 0);
-  const unitPrice = product.price + extrasTotal;
+  const basePrice = selectedChoice?.price !== undefined ? selectedChoice.price : product.price;
+  const unitPrice = basePrice + extrasTotal;
   const totalPrice = unitPrice * quantity;
 
   const handleAddToCart = () => {
     onAddToCart({
       ...product,
+      name: selectedChoice ? `${product.name} (${selectedChoice.name})` : product.name,
+      image: selectedChoice?.image || product.image,
+      price: selectedChoice?.price !== undefined ? selectedChoice.price : product.price,
       quantity,
       extras: selectedExtras,
       observation,
@@ -100,7 +106,7 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
                           </div>
                           <span className="font-bold">{extra.name}</span>
                         </div>
-                        <span className="font-bold text-zinc-600">+ R$ {extra.price.toFixed(2)}</span>
+                        <span className="font-bold text-zinc-600">+ R$ {extra.price.toFixed(2).replace('.', ',')}</span>
                       </label>
                     );
                   })}
@@ -145,7 +151,7 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
                 className="w-full py-4 bg-black text-yellow-400 border border-stone-200 rounded-xl font-display font-bold uppercase tracking-widest text-xl shadow-sm hover:shadow-sm transition-all hover:-translate-y-1 flex items-center justify-between px-6"
               >
                 <span>Adicionar</span>
-                <span>R$ {totalPrice.toFixed(2)}</span>
+                <span>R$ {totalPrice.toFixed(2).replace('.', ',')}</span>
               </button>
             </div>
           </motion.div>

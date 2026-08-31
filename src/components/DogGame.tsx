@@ -26,19 +26,7 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
 
   // Status subscription
   useEffect(() => {
-    if (!order?.id) {
-      // Fallback: simulate if no order ID
-      let interval = setInterval(() => {
-        setProgress(p => {
-          if (p >= 100) {
-            clearInterval(interval);
-            return 100;
-          }
-          return p + 1;
-        });
-      }, 100);
-      return () => clearInterval(interval);
-    }
+    if (!order?.id) return;
 
     const unsub = subscribeToOrder(order.id, (orderData) => {
       if (orderData.status) {
@@ -57,26 +45,6 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
 
     return () => unsub();
   }, [order?.id]);
-
-  useEffect(() => {
-    if (!order?.id) {
-      if (progress === 40 && orderStatus === 'pendente') {
-        setOrderStatus('a_caminho');
-        addToast({
-          title: 'Pedido saiu!',
-          message: 'Aperte os cintos, seu lanche está a caminho!',
-          type: 'info'
-        });
-      } else if (progress >= 100 && orderStatus === 'a_caminho') {
-        setOrderStatus('entregue');
-        addToast({
-          title: 'Entrega Concluída',
-          message: 'Seu lanche chegou. Bom apetite!',
-          type: 'success'
-        });
-      }
-    }
-  }, [progress, orderStatus, addToast, onFinishOrder, order?.id]);
 
   // Trigger completion for real orders
   useEffect(() => {
@@ -351,7 +319,7 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] px-4 animate-fade-in relative z-10 w-full max-w-4xl mx-auto">
+    <div className={`flex flex-col items-center justify-center px-4 animate-fade-in relative z-10 w-full mx-auto ${order ? "min-h-[80vh] max-w-4xl" : "min-h-[calc(100vh-120px)] max-w-lg pb-12"}`}>
       
       {/* Animated Tracker Section */}
       {order && (
@@ -424,16 +392,16 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
       )}
 
       {/* Game Section (Always render) */}
-      <div className="w-full bg-white border border-stone-200 rounded-3xl p-8 shadow-sm text-center relative overflow-hidden mb-8">
+      <div className={`w-full bg-white border border-stone-200 rounded-3xl p-4 sm:p-8 shadow-sm text-center relative overflow-hidden ${order ? "mb-8" : "flex-1 flex flex-col justify-center"}`}>
         <h3 className="font-display font-black uppercase text-2xl mb-2 text-[#4E2A84] tracking-tight">Nickel entrega</h3>
         <p className="text-stone-500 font-bold mb-8">{order ? 'Passe o tempo até seu pedido chegar!' : 'Divirta-se e bata seu recorde!'}</p>
         
-        <div className="relative inline-block border-4 border-black rounded-3xl overflow-hidden shadow-[8px_8px_0px_#000]">
+        <div className={`relative inline-block border-4 border-black rounded-3xl overflow-hidden shadow-[8px_8px_0px_#000] ${!order && "w-full max-w-sm mx-auto"}`}>
           <canvas 
             ref={canvasRef} 
             width={400} 
             height={600} 
-            className="bg-sky-300 block max-w-full h-auto"
+            className="bg-sky-300 block w-full h-auto object-cover"
             style={{ touchAction: 'none' }}
           />
           

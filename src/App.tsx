@@ -33,7 +33,7 @@ import { playSound } from './lib/audio';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'cardapio' | 'historia' | 'cozinha' | 'comunidade'>('cardapio');
-  const [selectedCategory, setSelectedCategory] = useState<'Todos' | 'Xis' | 'Cachorro Quente' | 'Porções' | 'Bebidas'>('Todos');
+  const [selectedCategory, setSelectedCategory] = useState<'Todos' | 'Xis' | 'Cachorro Quente' | 'Bebidas'>('Todos');
   const [view, setView] = useState<'menu' | 'store' | 'game' | 'admin' | 'about' | 'profile'>('menu');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -306,7 +306,7 @@ export default function App() {
 
                 <div className="flex items-center justify-between mt-auto">
                   <span className="text-2xl font-black text-stone-900 tracking-tighter">
-                    ${(item.price / 4).toFixed(2)}
+                    R$ {item.price.toFixed(2).replace('.', ',')}
                   </span>
                   <button 
                     onClick={(e) => { e.stopPropagation(); handleAddToCart({ ...item, quantity: 1, cartItemId: Math.random().toString(36).substring(2, 9) }); }}
@@ -340,7 +340,7 @@ export default function App() {
     }
 
     return (
-      <div className="w-full pb-0 bg-[#FCF9F5] min-h-screen">
+      <div className="w-full pb-0 bg-transparent min-h-screen">
         {/* Header Store */}
         <header className="sticky top-0 z-50 bg-white border-b border-stone-100 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 py-4 flex justify-between items-center">
@@ -382,7 +382,6 @@ export default function App() {
               { id: 'Todos', emoji: '🍔', label: 'Todos' },
               { id: 'Xis', emoji: '🍔', label: 'Xis' },
               { id: 'Cachorro Quente', emoji: '🌭', label: 'Cachorros' },
-              { id: 'Porções', emoji: '🍟', label: 'Porções' },
               { id: 'Bebidas', emoji: '🥤', label: 'Bebidas' }
             ].map(cat => (
               <button
@@ -407,17 +406,21 @@ export default function App() {
           {renderProductGrid(
             selectedCategory === 'Todos' 
                ? menuItems 
-               : menuItems.filter(item => item.category === selectedCategory.toLowerCase().replace('xis', 'lanches').replace('cachorro quente', 'lanches')),
+               : selectedCategory === 'Xis'
+                 ? xisItems
+               : selectedCategory === 'Cachorro Quente'
+                 ? hotDogItems
+               : menuItems.filter(item => item.category === selectedCategory.toLowerCase()),
             selectedCategory === 'Todos' ? 'Todos os Lanches' : selectedCategory
           )}
         </div>
-      </div>
-    );
-  };
+    </div>
+  );
+};
 
 
   const renderMenu = () => (
-    <div className="w-full pb-0 bg-white">
+    <div className="w-full pb-0 bg-transparent">
       {/* Header com Navegação */}
       <header className="sticky top-0 z-50 bg-white border-b border-stone-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 py-4 flex justify-between items-center">
@@ -499,6 +502,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#FCF9F5] relative overflow-hidden text-stone-900">
+      <div style={{ display: view === 'about' || view === 'profile' ? 'none' : 'block' }} className="fixed inset-0 pointer-events-none z-0">
+        {/* Parallax Background */}
+        <div className="absolute inset-0 game-bg opacity-20" style={{ backgroundAttachment: 'fixed', backgroundPosition: 'center' }}></div>
+        <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(255, 255, 0, 0.1) 0%, transparent 70%)', backgroundAttachment: 'fixed' }}></div>
+        <FloatingBackground />
+      </div>
+      
+      <div className="relative z-10 w-full h-full">
             {view === 'store' && renderStore()}
       {view === 'profile' && (
         <ProfileView onClose={() => setView('menu')} />
@@ -557,12 +568,7 @@ export default function App() {
           </div>
         </div>
       )}
-      <div style={{ display: view === 'about' || view === 'profile' ? 'none' : 'block' }}>
-      {/* Parallax Background */}
-      <div className="fixed inset-0 pointer-events-none z-0 game-bg opacity-20" style={{ backgroundAttachment: 'fixed', backgroundPosition: 'center' }}></div>
-      <div className="fixed inset-0 pointer-events-none z-0" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(255, 255, 0, 0.1) 0%, transparent 70%)', backgroundAttachment: 'fixed' }}></div>
-      
-      <FloatingBackground />
+
 
       {/* Info Modals */}
       <AnimatePresence>

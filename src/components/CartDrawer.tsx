@@ -73,7 +73,7 @@ export default function CartDrawer({
                             </div>
                           )}
                           <div className="text-sm font-bold text-stone-500 mt-2">
-                            R$ {itemTotal.toFixed(2)}
+                            R$ {itemTotal.toFixed(2).replace('.', ',')}
                           </div>
                         </div>
                         <button 
@@ -110,17 +110,17 @@ export default function CartDrawer({
                 <div className="space-y-2 mb-6 font-bold text-sm">
                   <div className="flex justify-between text-stone-500">
                     <span>Subtotal</span>
-                    <span>R$ {totalCartBase.toFixed(2)}</span>
+                    <span>R$ {totalCartBase.toFixed(2).replace('.', ',')}</span>
                   </div>
                   {appliedDiscount !== null && (
                     <div className="flex justify-between text-green-500">
                       <span>Desconto</span>
-                      <span>- R$ {discountAmount.toFixed(2)}</span>
+                      <span>- R$ {discountAmount.toFixed(2).replace('.', ',')}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-xl text-black font-black uppercase pt-2 border-t-2 border-stone-100">
                     <span>Total</span>
-                    <span>R$ {totalCart.toFixed(2)}</span>
+                    <span>R$ {totalCart.toFixed(2).replace('.', ',')}</span>
                   </div>
                 </div>
 

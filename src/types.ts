@@ -13,6 +13,8 @@ export interface Product {
   emoji: string;
   image?: string;
   category: 'lanches' | 'porcoes' | 'bebidas' | 'doces';
+  choices?: { name: string, price?: number, image?: string }[];
+  choiceName?: string;
 }
 
 export interface CartItem extends Product {

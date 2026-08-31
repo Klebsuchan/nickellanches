@@ -19,6 +19,95 @@ export const DISCOUNT_CODES: Record<string, number> = {
 };
 
 export const MENU_ITEMS: Product[] = [
+
+  {
+    "id": "b_agua",
+    "name": "Água Mineral",
+    "description": "Água mineral 500ml.",
+    "price": 4,
+    "points": 6,
+    "emoji": "💧",
+    "image": "/images/aguasemgas-1.jpg",
+    "category": "bebidas",
+    "choiceName": "Tipo",
+    "choices": [
+      { "name": "Sem Gás", "image": "/images/aguasemgas-1.jpg" },
+      { "name": "Com Gás", "image": "/images/aguagas-1.jpg" }
+    ]
+  },
+  {
+    "id": "b_refri2l",
+    "name": "Refrigerante 2 Litros",
+    "description": "Refrigerante 2 litros geladinho.",
+    "price": 15,
+    "points": 22,
+    "emoji": "🥤",
+    "image": "/images/cocacola2l-1.jpg",
+    "category": "bebidas",
+    "choiceName": "Sabor",
+    "choices": [
+      { "name": "Coca Cola", "image": "/images/cocacola2l-1.jpg" },
+      { "name": "Pepsi", "image": "/images/pepsi2l-1.jpg" },
+      { "name": "Charrua", "image": "/images/charrua2l-1.jpg" }
+    ]
+  },
+  {
+    "id": "b_refri600",
+    "name": "Refrigerante 600ml",
+    "description": "Refrigerante 600ml geladinho.",
+    "price": 10,
+    "points": 15,
+    "emoji": "🥤",
+    "image": "/images/coca600ml-1.jpg",
+    "category": "bebidas",
+    "choiceName": "Sabor",
+    "choices": [
+      { "name": "Coca Cola", "image": "/images/coca600ml-1.jpg" },
+      { "name": "Pepsi", "image": "/images/pepsi600ml-1.jpg" },
+      { "name": "Guaraná", "image": "/images/guarana600-1.avif" },
+      { "name": "Sprite", "image": "/images/sprite600ml-1.jpg" }
+    ]
+  },
+  {
+    "id": "b_refrilata",
+    "name": "Refrigerante Lata",
+    "description": "Refrigerante em lata geladinho.",
+    "price": 7,
+    "points": 10,
+    "emoji": "🥤",
+    "image": "/images/cocalata-1.jpg",
+    "category": "bebidas",
+    "choiceName": "Sabor",
+    "choices": [
+      { "name": "Coca Cola", "image": "/images/cocalata-1.jpg" },
+      { "name": "Coca Cola Zero", "image": "/images/cocazero-1.jpg" }
+    ]
+  },
+  {
+    "id": "b_refri200",
+    "name": "Refrigerante 200ml",
+    "description": "Refrigerante 200ml caçulinha.",
+    "price": 4,
+    "points": 6,
+    "emoji": "🥤",
+    "image": "/images/coca200ml-1.jpg",
+    "category": "bebidas",
+    "choiceName": "Sabor",
+    "choices": [
+      { "name": "Coca Cola", "image": "/images/coca200ml-1.jpg" },
+      { "name": "Guaraná", "image": "/images/gurana200ml-1.jpg" }
+    ]
+  },
+  {
+    "id": "b14",
+    "name": "Cerveja Latão",
+    "description": "Cerveja em lata grande (latão).",
+    "price": 12,
+    "points": 18,
+    "emoji": "🍺",
+    "image": "/images/latão-1.jpg",
+    "category": "bebidas"
+  },
   {
     "id": "1",
     "name": "Cachorro Quente Tradicional",
@@ -26,7 +115,7 @@ export const MENU_ITEMS: Product[] = [
     "price": 20,
     "points": 30,
     "emoji": "🌭",
-    "image": "https://images.unsplash.com/photo-1615719413546-198b25453f85?auto=format&fit=crop&w=600&q=80",
+    "image": "/images/nickeldog-1.avif",
     "category": "lanches"
   },
   {
@@ -36,7 +125,7 @@ export const MENU_ITEMS: Product[] = [
     "price": 25,
     "points": 37,
     "emoji": "🌭",
-    "image": "https://images.unsplash.com/photo-1615719413546-198b25453f85?auto=format&fit=crop&w=600&q=80",
+    "image": "/images/nickeldog-1.avif",
     "category": "lanches"
   },
   {
@@ -46,7 +135,7 @@ export const MENU_ITEMS: Product[] = [
     "price": 25,
     "points": 37,
     "emoji": "🌭",
-    "image": "https://images.unsplash.com/photo-1615719413546-198b25453f85?auto=format&fit=crop&w=600&q=80",
+    "image": "/images/nickeldog-1.avif",
     "category": "lanches"
   },
   {
@@ -56,7 +145,7 @@ export const MENU_ITEMS: Product[] = [
     "price": 22,
     "points": 33,
     "emoji": "🌭",
-    "image": "https://images.unsplash.com/photo-1615719413546-198b25453f85?auto=format&fit=crop&w=600&q=80",
+    "image": "/images/nickeldog-1.avif",
     "category": "lanches"
   },
   {
@@ -66,7 +155,7 @@ export const MENU_ITEMS: Product[] = [
     "price": 22,
     "points": 33,
     "emoji": "🌭",
-    "image": "https://images.unsplash.com/photo-1615719413546-198b25453f85?auto=format&fit=crop&w=600&q=80",
+    "image": "/images/nickeldog-1.avif",
     "category": "lanches"
   },
   {
@@ -76,167 +165,17 @@ export const MENU_ITEMS: Product[] = [
     "price": 26,
     "points": 39,
     "emoji": "🌭",
-    "image": "https://images.unsplash.com/photo-1615719413546-198b25453f85?auto=format&fit=crop&w=600&q=80",
+    "image": "/images/nickeldog-1.avif",
     "category": "lanches"
   },
-  {
-    "id": "7",
-    "name": "Batata Frita P",
-    "description": "Batata frita pequena (170g in natura).",
-    "price": 12,
-    "points": 18,
-    "emoji": "🍟",
-    "image": "https://images.unsplash.com/photo-1576107232684-1279f390859f?auto=format&fit=crop&w=600&q=80",
-    "category": "porcoes"
-  },
-  {
-    "id": "8",
-    "name": "Batata Frita P com cheddar e bacon",
-    "description": "Batata frita pequena (170g in natura) com cheddar e bacon.",
-    "price": 17,
-    "points": 25,
-    "emoji": "🍟",
-    "image": "https://images.unsplash.com/photo-1576107232684-1279f390859f?auto=format&fit=crop&w=600&q=80",
-    "category": "porcoes"
-  },
-  {
-    "id": "9",
-    "name": "Batata Frita M",
-    "description": "Batata frita média (280g in natura).",
-    "price": 20,
-    "points": 30,
-    "emoji": "🍟",
-    "image": "https://images.unsplash.com/photo-1576107232684-1279f390859f?auto=format&fit=crop&w=600&q=80",
-    "category": "porcoes"
-  },
-  {
-    "id": "10",
-    "name": "Batata Frita M com cheddar e bacon",
-    "description": "Batata frita média (280g in natura) com cheddar e bacon.",
-    "price": 25,
-    "points": 37,
-    "emoji": "🍟",
-    "image": "https://images.unsplash.com/photo-1576107232684-1279f390859f?auto=format&fit=crop&w=600&q=80",
-    "category": "porcoes"
-  },
-  {
-    "id": "11",
-    "name": "Batata Frita G",
-    "description": "Batata frita grande (520g in natura).",
-    "price": 30,
-    "points": 45,
-    "emoji": "🍟",
-    "image": "https://images.unsplash.com/photo-1576107232684-1279f390859f?auto=format&fit=crop&w=600&q=80",
-    "category": "porcoes"
-  },
-  {
-    "id": "12",
-    "name": "Batata Frita G com cheddar e bacon",
-    "description": "Batata frita grande (520g in natura) com cheddar e bacon.",
-    "price": 35,
-    "points": 52,
-    "emoji": "🍟",
-    "image": "https://images.unsplash.com/photo-1576107232684-1279f390859f?auto=format&fit=crop&w=600&q=80",
-    "category": "porcoes"
-  },
-  {
-    "id": "13",
-    "name": "Maionese caseira Pote 100g",
-    "description": "Pote de 100g de maionese caseira.",
-    "price": 6,
-    "points": 9,
-    "emoji": "🥣",
-    "image": "https://images.unsplash.com/photo-1596649281691-127f8a379965?auto=format&fit=crop&w=600&q=80",
-    "category": "porcoes"
-  },
-  {
-    "id": "14",
-    "name": "Molho barbecue Pote 100g",
-    "description": "Pote de 100g de molho barbecue.",
-    "price": 6,
-    "points": 9,
-    "emoji": "🥣",
-    "image": "https://images.unsplash.com/photo-1596649281691-127f8a379965?auto=format&fit=crop&w=600&q=80",
-    "category": "porcoes"
-  },
-  {
-    "id": "15",
-    "name": "Molho de pimenta Pote 100g",
-    "description": "Pote de 100g de molho de pimenta.",
-    "price": 7,
-    "points": 10,
-    "emoji": "🥣",
-    "image": "https://images.unsplash.com/photo-1596649281691-127f8a379965?auto=format&fit=crop&w=600&q=80",
-    "category": "porcoes"
-  },
-  {
-    "id": "16",
-    "name": "Refrigerante 2 litros",
-    "description": "Refrigerante de 2 litros.",
-    "price": 15,
-    "points": 22,
-    "emoji": "🥤",
-    "image": "https://images.unsplash.com/photo-1572490122747-3968b75bb811?auto=format&fit=crop&w=600&q=80",
-    "category": "bebidas"
-  },
-  {
-    "id": "17",
-    "name": "Refrigerante lata",
-    "description": "Refrigerante em lata.",
-    "price": 7,
-    "points": 10,
-    "emoji": "🥤",
-    "image": "https://images.unsplash.com/photo-1572490122747-3968b75bb811?auto=format&fit=crop&w=600&q=80",
-    "category": "bebidas"
-  },
-  {
-    "id": "18",
-    "name": "Refrigerante 600ml",
-    "description": "Refrigerante de 600ml.",
-    "price": 10,
-    "points": 15,
-    "emoji": "🥤",
-    "image": "https://images.unsplash.com/photo-1572490122747-3968b75bb811?auto=format&fit=crop&w=600&q=80",
-    "category": "bebidas"
-  },
-  {
-    "id": "19",
-    "name": "Refrigerante 200ml",
-    "description": "Refrigerante de 200ml.",
-    "price": 4,
-    "points": 6,
-    "emoji": "🥤",
-    "image": "https://images.unsplash.com/photo-1572490122747-3968b75bb811?auto=format&fit=crop&w=600&q=80",
-    "category": "bebidas"
-  },
-  {
-    "id": "20",
-    "name": "Água mineral",
-    "description": "Água mineral.",
-    "price": 4,
-    "points": 6,
-    "emoji": "🥤",
-    "image": "https://images.unsplash.com/photo-1572490122747-3968b75bb811?auto=format&fit=crop&w=600&q=80",
-    "category": "bebidas"
-  },
-  {
-    "id": "21",
-    "name": "Cerveja latão",
-    "description": "Cerveja em latão.",
-    "price": 12,
-    "points": 18,
-    "emoji": "🍺",
-    "image": "https://images.unsplash.com/photo-1572490122747-3968b75bb811?auto=format&fit=crop&w=600&q=80",
-    "category": "bebidas"
-  },
-  {
+{
     "id": "22",
     "name": "Xis Simples",
     "description": "Carne, queijo muçarela, alface, tomate, maionese, mostarda, ketchup.",
     "price": 18,
     "points": 27,
     "emoji": "🍔",
-    "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
+    "image": "/images/xissimples-1.avif",
     "category": "lanches"
   },
   {
@@ -246,7 +185,7 @@ export const MENU_ITEMS: Product[] = [
     "price": 23,
     "points": 34,
     "emoji": "🍔",
-    "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
+    "image": "/images/xisespecial-1.avif",
     "category": "lanches"
   },
   {
@@ -256,7 +195,7 @@ export const MENU_ITEMS: Product[] = [
     "price": 30,
     "points": 45,
     "emoji": "🍔",
-    "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
+    "image": "/images/duplo-1.png",
     "category": "lanches"
   },
   {
@@ -266,7 +205,7 @@ export const MENU_ITEMS: Product[] = [
     "price": 29,
     "points": 43,
     "emoji": "🍔",
-    "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
+    "image": "/images/xiscoração-1.jpg",
     "category": "lanches"
   },
   {
@@ -276,7 +215,7 @@ export const MENU_ITEMS: Product[] = [
     "price": 29,
     "points": 43,
     "emoji": "🍔",
-    "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
+    "image": "/images/xisbacon-1.avif",
     "category": "lanches"
   },
   {
@@ -286,7 +225,7 @@ export const MENU_ITEMS: Product[] = [
     "price": 25,
     "points": 37,
     "emoji": "🍔",
-    "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
+    "image": "/images/xisfrango-1.jpg",
     "category": "lanches"
   },
   {
@@ -296,7 +235,7 @@ export const MENU_ITEMS: Product[] = [
     "price": 25,
     "points": 37,
     "emoji": "🍔",
-    "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
+    "image": "/images/xiscalabresa-1.avif",
     "category": "lanches"
   },
   {
@@ -306,7 +245,7 @@ export const MENU_ITEMS: Product[] = [
     "price": 29,
     "points": 43,
     "emoji": "🍔",
-    "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
+    "image": "/images/xisestrogonofefrango-1.jpg",
     "category": "lanches"
   },
   {
@@ -316,37 +255,37 @@ export const MENU_ITEMS: Product[] = [
     "price": 38,
     "points": 57,
     "emoji": "🍔",
-    "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
+    "image": "/images/xisfilé-1.avif",
     "category": "lanches"
   },
   {
     "id": "31",
-    "name": "Xis Filé Prime",
+    "name": "Xis Prime",
     "description": "Filé, queijo muçarela, presunto, ovo, milho, ervilha, alface, tomate, cebola na chapa, barbecue, maionese caseira.",
     "price": 43,
     "points": 64,
     "emoji": "🍔",
-    "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
+    "image": "/images/olympus-1.png",
     "category": "lanches"
   },
   {
     "id": "32",
-    "name": "Xis Nickel Magma",
+    "name": "Xis Magma",
     "description": "Carne, queijo muçarela, provolone, cheddar, calabresa, milho, tomate, maionese caseira.",
     "price": 32,
     "points": 48,
     "emoji": "🍔",
-    "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
+    "image": "/images/magma-1.png",
     "category": "lanches"
   },
   {
     "id": "33",
-    "name": "Xis Nickel Cemuche",
+    "name": "Xis Cemuche",
     "description": "2 carnes, cebola caramelizada, 2 queijos muçarela, dupla cheddar, molho especial apimentado, alface, maionese caseira.",
     "price": 38,
     "points": 57,
     "emoji": "🍔",
-    "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
+    "image": "/images/xiscemuche-1.jpg",
     "category": "lanches"
   },
   {
@@ -356,17 +295,17 @@ export const MENU_ITEMS: Product[] = [
     "price": 42,
     "points": 63,
     "emoji": "🍔",
-    "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
+    "image": "/images/xisnickelmix-1.jpg",
     "category": "lanches"
   },
   {
     "id": "35",
-    "name": "Xis Nickel Bomba",
+    "name": "Xis Bomba",
     "description": "Carne, queijo muçarela, cheddar, milho, ervilha, bacon, batata frita, barbecue, maionese caseira.",
     "price": 32,
     "points": 48,
     "emoji": "🍔",
-    "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
+    "image": "/images/bomba-1.png",
     "category": "lanches"
   },
   {
@@ -376,7 +315,7 @@ export const MENU_ITEMS: Product[] = [
   "price": 90,
   "points": 135,
   "emoji": "👨‍👩‍👧‍👦",
-  "image": "https://images.unsplash.com/photo-1594212691516-436f8f6cdcc8?auto=format&fit=crop&w=600&q=80",
+  "image": "/images/xisnickelmix-1.jpg",
   "category": "lanches"
 },
   {
@@ -386,7 +325,7 @@ export const MENU_ITEMS: Product[] = [
   "price": 25,
   "points": 37,
   "emoji": "👦",
-  "image": "https://images.unsplash.com/photo-1594212691516-436f8f6cdcc8?auto=format&fit=crop&w=600&q=80",
+  "image": "/images/nickeldog-1.avif",
   "category": "lanches"
 },
   {
@@ -396,7 +335,7 @@ export const MENU_ITEMS: Product[] = [
   "price": 35,
   "points": 52,
   "emoji": "🏆",
-  "image": "https://images.unsplash.com/photo-1594212691516-436f8f6cdcc8?auto=format&fit=crop&w=600&q=80",
+  "image": "/images/xisbacon-1.avif",
   "category": "lanches"
 },
   {
@@ -406,7 +345,7 @@ export const MENU_ITEMS: Product[] = [
   "price": 70,
   "points": 105,
   "emoji": "💑",
-  "image": "https://images.unsplash.com/photo-1594212691516-436f8f6cdcc8?auto=format&fit=crop&w=600&q=80",
+  "image": "/images/xissimples-1.avif",
   "category": "lanches"
 }
 ];

@@ -220,12 +220,19 @@ export const subscribeToAllOrders = (callback: (orders: Order[]) => void) => {
 export const seedDatabase = async (initialProducts: Product[], initialPromos: { [key: string]: number }) => {
   const productsRef = collection(db, "products");
   const promosRef = collection(db, "promos");
+  const metaRef = doc(db, "system", "metadata");
   
+  const metaSnap = await getDoc(metaRef);
+  const currentVersion = metaSnap.exists() ? metaSnap.data().seedVersion : 0;
+  const TARGET_VERSION = 3; // Increment this to force re-seed
+
   const productsSnap = await getDocs(productsRef);
-  if (productsSnap.empty) {
+  
+  if (productsSnap.empty || currentVersion < TARGET_VERSION) {
     for (const p of initialProducts) {
-      await setDoc(doc(db, "products", p.id!), p);
+      await setDoc(doc(db, "products", p.id!), p, { merge: true });
     }
+    await setDoc(metaRef, { seedVersion: TARGET_VERSION }, { merge: true });
   }
   
   const promosSnap = await getDocs(promosRef);
