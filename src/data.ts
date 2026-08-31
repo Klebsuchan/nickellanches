@@ -1,56 +1,15 @@
 import { Product, FriendRanking, Extra } from './types';
 
 export const AVAILABLE_EXTRAS: Extra[] = [
-  {
-    "id": "e1",
-    "name": "Carne",
-    "price": 9
-  },
-  {
-    "id": "e2",
-    "name": "Calabresa",
-    "price": 7
-  },
-  {
-    "id": "e3",
-    "name": "Coração",
-    "price": 8
-  },
-  {
-    "id": "e4",
-    "name": "Cebola",
-    "price": 5
-  },
-  {
-    "id": "e5",
-    "name": "Muçarela",
-    "price": 4
-  },
-  {
-    "id": "e6",
-    "name": "Bacon",
-    "price": 9
-  },
-  {
-    "id": "e7",
-    "name": "Frango",
-    "price": 8
-  },
-  {
-    "id": "e8",
-    "name": "Ovo",
-    "price": 3
-  },
-  {
-    "id": "e9",
-    "name": "Cheddar",
-    "price": 5
-  },
-  {
-    "id": "e10",
-    "name": "Presunto",
-    "price": 4
-  }
+  { id: "e1", name: "Uma carne a mais", price: 10 },
+  { id: "e2", name: "Calabresa", price: 8 },
+  { id: "e3", name: "Coração de frango", price: 9 },
+  { id: "e4", name: "Cebola", price: 6 },
+  { id: "e5", name: "Mussarela", price: 5 },
+  { id: "e6", name: "Bacon", price: 10 },
+  { id: "e7", name: "Presunto", price: 5 },
+  { id: "e8", name: "Cheddar", price: 6 },
+  { id: "e9", name: "Ovo frito", price: 4 }
 ];
 
 export const DISCOUNT_CODES: Record<string, number> = {

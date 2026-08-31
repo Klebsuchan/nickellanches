@@ -1,359 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { OrderInfo } from '../types';
-import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle, Truck, Utensils, Rocket, Flame, Clock } from 'lucide-react';
-import { useToast } from './Toast';
-import { subscribeToOrder } from '../lib/db';
+const fs = require('fs');
+let code = fs.readFileSync('src/components/DogGame.tsx', 'utf8');
 
-interface DogGameProps {
-  order: OrderInfo | null;
-  onFinishOrder: () => void;
-  onClose?: () => void;
-  onViewAbout?: () => void;
-}
-
-export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: DogGameProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [score, setScore] = useState(0);
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const [gameOver, setGameOver] = useState(false);
-  const { addToast } = useToast();
-  
-  const [orderStatus, setOrderStatus] = useState<'pendente' | 'cozinha_confirmou' | 'em_preparo' | 'a_caminho' | 'entregue'>('pendente');
-  const [progress, setProgress] = useState(0);
-
-  const [gameId, setGameId] = useState(0);
-
-  // Status subscription
-  useEffect(() => {
-    if (!order?.id) {
-      // Fallback: simulate if no order ID
-      let interval = setInterval(() => {
-        setProgress(p => {
-          if (p >= 100) {
-            clearInterval(interval);
-            return 100;
-          }
-          return p + 1;
-        });
-      }, 100);
-      return () => clearInterval(interval);
-    }
-
-    const unsub = subscribeToOrder(order.id, (orderData) => {
-      if (orderData.status) {
-        const status = orderData.status as any;
-        setOrderStatus(status);
-        
-        switch(status) {
-          case 'pendente': setProgress(10); break;
-          case 'cozinha_confirmou': setProgress(30); break;
-          case 'em_preparo': setProgress(60); break;
-          case 'a_caminho': setProgress(85); break;
-          case 'entregue': setProgress(100); break;
-        }
-      }
-    });
-
-    return () => unsub();
-  }, [order?.id]);
-
-  useEffect(() => {
-    if (!order?.id) {
-      if (progress === 40 && orderStatus === 'pendente') {
-        setOrderStatus('a_caminho');
-        addToast({
-          title: 'Pedido saiu!',
-          message: 'Aperte os cintos, seu lanche está a caminho!',
-          type: 'info'
-        });
-      } else if (progress >= 100 && orderStatus === 'a_caminho') {
-        setOrderStatus('entregue');
-        addToast({
-          title: 'Entrega Concluída',
-          message: 'Seu lanche chegou. Bom apetite!',
-          type: 'success'
-        });
-      }
-    }
-  }, [progress, orderStatus, addToast, onFinishOrder, order?.id]);
-
-  // Trigger completion for real orders
-  useEffect(() => {
-    if (order?.id && orderStatus === 'entregue') {
-      addToast({
-        title: 'Entrega Concluída',
-        message: 'Seu lanche chegou. Bom apetite!',
-        type: 'success'
-      });
-    }
-  }, [orderStatus, order?.id, addToast]);
-
-  // Handle exiting only when game over AND order is done
-  useEffect(() => {
-    if (gameOver && orderStatus === 'entregue') {
-      const t = setTimeout(() => {
-        onFinishOrder();
-      }, 2000);
-      return () => clearTimeout(t);
-    }
-  }, [gameOver, orderStatus, onFinishOrder]);
-
-  // Game State Ref to avoid re-renders
-  
-  const playBark = () => {
-    try {
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContext) return;
-      const ctx = new AudioContext();
-      const osc = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(400, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.15);
-      
-      gainNode.gain.setValueAtTime(0, ctx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.02);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
-      
-      osc.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.15);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const dogImageRef = useRef<HTMLImageElement | null>(null);
-
-  useEffect(() => {
-    const img = new Image();
-    img.src = '/cochirrinho16bit.png';
-    img.onload = () => {
-      dogImageRef.current = img;
-    };
-  }, []);
-
-  const gameState = useRef({
-    dogY: 150,
-    vy: 0,
-    gravity: 0.8,
-    jumpPower: -12,
-    isJumping: false,
-    obstacles: [] as { x: number, y: number, type: 'bottom' | 'top' }[],
-    smokeParticles: [] as { x: number, y: number, life: number, maxLife: number, size: number }[],
-    internalScore: 0,
-    speed: 5,
-    frame: 0,
-    active: true,
-    status: 'countdown' as 'countdown' | 'playing',
-  });
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let animationId: number;
-    const state = gameState.current;
-    state.active = true;
-    state.status = 'countdown';
-    state.smokeParticles = [];
-    state.internalScore = 0;
-    state.obstacles = [];
-    state.dogY = 150;
-    state.vy = 0;
-    state.speed = 5;
-    state.frame = 0;
-    setScore(0);
-    setGameOver(false);
-    
-    setCountdown(3);
-    let count = 3;
-    const interval = setInterval(() => {
-      count--;
-      if (count > 0) {
-        setCountdown(count);
-      } else {
-        setCountdown(null);
-        state.status = 'playing';
-        clearInterval(interval);
-      }
-    }, 1000);
-
-    const jump = () => {
-      if (!state.isJumping && state.active && state.status === 'playing') {
-        state.vy = state.jumpPower;
-        state.isJumping = true;
-      }
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' || e.code === 'ArrowUp') {
-        e.preventDefault();
-        jump();
-      }
-    };
-
-    const handleTouch = () => jump();
-
-    window.addEventListener('keydown', handleKeyDown);
-    canvas.addEventListener('touchstart', handleTouch);
-    canvas.addEventListener('mousedown', handleTouch);
-
-    const loop = () => {
-      if (!state.active) return;
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Background floor
-      ctx.beginPath();
-      ctx.moveTo(0, 180);
-      ctx.lineTo(canvas.width, 180);
-      ctx.strokeStyle = '#facc15';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      // Dog Physics
-      state.vy += state.gravity;
-      state.dogY += state.vy;
-
-      if (state.dogY >= 150) {
-        state.dogY = 150;
-        state.isJumping = false;
-        state.vy = 0;
-      }
-
-      // Smoke Particles
-      if (state.frame % 3 === 0) {
-        // Spawn smoke at the back of the motorcycle (x approx 40, y approx state.dogY + 30)
-        state.smokeParticles.push({
-          x: 40 + Math.random() * 10,
-          y: state.dogY + 30 + Math.random() * 10,
-          life: 0,
-          maxLife: 20 + Math.random() * 10,
-          size: 5 + Math.random() * 5
-        });
-      }
-      
-      for (let i = state.smokeParticles.length - 1; i >= 0; i--) {
-        const p = state.smokeParticles[i];
-        p.life++;
-        p.x -= 2; // move left
-        p.y -= 0.5; // drift up
-        if (p.life >= p.maxLife) {
-          state.smokeParticles.splice(i, 1);
-        } else {
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size + (p.life * 0.2), 0, Math.PI * 2);
-          const alpha = Math.max(0, 1 - (p.life / p.maxLife));
-          ctx.fillStyle = `rgba(150, 150, 150, ${alpha * 0.5})`;
-          ctx.fill();
-        }
-      }
-
-      // Draw Dog (Image)
-      if (dogImageRef.current) {
-        ctx.save();
-        ctx.translate(70, state.dogY + 30);
-        ctx.scale(-1, 1); // flip horizontally
-        // 70x70, posicionado para que as rodas fiquem em cima da linha (y=180 quando dogY=150)
-        ctx.drawImage(dogImageRef.current, -35, -70, 70, 70);
-        ctx.restore();
-      } else {
-        ctx.font = '40px Arial';
-        ctx.fillText('🐶', 50, state.dogY + 35);
-      }
-
-      // Restaura a opacidade e a cor antes de desenhar os obstáculos
-      ctx.fillStyle = '#000000';
-      ctx.globalAlpha = 1.0;
-
-      if (state.status === 'playing') {
-        // Obstacles
-        const spawnRate = Math.max(60, Math.floor(120 - (state.speed - 5) * 12));
-        if (state.frame % spawnRate === 0) {
-          const isTop = Math.random() > 0.5;
-          state.obstacles.push({ 
-            x: canvas.width, 
-            y: isTop ? 70 : 145,
-            type: isTop ? 'top' : 'bottom'
-          });
-        }
-
-        for (let i = 0; i < state.obstacles.length; i++) {
-          const obs = state.obstacles[i];
-          obs.x -= state.speed;
-          
-          ctx.font = '40px Arial';
-          ctx.fillText(obs.type === 'top' ? '🦅' : '🚧', obs.x, obs.y + 35);
-
-          // Collision Check
-          const dogHitX = 45;
-          const dogHitW = 35;
-          const dogHitY = state.dogY - 20;
-          const dogHitH = 45;
-          
-          const obsHitX = obs.x + 5;
-          const obsHitW = 30;
-          const obsHitY = obs.y + 5;
-          const obsHitH = 30;
-
-          if (
-            obsHitX < dogHitX + dogHitW &&
-            obsHitX + obsHitW > dogHitX &&
-            obsHitY < dogHitY + dogHitH &&
-            obsHitY + obsHitH > dogHitY
-          ) {
-            state.active = false;
-            setGameOver(true);
-          }
-        }
-
-        // Cleanup offscreen obstacles
-        if (state.obstacles.length > 0 && state.obstacles[0].x < -50) {
-          state.obstacles.shift();
-          state.internalScore += 1;
-          
-          if (state.internalScore % 2 === 0) {
-             playBark();
-          }
-          
-          setScore(state.internalScore * 10);
-        }
-        
-        state.frame++;
-      }
-      if (state.speed < 12) { state.speed += 0.003; }
-
-      animationId = requestAnimationFrame(loop);
-    };
-
-    loop();
-
-    return () => {
-      state.active = false;
-      window.removeEventListener('keydown', handleKeyDown);
-      canvas.removeEventListener('touchstart', handleTouch);
-      canvas.removeEventListener('mousedown', handleTouch);
-      cancelAnimationFrame(animationId);
-    };
-  }, [gameId]);
-
-  const handleRestart = () => {
-    gameState.current.active = false; // ensure previous loop stops
-    setGameOver(false);
-    setScore(0);
-    setGameId(id => id + 1);
-  };
-
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] px-4 animate-fade-in relative z-10 w-full max-w-4xl mx-auto">
-      
-      {/* Animated Tracker Section */}
+const replacement = `{/* Animated Tracker Section */}
       {order && (
         <motion.div 
           initial={{ y: -20, opacity: 0 }}
@@ -369,7 +17,7 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
               <motion.div 
                 className="h-full bg-yellow-400"
                 initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
+                animate={{ width: \`\${progress}%\` }}
                 transition={{ ease: "linear" }}
               />
             </div>
@@ -378,38 +26,38 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
             <motion.div
               className="absolute top-1/2 -z-10 text-4xl transform -translate-y-1/2"
               initial={{ left: '0%', x: '-50%' }}
-              animate={{ left: `${progress}%`, x: '-50%' }}
+              animate={{ left: \`\${progress}%\`, x: '-50%' }}
               transition={{ ease: "linear" }}
             >
               🚀
             </motion.div>
 
             <div className="flex flex-col items-center gap-2 bg-white px-2">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-sm border ${progress >= 10 ? 'bg-yellow-400 border-black' : 'bg-zinc-100 border-stone-200 text-stone-400'}`}>
+              <div className={\`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-sm border \${progress >= 10 ? 'bg-yellow-400 border-black' : 'bg-zinc-100 border-stone-200 text-stone-400'}\`}>
                 <Clock size={24} className={progress >= 10 ? 'text-black' : ''} />
               </div>
-              <span className={`text-xs font-bold uppercase ${progress >= 10 ? 'text-black' : 'text-stone-400'}`}>Pendente</span>
+              <span className={\`text-xs font-bold uppercase \${progress >= 10 ? 'text-black' : 'text-stone-400'}\`}>Pendente</span>
             </div>
 
             <div className="flex flex-col items-center gap-2 bg-white px-2">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-sm border ${progress >= 60 ? 'bg-yellow-400 border-black' : 'bg-zinc-100 border-stone-200 text-stone-400'}`}>
+              <div className={\`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-sm border \${progress >= 60 ? 'bg-yellow-400 border-black' : 'bg-zinc-100 border-stone-200 text-stone-400'}\`}>
                 <Flame size={24} className={progress >= 60 ? 'text-black' : ''} />
               </div>
-              <span className={`text-xs font-bold uppercase ${progress >= 60 ? 'text-black' : 'text-stone-400'}`}>Preparo</span>
+              <span className={\`text-xs font-bold uppercase \${progress >= 60 ? 'text-black' : 'text-stone-400'}\`}>Preparo</span>
             </div>
 
             <div className="flex flex-col items-center gap-2 bg-white px-2">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-sm border ${progress >= 85 ? 'bg-yellow-400 border-black' : 'bg-zinc-100 border-stone-200 text-stone-400'}`}>
+              <div className={\`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-sm border \${progress >= 85 ? 'bg-yellow-400 border-black' : 'bg-zinc-100 border-stone-200 text-stone-400'}\`}>
                 <Truck size={24} className={progress >= 85 ? 'text-black' : ''} />
               </div>
-              <span className={`text-xs font-bold uppercase ${progress >= 85 ? 'text-black' : 'text-stone-400'}`}>A Caminho</span>
+              <span className={\`text-xs font-bold uppercase \${progress >= 85 ? 'text-black' : 'text-stone-400'}\`}>A Caminho</span>
             </div>
             
             <div className="flex flex-col items-center gap-2 bg-white px-2">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-sm border ${progress >= 100 ? 'bg-green-400 border-black' : 'bg-zinc-100 border-stone-200 text-stone-400'}`}>
+              <div className={\`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-sm border \${progress >= 100 ? 'bg-green-400 border-black' : 'bg-zinc-100 border-stone-200 text-stone-400'}\`}>
                 <CheckCircle size={24} className={progress >= 100 ? 'text-black' : ''} />
               </div>
-              <span className={`text-xs font-bold uppercase ${progress >= 100 ? 'text-black' : 'text-stone-400'}`}>Entregue</span>
+              <span className={\`text-xs font-bold uppercase \${progress >= 100 ? 'text-black' : 'text-stone-400'}\`}>Entregue</span>
             </div>
           </div>
           
@@ -425,7 +73,7 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
 
       {/* Game Section (Always render) */}
       <div className="w-full bg-white border border-stone-200 rounded-3xl p-8 shadow-sm text-center relative overflow-hidden mb-8">
-        <h3 className="font-display font-black uppercase text-2xl mb-2 text-[#4E2A84] tracking-tight">Nickel entrega</h3>
+        <h3 className="font-display font-black uppercase text-2xl mb-2 text-[#4E2A84] tracking-tight">Dog voador</h3>
         <p className="text-stone-500 font-bold mb-8">{order ? 'Passe o tempo até seu pedido chegar!' : 'Divirta-se e bata seu recorde!'}</p>
         
         <div className="relative inline-block border-4 border-black rounded-3xl overflow-hidden shadow-[8px_8px_0px_#000]">
@@ -597,4 +245,10 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
       )}
     </div>
   );
-}
+}`;
+
+const startIndex = code.indexOf('{/* Animated Tracker Section */}');
+const newCode = code.substring(0, startIndex) + replacement;
+
+fs.writeFileSync('src/components/DogGame.tsx', newCode);
+console.log('patched dog game');

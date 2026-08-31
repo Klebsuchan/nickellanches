@@ -1,3 +1,5 @@
+import RenderWithNickel from './RenderWithNickel';
+import NickelText from './NickelText';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { Printer, CheckSquare, Lock, X, Plus, Trash2, Edit2, Package, Tag, Clock, Save } from 'lucide-react';
@@ -20,6 +22,12 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
   const [promos, setPromos] = useState<PromoCode[]>([]);
   
   const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
+  const [autoPrintEnabled, setAutoPrintEnabled] = useState(localStorage.getItem('auto_print_enabled') !== 'false');
+  const autoPrintRef = useRef(autoPrintEnabled);
+  useEffect(() => {
+    autoPrintRef.current = autoPrintEnabled;
+    localStorage.setItem('auto_print_enabled', String(autoPrintEnabled));
+  }, [autoPrintEnabled]);
   
   const { addToast } = useToast();
   
@@ -64,12 +72,13 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
             playSound('powerup');
             addToast({ message: 'NOVO PEDIDO RECEBIDO!', type: 'success' });
             // Print the newest unprinted order
-            const orderToPrint = toPrint[0];
-            handlePrint(orderToPrint);
-            
-            // Mark as printed
-            printedOrders.current.add(orderToPrint.id);
+            toPrint.forEach(order => printedOrders.current.add(order.id));
             localStorage.setItem('printed_orders', JSON.stringify(Array.from(printedOrders.current)));
+            
+            if (autoPrintRef.current) {
+              const orderToPrint = toPrint[0];
+              handlePrint(orderToPrint);
+            }
           }
         }
       });
@@ -170,7 +179,18 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
              {/* Content */}
              <div className="flex-1 overflow-y-auto p-6 bg-zinc-50 text-black comic-scrollbar">
                {activeTab === 'orders' && (
-                 <div className="grid gap-6 md:grid-cols-2">
+                 <>
+                   <div className="flex justify-between items-center mb-6">
+                     <h2 className="text-xl font-display uppercase font-bold text-black">Configuração</h2>
+                     <button
+                        onClick={() => setAutoPrintEnabled(!autoPrintEnabled)}
+                        className={`px-4 py-2 rounded-lg font-bold border border-stone-200 flex items-center gap-2 shadow-sm transition-colors ${autoPrintEnabled ? 'bg-green-400 text-black hover:bg-green-500' : 'bg-zinc-200 text-zinc-500 hover:bg-zinc-300'}`}
+                     >
+                       <Printer size={18} /> 
+                       {autoPrintEnabled ? 'Impressão Automática: LIGADA' : 'Impressão Automática: DESLIGADA'}
+                     </button>
+                  </div>
+                  <div className="grid gap-6 md:grid-cols-2">
                    {orders.map(order => (
                       <div key={order.id} className="bg-white border border-stone-200 rounded-xl p-6 relative shadow-sm">
                         <div className="flex justify-between items-start mb-4">
@@ -189,7 +209,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                           {order.items.map((item, i) => (
                             <div key={i} className="flex justify-between items-start">
                               <div>
-                                <span className="text-red-500">{item.quantity}x</span> {item.name}
+                                <span className="text-red-500">{item.quantity}x</span> <RenderWithNickel text={item.name} />
                                 {item.extras && item.extras.length > 0 && (
                                   <div className="text-xs text-zinc-500 pl-4">+ {item.extras.map((e:any)=>e.name).join(', ')}</div>
                                 )}
@@ -231,6 +251,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                    ))}
                    {orders.length === 0 && <p className="font-bold col-span-2 text-center text-zinc-500">Nenhum pedido encontrado.</p>}
                  </div>
+                 </>
                )}
                
                {activeTab === 'products' && (
@@ -248,7 +269,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
             {orderToPrint && (
               <div>
                 <div className="text-center mb-4">
-                  <h2 className="font-bold text-xl uppercase">NICKEL LANCHES</h2>
+                  <h2 className="font-bold text-xl uppercase"><NickelText /> LANCHES</h2>
                   <p className="text-xs">O Lanche Mais Divertido!</p>
                   <p>--------------------------------</p>
                 </div>
@@ -268,7 +289,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                   {orderToPrint.items.map((item, i) => (
                     <div key={i} className="mb-2">
                       <div className="flex justify-between font-bold">
-                        <span>{item.quantity}x {item.name.substring(0, 20)}</span>
+                        <span>{item.quantity}x <RenderWithNickel text={item.name.substring(0, 20)} /></span>
                         <span>R$ {(item.price * item.quantity).toFixed(2)}</span>
                       </div>
                       {item.extras && item.extras.length > 0 && (

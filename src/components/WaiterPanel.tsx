@@ -1,4 +1,6 @@
 import React from 'react';
+import NickelText from './NickelText';
+import RenderWithNickel from './RenderWithNickel';
 import { OrderInfo } from '../types';
 import { Printer, CheckSquare } from 'lucide-react';
 
@@ -49,8 +51,16 @@ export default function WaiterPanel({ orders, onClose }: WaiterPanelProps) {
               <div className="space-y-3 mb-6">
                 {order.items.map(item => (
                   <div key={item.id} className="flex justify-between border-b border-zinc-800 pb-2">
-                    <span><span className="font-bold text-yellow-400">{item.quantity}x</span> {item.name}</span>
-                    <span className="font-mono">R$ {(item.price * item.quantity).toFixed(2)}</span>
+                    <div>
+                      <span><span className="font-bold text-yellow-400">{item.quantity}x</span> <RenderWithNickel text={item.name} /></span>
+                      {item.extras && item.extras.length > 0 && (
+                        <div className="text-xs text-yellow-400/80 pl-4 mt-1">+ {item.extras.map((e:any)=>e.name).join(', ')}</div>
+                      )}
+                      {item.observation && (
+                        <div className="text-xs text-red-400 pl-4 mt-1 italic">"{item.observation}"</div>
+                      )}
+                    </div>
+                    <span className="font-mono">R$ {((item.price + (item.extras?.reduce((sum:number, e:any) => sum + e.price, 0) || 0)) * item.quantity).toFixed(2)}</span>
                   </div>
                 ))}
               </div>
@@ -78,7 +88,7 @@ export default function WaiterPanel({ orders, onClose }: WaiterPanelProps) {
       {/* Printable Command (Only visible during print) */}
       <div id="printable-command" className="p-4 hidden bg-white text-black w-[80mm] mx-auto font-mono">
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold">NICKEL LANCHES</h2>
+          <h2 className="text-2xl font-bold"><NickelText /> LANCHES</h2>
           <p className="text-sm">O Lanche Mais Divertido!</p>
           <p className="text-xs">--------------------------------</p>
         </div>
@@ -91,8 +101,16 @@ export default function WaiterPanel({ orders, onClose }: WaiterPanelProps) {
             <div className="space-y-2 text-sm border-t border-b border-black py-4 my-4">
               {orders[0].items.map(item => (
                 <div key={item.id} className="flex justify-between">
-                  <span>{item.quantity}x {item.name.substring(0, 15)}</span>
-                  <span>R$ {(item.price * item.quantity).toFixed(2)}</span>
+                  <div className="flex flex-col">
+                    <span>{item.quantity}x <RenderWithNickel text={item.name.substring(0, 15)} /></span>
+                    {item.extras && item.extras.length > 0 && (
+                      <span className="pl-4">+ {item.extras.map((e:any)=>e.name).join(', ')}</span>
+                    )}
+                    {item.observation && (
+                      <span className="pl-4 italic">"{item.observation}"</span>
+                    )}
+                  </div>
+                  <span>R$ {((item.price + (item.extras?.reduce((sum:number, e:any) => sum + e.price, 0) || 0)) * item.quantity).toFixed(2)}</span>
                 </div>
               ))}
             </div>

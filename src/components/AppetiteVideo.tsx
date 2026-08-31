@@ -1,4 +1,5 @@
 import React from 'react';
+import NickelText from './NickelText';
 import { motion } from 'motion/react';
 import { ArrowRight, Star } from 'lucide-react';
 
@@ -69,7 +70,7 @@ export default function AppetiteVideo({ onGoToStore }: AppetiteVideoProps) {
         </div>
         
         <h3 className="text-3xl md:text-5xl lg:text-6xl font-black uppercase tracking-tight text-stone-900 mb-8 leading-[1.1] max-w-4xl drop-shadow-sm">
-          "Delícias como essa você só encontra aqui na Nickel"
+          <span>"Delícias como essa você só encontra aqui na <NickelText />"</span>
         </h3>
         
         <button 

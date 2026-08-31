@@ -1,4 +1,5 @@
 import React from 'react';
+import NickelText from './NickelText';
 import { MapPin, Phone, MessageCircle, Mail, Clock } from 'lucide-react';
 
 interface FooterProps {
@@ -14,7 +15,7 @@ export default function Footer({ onOpenModal }: FooterProps) {
           <div className="flex items-center gap-3 mb-6">
             <img src="/logo.png" alt="Nickel Lanches" className="h-28 md:h-32 w-auto object-contain drop-shadow-md" />
             <div className="flex flex-col justify-center -ml-2">
-              <h1 className="text-4xl md:text-5xl tracking-tighter leading-none" style={{ fontFamily: '"Russo One", sans-serif', fontStyle: 'italic', color: '#FFD700', WebkitTextStroke: '2px black', textShadow: '4px 4px 0px #000' }}>NICKEL</h1>
+              <h1 className="text-4xl md:text-5xl tracking-tighter leading-none"><NickelText /></h1>
               <h2 className="text-xl md:text-2xl tracking-tighter leading-none" style={{ fontFamily: '"Russo One", sans-serif', fontStyle: 'italic', color: '#FFFFFF', WebkitTextStroke: '1px black', textShadow: '3px 3px 0px #000' }}>LANCHES</h2>
             </div>
           </div>
@@ -24,7 +25,7 @@ export default function Footer({ onOpenModal }: FooterProps) {
           </p>
           <div className="text-stone-500 text-xs font-bold uppercase tracking-wider space-y-1">
             <p>CNPJ: 12.345.678/0001-90</p>
-            <p>NICKEL LANCHES LTDA</p>
+            <p><NickelText /> LANCHES LTDA</p>
           </div>
         </div>
 
@@ -84,7 +85,7 @@ export default function Footer({ onOpenModal }: FooterProps) {
       
       {/* Footer Bottom Centered */}
       <div className="max-w-7xl mx-auto border-t border-stone-800 pt-8 flex flex-col items-center justify-center text-center text-stone-500 text-xs font-medium space-y-2">
-        <p>&copy; {new Date().getFullYear()} Nickel Lanches. Todos os direitos reservados.</p>
+        <p>&copy; {new Date().getFullYear()} <NickelText /> Lanches. Todos os direitos reservados.</p>
         <p>Feito com ❤️ para quem ama lanche de verdade.</p>
       </div>
     </footer>

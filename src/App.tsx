@@ -4,6 +4,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import NickelText from './components/NickelText';
+import RenderWithNickel from './components/RenderWithNickel';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageCircle, Plus, Menu, Search, SlidersHorizontal, Bell, ShoppingCart, Star, ChefHat, LogOut, ArrowRight, Dog, Tag, Heart, Utensils, BookOpen, Flame, Info, Home, ShoppingBag, User, LayoutGrid } from 'lucide-react';
 import { MENU_ITEMS, DISCOUNT_CODES } from './data';
@@ -22,6 +24,7 @@ import StorySection from './components/StorySection';
 import AppetiteVideo from './components/AppetiteVideo';
 import HeroVideo from './components/HeroVideo';
 import ProductModal from './components/ProductModal';
+import CartDrawer from './components/CartDrawer';
 import { useToast } from './components/Toast';
 import { auth } from './lib/firebase';
 import { User as FirebaseUser } from 'firebase/auth';
@@ -292,7 +295,7 @@ export default function App() {
               </div>
               
               <div className="flex flex-col gap-1 z-10 relative px-1">
-                <h4 className="font-bold text-stone-900 leading-tight line-clamp-1 text-lg tracking-tight">{item.name}</h4>
+                <h4 className="font-bold text-stone-900 leading-tight line-clamp-1 text-lg tracking-tight"><RenderWithNickel text={item.name} /></h4>
                 <p className="text-xs text-stone-500 line-clamp-2 min-h-[2rem] leading-relaxed font-medium mb-1.5">{item.description}</p>
                 
                 <div className="flex items-center gap-1.5 mb-4">
@@ -421,7 +424,7 @@ export default function App() {
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
             <img src="/logo.png" alt="Nickel Lanches" className="h-16 sm:h-20 md:h-24 w-auto object-contain drop-shadow-md" />
             <div className="flex flex-col justify-center -ml-2 sm:-ml-3">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl tracking-tighter leading-none" style={{ fontFamily: '"Russo One", sans-serif', fontStyle: 'italic', color: '#FFD700', WebkitTextStroke: '1.5px black', textShadow: '2px 2px 0px #000' }}>NICKEL</h1>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl tracking-tighter leading-none"><NickelText /></h1>
               <h2 className="text-sm sm:text-lg md:text-xl tracking-tighter leading-none -mt-0.5 sm:-mt-1" style={{ fontFamily: '"Russo One", sans-serif', fontStyle: 'italic', color: '#FFFFFF', WebkitTextStroke: '1px black', textShadow: '1px 1px 0px #000' }}>LANCHES</h2>
             </div>
           </div>
@@ -512,7 +515,7 @@ export default function App() {
           <div className="max-w-4xl mx-auto px-6 py-10 pb-32">
             <div className="mb-12">
               <h2 className="text-3xl md:text-5xl font-black text-[#4E2A84] mb-4 uppercase tracking-tighter">Nossa História</h2>
-              <p className="text-stone-600 font-medium leading-relaxed md:text-lg">Tudo começou com uma paixão gigante por lanches de verdade. Na Nickel Lanches, nós não fazemos apenas comida, nós construímos momentos. Acreditamos que um xis bem feito e um cachorro-quente no capricho podem transformar o seu dia.</p>
+              <p className="text-stone-600 font-medium leading-relaxed md:text-lg">Tudo começou com uma paixão gigante por lanches de verdade. Na <NickelText /> Lanches, nós não fazemos apenas comida, nós construímos momentos. Acreditamos que um xis bem feito e um cachorro-quente no capricho podem transformar o seu dia.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
@@ -697,7 +700,7 @@ export default function App() {
                     <h3 className="text-lg font-bold text-stone-900 mt-6">1. Coleta de Dados</h3>
                     <p>Coletamos informações necessárias para processar seu pedido, como nome, endereço de entrega e dados de contato. Seus dados de pagamento são processados de forma segura e não armazenados em nossos servidores.</p>
                     <h3 className="text-lg font-bold text-stone-900 mt-4">2. Uso das Informações</h3>
-                    <p>Utilizamos seus dados exclusivamente para garantir a entrega rápida do seu lanche, informar sobre o status do pedido e, caso você autorize, enviar promoções exclusivas da Nickel Lanches.</p>
+                    <p>Utilizamos seus dados exclusivamente para garantir a entrega rápida do seu lanche, informar sobre o status do pedido e, caso você autorize, enviar promoções exclusivas da <NickelText /> Lanches.</p>
                     <p>Ao continuar usando nosso serviço, você concorda com nossa política.</p>
                   </div>
                 </>
@@ -733,6 +736,20 @@ export default function App() {
         )}
       </AnimatePresence>
 
+            <CartDrawer 
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        cart={cart}
+        onRemoveItem={removeFromCart}
+        discountCode={discountCode}
+        setDiscountCode={setDiscountCode}
+        onApplyDiscount={applyDiscount}
+        appliedDiscount={appliedDiscount}
+        totalCartBase={totalCartBase}
+        discountAmount={discountAmount}
+        totalCart={totalCart}
+        onCheckout={() => setView('store')}
+      />
       <ProductModal 
         product={selectedProduct}
         isOpen={selectedProduct !== null}

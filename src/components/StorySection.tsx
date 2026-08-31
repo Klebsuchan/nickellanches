@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowRight } from 'lucide-react';
+import NickelText from './NickelText';
 import DeliveryInfoModal from './DeliveryInfoModal';
 
 export default function StorySection() {
@@ -10,10 +11,10 @@ export default function StorySection() {
       <div className="max-w-7xl mx-auto px-4 md:px-8 flex flex-col md:flex-row items-center gap-12">
         <div className="flex-1">
           <h2 className="text-3xl md:text-5xl font-black text-stone-900 mb-6 uppercase tracking-tighter">
-            A HISTÓRIA DA <span className="text-[#4E2A84]">NICKEL LANCHES</span>
+            A HISTÓRIA DA <span className="text-[#4E2A84]"><NickelText /> LANCHES</span>
           </h2>
           <p className="text-stone-600 font-medium leading-relaxed md:text-lg mb-6">
-            Tudo começou com uma paixão gigante por lanches de verdade. Na Nickel Lanches, nós não fazemos apenas comida, nós construímos momentos. Acreditamos que um xis bem feito e um cachorro-quente no capricho podem transformar o seu dia.
+            Tudo começou com uma paixão gigante por lanches de verdade. Na <NickelText /> Lanches, nós não fazemos apenas comida, nós construímos momentos. Acreditamos que um xis bem feito e um cachorro-quente no capricho podem transformar o seu dia.
           </p>
           <p className="text-stone-600 font-medium leading-relaxed md:text-lg mb-8">
             Nossa missão é entregar sabor épico direto na sua casa, com uma qualidade que você sente em cada mordida.

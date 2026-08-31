@@ -1,20 +1,14 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, initializeFirestore } from "firebase/firestore";
+import { initializeFirestore } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as firebaseSignOut } from "firebase/auth";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyApbPuhy4zVasFJFfB2L0FmxtZwRpZGosg",
-  authDomain: "gen-lang-client-0312540102.firebaseapp.com",
-  projectId: "gen-lang-client-0312540102",
-  storageBucket: "gen-lang-client-0312540102.firebasestorage.app",
-  messagingSenderId: "337794963827",
-  appId: "1:337794963827:web:8af0e872e448f042960d06"
-};
+import firebaseConfig from "../../firebase-applet-config.json";
 
 const app = initializeApp(firebaseConfig);
+
 export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-}, "ai-studio-nickellanches-8133d702-5451-4be1-a259-e8090108c42a");
+  experimentalAutoDetectLongPolling: true,
+}, firebaseConfig.firestoreDatabaseId);
+
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
