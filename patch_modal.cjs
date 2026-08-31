@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+const fs = require('fs');
+let content = `import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Plus, Minus, Check } from 'lucide-react';
 import { Product, Extra, CartItem } from '../types';
@@ -120,11 +121,10 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
                       return (
                         <label 
                           key={extra.id} 
-                          onClick={(e) => { e.preventDefault(); handleToggleExtra(extra); }} 
                           className="flex items-center justify-between p-0 cursor-pointer group"
                         >
                           <div className="flex items-center gap-4">
-                            <div className={`w-6 h-6 border-2 rounded flex items-center justify-center transition-colors ${isSelected ? 'bg-[#F28B20] border-[#F28B20]' : 'border-stone-300 group-hover:border-[#F28B20]'}`}>
+                            <div className={\`w-6 h-6 border-2 rounded flex items-center justify-center transition-colors \${isSelected ? 'bg-[#F28B20] border-[#F28B20]' : 'border-stone-300 group-hover:border-[#F28B20]'}\`}>
                               {isSelected && <Check size={16} className="text-white" strokeWidth={3} />}
                             </div>
                             <span className="font-bold text-stone-700">{extra.name}</span>
@@ -189,3 +189,6 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
     </AnimatePresence>
   );
 }
+`;
+fs.writeFileSync('src/components/ProductModal.tsx', content);
+console.log('ProductModal updated for iFood-style mobile fullscreen');
