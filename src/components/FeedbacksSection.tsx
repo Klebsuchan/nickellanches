@@ -19,7 +19,7 @@ const MOCK_FEEDBACKS: Feedback[] = [
     text: 'Melhor dogão que já comi em Passo Fundo! A maionese caseira é simplesmente de outro planeta 🛸',
     location: 'Passo Fundo, RS',
     rating: 5,
-    foodPhoto: 'https://images.unsplash.com/photo-1615719413546-198b25453f85?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+    foodPhoto: '/images/nickeldog-1.avif',
     createdAt: new Date()
   },
   {
@@ -30,7 +30,7 @@ const MOCK_FEEDBACKS: Feedback[] = [
     text: 'Entregaram super rápido aqui no centro de Passo Fundo. O jogo do doguinho me viciou enquanto esperava.',
     location: 'Passo Fundo, RS',
     rating: 5,
-    foodPhoto: 'https://images.unsplash.com/photo-1594212691516-0158b4be7284?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+    foodPhoto: '/images/xisnickelmix-1.jpg',
     createdAt: new Date()
   },
   {
@@ -41,7 +41,7 @@ const MOCK_FEEDBACKS: Feedback[] = [
     text: 'Salsicha artesanal faz toda a diferença. Recomendo o X-Bacon Mágico pra todo mundo de Passo Fundo.',
     location: 'Passo Fundo, RS',
     rating: 5,
-    foodPhoto: 'https://images.unsplash.com/photo-1629814695029-23c21a1ce09a?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+    foodPhoto: '/images/xisbacon-1.avif',
     createdAt: new Date()
   }
 ];
