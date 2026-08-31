@@ -27,7 +27,7 @@ export default function InstagramFeed() {
               <Instagram size={20} className="text-[#E1306C]" />
               Ver Perfil
             </a>
-            <a href="https://ig.me/m/nickellanches" target="_blank" rel="noopener noreferrer" className="bg-gradient-to-tr from-[#FFDC80] via-[#F56040] to-[#833AB4] text-white font-bold px-6 py-3 rounded-full flex items-center justify-center gap-2 hover:opacity-90 transition-opacity shrink-0 shadow-md">
+            <a href="https://www.instagram.com/nickellanches?utm_source=ig_web_button_share_sheet&igsi=ZDNlZDc0MzIxNw==" target="_blank" rel="noopener noreferrer" className="bg-gradient-to-tr from-[#FFDC80] via-[#F56040] to-[#833AB4] text-white font-bold px-6 py-3 rounded-full flex items-center justify-center gap-2 hover:opacity-90 transition-opacity shrink-0 shadow-md">
               <MessageCircle size={20} />
               Abrir Chat e Pedir
             </a>
