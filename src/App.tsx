@@ -32,6 +32,14 @@ import { subscribeToProducts, subscribeToPromos, seedDatabase, createUserProfile
 import { playSound } from './lib/audio';
 
 export default function App() {
+  if (window.location.pathname === '/painel-admin') {
+    return (
+      <div className="min-h-screen bg-stone-100">
+        <AdminPanel onClose={() => window.location.href = '/'} />
+      </div>
+    );
+  }
+
   const [activeTab, setActiveTab] = useState<'cardapio' | 'historia' | 'cozinha' | 'comunidade'>('cardapio');
   const [selectedCategory, setSelectedCategory] = useState<'Todos' | 'Xis' | 'Cachorro Quente' | 'Bebidas'>('Todos');
   const [view, setView] = useState<'menu' | 'store' | 'game' | 'admin' | 'about' | 'profile'>('menu');
@@ -50,17 +58,34 @@ export default function App() {
   const [discountCodes, setDiscountCodes] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    seedDatabase(MENU_ITEMS, DISCOUNT_CODES);
+    // seedDatabase(MENU_ITEMS, DISCOUNT_CODES);
     const unsubProducts = subscribeToProducts(setMenuItems);
     const unsubPromos = subscribeToPromos((promos) => {
       const codeMap = promos.reduce((acc, curr) => ({ ...acc, [curr.code]: curr.discount }), {});
       setDiscountCodes(codeMap);
+      
+      // Auto-apply the first available promo if no promo is applied
+      if (promos.length > 0 && cart.length > 0) {
+        setDiscountCode(promos[0].code);
+        setAppliedDiscount(promos[0].discount);
+      }
     });
     return () => {
       unsubProducts();
       unsubPromos();
     };
   }, []);
+
+  // Also auto-apply if cart changes and a promo is available
+  useEffect(() => {
+    if (cart.length > 0 && !appliedDiscount) {
+      const codes = Object.keys(discountCodes);
+      if (codes.length > 0) {
+        setDiscountCode(codes[0]);
+        setAppliedDiscount(discountCodes[codes[0]]);
+      }
+    }
+  }, [cart.length, discountCodes]);
 
   
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -201,7 +226,7 @@ export default function App() {
         items: cart,
         totalPrice: totalCart,
         totalPoints: totalPoints,
-        status: 'preparando', // initial status
+        status: 'recebido', // initial status
         userName: user?.displayName || 'Anônimo'
       });
     } catch(e) {
@@ -215,7 +240,7 @@ export default function App() {
       discount: discountAmount,
       total: totalCart,
       pointsEarned: totalPoints,
-      status: 'preparando',
+      status: 'recebido',
       timestamp: new Date()
     };
     

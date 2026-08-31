@@ -31,6 +31,16 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /banners/{bannerId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     match /system/{docId} {
       allow read: if true;
       allow write: if true;

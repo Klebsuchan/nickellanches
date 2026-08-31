@@ -80,7 +80,7 @@ export default function Footer({ onOpenModal }: FooterProps) {
       
       {/* Footer Bottom Centered */}
       <div className="max-w-7xl mx-auto border-t border-stone-800 pt-8 flex flex-col items-center justify-center text-center text-stone-500 text-xs font-medium space-y-2">
-        <p>&copy; {new Date().getFullYear()} <NickelText /> Lanches. Todos os direitos reservados.</p>
+        <p>&copy; {new Date().getFullYear()} <button onClick={() => window.location.href = '/painel-admin'} className="hover:opacity-80 transition-opacity"><NickelText /></button> Lanches. Todos os direitos reservados.</p>
         <p>Feito com ❤️ para quem ama lanche de verdade.</p>
       </div>
     </footer>

@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+const fs = require('fs');
+
+const content = `import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Printer, CheckSquare, Lock, X, Plus, Trash2, Edit2, Package, Tag, Clock, Save, Eye, EyeOff, Settings, List, Check, ArrowRight, ImagePlus, ChevronLeft, ChevronRight, RefreshCw, XCircle, Grid, Image as ImageIcon, Send } from 'lucide-react';
 import { Order, getProducts, saveProduct, deleteProduct, getPromos, savePromo, deletePromo, getAllOrders, updateOrderStatus, PromoCode, subscribeToAllOrders, Banner, getBanners, saveBanner, deleteBanner, subscribeToProducts, subscribeToPromos, subscribeToBanners, deleteOrder, saveOrderAdmin } from '../lib/db';
@@ -10,22 +12,6 @@ import NickelText from './NickelText';
 interface AdminPanelProps {
   onClose: () => void;
 }
-
-
-// ----------------------------------------------------------------------
-// SAFE PRINT HELPER
-// ----------------------------------------------------------------------
-export const triggerSafePrint = (addToast: any) => {
-  try {
-    if (window.self !== window.top) {
-      addToast({ message: 'A pré-visualização bloqueia impressão! Abra em NOVA ABA para imprimir.', type: 'error' });
-    } else {
-      triggerSafePrint(addToast);
-    }
-  } catch (e) {
-    addToast({ message: 'Erro ao imprimir.', type: 'error' });
-  }
-};
 
 export default function AdminPanel({ onClose }: AdminPanelProps) {
   // Mocado a pedido do usuario: sempre true
@@ -83,7 +69,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                 setOrderToPrint(order);
                 printedOrders.current.add(order.id);
                 localStorage.setItem('printed_orders', JSON.stringify(Array.from(printedOrders.current)));
-                triggerSafePrint(addToast);
+                setTimeout(() => window.print(), 500);
               }
             });
           }
@@ -173,11 +159,11 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
         {activeTab === 'products' && <ProductEditor products={products} />}
         {activeTab === 'promos' && <PromoEditor promos={promos} />}
         {activeTab === 'banners' && <BannerEditor banners={banners} />}
-        {activeTab === 'settings' && <PrintSettingsEditor settings={printSettings} setSettings={setPrintSettings} onTestPrint={() => { setOrderToPrint({ id: 'TESTE-123', createdAt: { toDate: () => new Date() }, items: [{ name: 'Lanche Teste de Impressão', price: 0, quantity: 1, extras: [] }], totalPrice: 0, userName: 'Teste', address: 'Teste', paymentMethod: 'Teste', status: 'recebido' }); triggerSafePrint(addToast); }} />}
+        {activeTab === 'settings' && <PrintSettingsEditor settings={printSettings} setSettings={setPrintSettings} />}
       </div>
 
       {/* Printable Area */}
-      <div id="printable-command" className={`hidden print:block mx-auto text-black font-mono leading-tight bg-white ${printSettings.printerType === 'thermal_58' ? 'w-[58mm] text-[10px]' : printSettings.printerType === 'normal' ? 'w-[100mm] text-sm' : 'w-[80mm] text-xs'}`}>
+      <div id="printable-command" className={\`hidden print:block mx-auto text-black font-mono leading-tight bg-white \${printSettings.printerType === 'thermal_58' ? 'w-[58mm] text-[10px]' : printSettings.printerType === 'normal' ? 'w-[100mm] text-sm' : 'w-[80mm] text-xs'}\`}>
         {orderToPrint && (
           <div className="p-2">
             <div className="text-center mb-4 border-b-2 border-black pb-2">
@@ -223,13 +209,6 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
           </div>
         )}
       </div>
-      <ConfirmModal isOpen={confirmDeleteOpen} message={`Tem certeza que deseja apagar ${selectedIds.size} pedidos permanentemente?`} onConfirm={performDelete} onCancel={() => setConfirmDeleteOpen(false)} />
-      <ConfirmModal isOpen={!!deleteId} message="Tem certeza? Removerá o produto para sempre." onConfirm={performDeleteProd} onCancel={() => setDeleteId(null)} />
-      <PromptModal isOpen={promptImage} title="URL da Imagem" onConfirm={performAddImage} onCancel={() => setPromptImage(false)} />
-      <PromptModal isOpen={promptExtraName} title="Nome do Adicional" onConfirm={performAddExtraName} onCancel={() => setPromptExtraName(false)} />
-      <PromptModal isOpen={promptExtraPrice} title="Preço do Adicional" onConfirm={performAddExtraPrice} onCancel={() => setPromptExtraPrice(false)} />
-      <ConfirmModal isOpen={!!deleteId} message="Tem certeza que deseja apagar o cupom?" onConfirm={performDeletePromo} onCancel={() => setDeleteId(null)} />
-      <ConfirmModal isOpen={!!deleteId} message="Tem certeza? O banner será removido do site." onConfirm={performDeleteBanner} onCancel={() => setDeleteId(null)} />
     </div>
   );
 }
@@ -238,7 +217,7 @@ function TabButton({ icon, label, active, onClick }: { icon: React.ReactNode, la
   return (
     <button 
       onClick={onClick} 
-      className={`flex items-center gap-3 px-4 py-3 font-bold uppercase tracking-widest rounded-lg transition-all ${active ? 'bg-yellow-400 text-black shadow-lg translate-x-2' : 'text-zinc-400 hover:text-white hover:bg-stone-900'}`}
+      className={\`flex items-center gap-3 px-4 py-3 font-bold uppercase tracking-widest rounded-lg transition-all \${active ? 'bg-yellow-400 text-black shadow-lg translate-x-2' : 'text-zinc-400 hover:text-white hover:bg-stone-900'}\`}
     >
       {icon} {label}
     </button>
@@ -252,7 +231,6 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
   const { addToast } = useToast();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const toggleSelect = (id: string) => {
     const newSet = new Set(selectedIds);
@@ -271,7 +249,7 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
     for (const id of Array.from(selectedIds)) {
       await updateOrderStatus(id, status);
     }
-    addToast({ message: `${selectedIds.size} pedidos movidos para ${status.toUpperCase()}`, type: 'success' });
+    addToast({ message: \`\${selectedIds.size} pedidos movidos para \${status.toUpperCase()}\`, type: 'success' });
     setSelectedIds(new Set());
   };
 
@@ -282,23 +260,22 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
     selectedOrders.forEach((order: Order) => {
       setTimeout(() => {
         setOrderToPrint(order);
-        triggerSafePrint(addToast);
+        setTimeout(() => window.print(), 500);
       }, delay);
       delay += 2500;
     });
     setSelectedIds(new Set());
   };
 
-  const deleteSelected = () => {
-    if (selectedIds.size > 0) setConfirmDeleteOpen(true);
-  };
-  
-  const performDelete = async () => {
-    for (const id of Array.from(selectedIds)) {
-      await deleteOrder(id);
+  const deleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+    if (confirm(\`Tem certeza que deseja apagar \${selectedIds.size} pedidos permanentemente?\`)) {
+      for (const id of Array.from(selectedIds)) {
+        await deleteOrder(id);
+      }
+      addToast({ message: 'Pedidos apagados', type: 'success' });
+      setSelectedIds(new Set());
     }
-    addToast({ message: 'Pedidos apagados', type: 'success' });
-    setSelectedIds(new Set());
   };
 
   const columns = [
@@ -317,8 +294,8 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 bg-stone-100 px-3 py-1.5 rounded-lg border border-stone-200">
             <span className="text-xs font-bold uppercase text-stone-500">Imp. Auto</span>
-            <button onClick={() => setPrintSettings({...printSettings, autoPrint: !printSettings.autoPrint})} className={`w-10 h-5 rounded-full transition-colors relative ${printSettings.autoPrint ? 'bg-green-500' : 'bg-stone-300'}`}>
-              <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-[3px] transition-transform ${printSettings.autoPrint ? 'left-6' : 'left-1'}`}></div>
+            <button onClick={() => setPrintSettings({...printSettings, autoPrint: !printSettings.autoPrint})} className={\`w-10 h-5 rounded-full transition-colors relative \${printSettings.autoPrint ? 'bg-green-500' : 'bg-stone-300'}\`}>
+              <div className={\`w-3.5 h-3.5 bg-white rounded-full absolute top-[3px] transition-transform \${printSettings.autoPrint ? 'left-6' : 'left-1'}\`}></div>
             </button>
           </div>
           
@@ -345,8 +322,8 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
 
       <div className="flex-1 overflow-x-auto flex gap-6 pb-4">
         {columns.map(col => (
-          <div key={col.id} className={`flex-none w-80 flex flex-col bg-stone-200/50 rounded-2xl border-2 border-stone-200/50 overflow-hidden`}>
-            <div className={`p-3 border-b-2 flex justify-between items-center ${col.color}`}>
+          <div key={col.id} className={\`flex-none w-80 flex flex-col bg-stone-200/50 rounded-2xl border-2 border-stone-200/50 overflow-hidden\`}>
+            <div className={\`p-3 border-b-2 flex justify-between items-center \${col.color}\`}>
               <h3 className="font-bold uppercase tracking-widest text-sm">{col.title}</h3>
               <span className="bg-white/50 px-2 py-0.5 rounded-full text-xs font-black">
                 {orders.filter((o: Order) => (o.status || 'recebido') === col.id).length}
@@ -354,9 +331,9 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
             </div>
             <div className="flex-1 p-3 overflow-y-auto space-y-3">
               {orders.filter((o: Order) => (o.status || 'recebido') === col.id).map((order: Order) => (
-                <div key={order.id} className={`bg-white p-3 rounded-xl border-2 shadow-sm relative transition-all ${selectedIds.has(order.id!) ? 'border-yellow-400 shadow-md ring-4 ring-yellow-400/20' : 'border-stone-200 hover:border-stone-300'}`}>
+                <div key={order.id} className={\`bg-white p-3 rounded-xl border-2 shadow-sm relative transition-all \${selectedIds.has(order.id!) ? 'border-yellow-400 shadow-md ring-4 ring-yellow-400/20' : 'border-stone-200 hover:border-stone-300'}\`}>
                   <div className="absolute top-3 right-3 cursor-pointer" onClick={(e) => { e.stopPropagation(); toggleSelect(order.id!); }}>
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedIds.has(order.id!) ? 'bg-yellow-400 border-yellow-400' : 'border-stone-300'}`}>
+                    <div className={\`w-5 h-5 rounded-full border-2 flex items-center justify-center \${selectedIds.has(order.id!) ? 'bg-yellow-400 border-yellow-400' : 'border-stone-300'}\`}>
                       {selectedIds.has(order.id!) && <Check size={12} className="text-black stroke-[4]"/>}
                     </div>
                   </div>
@@ -397,7 +374,7 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
             }}
             onPrint={() => {
               setOrderToPrint(editingOrder);
-              triggerSafePrint(addToast);
+              setTimeout(() => window.print(), 500);
             }}
           />
         )}
@@ -492,11 +469,6 @@ function OrderEditModal({ order, onClose, onSave, onPrint }: any) {
 function ProductEditor({ products }: { products: Product[] }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Product>>({});
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [promptImage, setPromptImage] = useState(false);
-  const [promptExtraName, setPromptExtraName] = useState(false);
-  const [promptExtraPrice, setPromptExtraPrice] = useState(false);
-  const [tempExtraName, setTempExtraName] = useState('');
   const { addToast } = useToast();
   
   const handleEdit = (p: Product) => {
@@ -519,18 +491,18 @@ function ProductEditor({ products }: { products: Product[] }) {
     }
   };
   
-  const handleDelete = (id: string) => setDeleteId(id);
-  const performDeleteProd = async () => {
-    if (deleteId) {
-      await deleteProduct(deleteId);
+  const handleDelete = async (id: string) => {
+    if (confirm('Tem certeza? Removerá o produto para sempre.')) {
+      await deleteProduct(id);
       addToast({ message: 'Produto removido', type: 'success' });
-      setDeleteId(null);
     }
   };
 
-  const addImage = () => setPromptImage(true);
-  const performAddImage = (url: string) => {
-    if (url) setFormData(prev => ({...prev, images: [...(prev.images || []), url]}));
+  const addImage = () => {
+    const url = prompt('Cole a URL da imagem:');
+    if (url) {
+      setFormData(prev => ({...prev, images: [...(prev.images || []), url]}));
+    }
   };
 
   const removeImage = (idx: number) => {
@@ -541,18 +513,16 @@ function ProductEditor({ products }: { products: Product[] }) {
     });
   };
 
-  const addExtra = () => setPromptExtraName(true);
-  const performAddExtraName = (name: string) => {
-    if (name) { setTempExtraName(name); setPromptExtraPrice(true); }
-  };
-  const performAddExtraPrice = (priceStr: string) => {
-    if (priceStr) {
-      const price = parseFloat(priceStr.replace(',', '.'));
-      setFormData(prev => ({
-        ...prev, 
-        productExtras: [...(prev.productExtras || []), { id: Math.random().toString(), name: tempExtraName, price }]
-      }));
-    }
+  const addExtra = () => {
+    const name = prompt('Nome do adicional (ex: Bacon Extra):');
+    if (!name) return;
+    const priceStr = prompt('Preço do adicional (ex: 5.50):');
+    if (!priceStr) return;
+    const price = parseFloat(priceStr.replace(',', '.'));
+    setFormData(prev => ({
+      ...prev, 
+      productExtras: [...(prev.productExtras || []), { id: Math.random().toString(), name, price }]
+    }));
   };
 
   const removeExtra = (id: string) => {
@@ -712,7 +682,6 @@ function ProductEditor({ products }: { products: Product[] }) {
 function PromoEditor({ promos }: { promos: PromoCode[] }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<PromoCode>>({});
-  const [deleteId, setDeleteId] = useState<string | null>(null);
   const { addToast } = useToast();
   
   const handleEdit = (p: PromoCode) => {
@@ -732,12 +701,10 @@ function PromoEditor({ promos }: { promos: PromoCode[] }) {
       addToast({ message: 'Erro ao salvar', type: 'error' as any });
     }
   };
-  const handleDelete = (id: string) => setDeleteId(id);
-  const performDeletePromo = async () => {
-    if (deleteId) {
-      await deletePromo(deleteId);
+  const handleDelete = async (id: string) => {
+    if (confirm('Tem certeza?')) {
+      await deletePromo(id);
       addToast({ message: 'Cupom removido', type: 'success' });
-      setDeleteId(null);
     }
   };
 
@@ -758,7 +725,7 @@ function PromoEditor({ promos }: { promos: PromoCode[] }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Código (sem espaços)</label>
-              <input placeholder="Ex: NICKEL10" value={formData.code || ''} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase().replace(/s/g,'')})} className="w-full border-2 border-stone-200 p-3 rounded-lg font-bold uppercase" />
+              <input placeholder="Ex: NICKEL10" value={formData.code || ''} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase().replace(/\s/g,'')})} className="w-full border-2 border-stone-200 p-3 rounded-lg font-bold uppercase" />
             </div>
             <div>
               <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Valor do Desconto</label>
@@ -780,7 +747,7 @@ function PromoEditor({ promos }: { promos: PromoCode[] }) {
             <div>
               <h4 className="font-black text-2xl uppercase tracking-widest text-stone-800">{p.code}</h4>
               <p className="font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full inline-block mt-3 border border-green-200">
-                {p.discount < 1 ? `${(p.discount * 100).toFixed(0)}% OFF` : `R$ ${p.discount.toFixed(2)} OFF`}
+                {p.discount < 1 ? \`\${(p.discount * 100).toFixed(0)}% OFF\` : \`R$ \${p.discount.toFixed(2)} OFF\`}
               </p>
             </div>
             <div className="flex gap-2 mt-6 pt-4 border-t-2 border-stone-100">
@@ -800,7 +767,6 @@ function PromoEditor({ promos }: { promos: PromoCode[] }) {
 function BannerEditor({ banners }: { banners: Banner[] }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Banner>>({});
-  const [deleteId, setDeleteId] = useState<string | null>(null);
   const { addToast } = useToast();
   
   const handleEdit = (p: Banner) => {
@@ -820,12 +786,10 @@ function BannerEditor({ banners }: { banners: Banner[] }) {
       addToast({ message: 'Erro ao salvar', type: 'error' as any });
     }
   };
-  const handleDelete = (id: string) => setDeleteId(id);
-  const performDeleteBanner = async () => {
-    if (deleteId) {
-      await deleteBanner(deleteId);
+  const handleDelete = async (id: string) => {
+    if (confirm('Tem certeza? O banner será removido do site.')) {
+      await deleteBanner(id);
       addToast({ message: 'Banner removido', type: 'success' });
-      setDeleteId(null);
     }
   };
 
@@ -902,7 +866,7 @@ function BannerEditor({ banners }: { banners: Banner[] }) {
 // ----------------------------------------------------------------------
 // PRINT SETTINGS
 // ----------------------------------------------------------------------
-function PrintSettingsEditor({ settings, setSettings, onTestPrint }: any) {
+function PrintSettingsEditor({ settings, setSettings }: any) {
   const { addToast } = useToast();
 
   const handleSave = () => {
@@ -921,8 +885,8 @@ function PrintSettingsEditor({ settings, setSettings, onTestPrint }: any) {
         <div>
           <h3 className="font-black uppercase border-b-2 border-stone-100 pb-2 mb-4">Comportamento</h3>
           <label className="flex items-center gap-3 cursor-pointer p-4 border border-stone-200 rounded-xl hover:bg-stone-50 transition-colors">
-            <div className={`w-12 h-6 rounded-full transition-colors relative ${settings.autoPrint ? 'bg-green-500' : 'bg-stone-300'}`}>
-              <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${settings.autoPrint ? 'left-7' : 'left-1'}`}></div>
+            <div className={\`w-12 h-6 rounded-full transition-colors relative \${settings.autoPrint ? 'bg-green-500' : 'bg-stone-300'}\`}>
+              <div className={\`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform \${settings.autoPrint ? 'left-7' : 'left-1'}\`}></div>
             </div>
             <div>
               <div className="font-bold uppercase">Impressão Automática</div>
@@ -934,19 +898,19 @@ function PrintSettingsEditor({ settings, setSettings, onTestPrint }: any) {
         <div>
           <h3 className="font-black uppercase border-b-2 border-stone-100 pb-2 mb-4">Formato da Comanda</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <label className={`border-2 rounded-xl p-4 cursor-pointer text-center transition-all ${settings.printerType === 'thermal_80' ? 'border-yellow-400 bg-yellow-50' : 'border-stone-200 hover:border-stone-300'}`}>
+            <label className={\`border-2 rounded-xl p-4 cursor-pointer text-center transition-all \${settings.printerType === 'thermal_80' ? 'border-yellow-400 bg-yellow-50' : 'border-stone-200 hover:border-stone-300'}\`}>
               <input type="radio" name="ptype" className="hidden" checked={settings.printerType === 'thermal_80'} onChange={() => setSettings({...settings, printerType: 'thermal_80'})} />
               <Printer size={32} className="mx-auto mb-2 text-stone-600" />
               <div className="font-bold uppercase">Térmica 80mm</div>
               <div className="text-xs text-stone-500 mt-1">Padrão Restaurantes</div>
             </label>
-            <label className={`border-2 rounded-xl p-4 cursor-pointer text-center transition-all ${settings.printerType === 'thermal_58' ? 'border-yellow-400 bg-yellow-50' : 'border-stone-200 hover:border-stone-300'}`}>
+            <label className={\`border-2 rounded-xl p-4 cursor-pointer text-center transition-all \${settings.printerType === 'thermal_58' ? 'border-yellow-400 bg-yellow-50' : 'border-stone-200 hover:border-stone-300'}\`}>
               <input type="radio" name="ptype" className="hidden" checked={settings.printerType === 'thermal_58'} onChange={() => setSettings({...settings, printerType: 'thermal_58'})} />
               <Printer size={24} className="mx-auto mb-2 text-stone-600" />
               <div className="font-bold uppercase">Térmica 58mm</div>
               <div className="text-xs text-stone-500 mt-1">Bobina Menor</div>
             </label>
-            <label className={`border-2 rounded-xl p-4 cursor-pointer text-center transition-all ${settings.printerType === 'normal' ? 'border-yellow-400 bg-yellow-50' : 'border-stone-200 hover:border-stone-300'}`}>
+            <label className={\`border-2 rounded-xl p-4 cursor-pointer text-center transition-all \${settings.printerType === 'normal' ? 'border-yellow-400 bg-yellow-50' : 'border-stone-200 hover:border-stone-300'}\`}>
               <input type="radio" name="ptype" className="hidden" checked={settings.printerType === 'normal'} onChange={() => setSettings({...settings, printerType: 'normal'})} />
               <Printer size={40} className="mx-auto mb-2 text-stone-600" />
               <div className="font-bold uppercase">A4 / Normal</div>
@@ -969,52 +933,14 @@ function PrintSettingsEditor({ settings, setSettings, onTestPrint }: any) {
           </div>
         </div>
 
-        <div className="pt-6 border-t-2 border-stone-100 flex flex-col md:flex-row gap-4">
-          <button onClick={onTestPrint} className="flex-1 bg-stone-100 text-stone-700 border-2 border-stone-300 px-8 py-4 rounded-xl font-bold uppercase tracking-widest hover:bg-stone-200 transition-colors flex items-center justify-center gap-2">
-            <Printer size={20} /> Escolher Impressora / Testar
-          </button>
-          <button onClick={handleSave} className="flex-1 bg-stone-900 text-yellow-400 px-8 py-4 rounded-xl font-bold uppercase tracking-widest shadow-md hover:bg-stone-800 transition-colors flex items-center justify-center gap-2">
-            <Save size={20} /> Salvar Configurações
-          </button>
+        <div className="pt-6 border-t-2 border-stone-100 flex justify-end">
+          <button onClick={handleSave} className="bg-stone-900 text-yellow-400 px-8 py-4 rounded-xl font-bold uppercase tracking-widest shadow-md hover:bg-stone-800 transition-colors flex items-center gap-2"><Save size={20} /> Salvar Configurações</button>
         </div>
       </div>
     </div>
   );
 }
+`;
 
-// ----------------------------------------------------------------------
-// MODALS FOR IFRAME COMPATIBILITY
-// ----------------------------------------------------------------------
-export function ConfirmModal({ isOpen, message, onConfirm, onCancel }: { isOpen: boolean, message: string, onConfirm: () => void, onCancel: () => void }) {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center p-4">
-      <div className="bg-white p-6 rounded-2xl max-w-sm w-full text-center shadow-2xl">
-        <h3 className="font-black text-xl mb-4 text-black uppercase">Confirmação</h3>
-        <p className="font-bold text-stone-600 mb-6">{message}</p>
-        <div className="flex gap-3 justify-center">
-          <button onClick={onCancel} className="px-6 py-2 bg-stone-200 text-stone-600 font-bold uppercase rounded-lg hover:bg-stone-300">Cancelar</button>
-          <button onClick={() => { onConfirm(); onCancel(); }} className="px-6 py-2 bg-red-500 text-white font-bold uppercase rounded-lg hover:bg-red-600">Confirmar</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export function PromptModal({ isOpen, title, onConfirm, onCancel }: { isOpen: boolean, title: string, onConfirm: (val: string) => void, onCancel: () => void }) {
-  const [val, setVal] = React.useState('');
-  React.useEffect(() => { if (isOpen) setVal(''); }, [isOpen]);
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center p-4">
-      <div className="bg-white p-6 rounded-2xl max-w-sm w-full shadow-2xl">
-        <h3 className="font-black text-xl mb-4 text-black uppercase">{title}</h3>
-        <input autoFocus value={val} onChange={e => setVal(e.target.value)} className="w-full border-2 border-stone-200 rounded-lg p-3 font-bold mb-6" />
-        <div className="flex gap-3 justify-end">
-          <button onClick={onCancel} className="px-4 py-2 bg-stone-200 text-stone-600 font-bold uppercase rounded-lg hover:bg-stone-300">Cancelar</button>
-          <button onClick={() => { onConfirm(val); onCancel(); }} className="px-4 py-2 bg-yellow-400 text-black font-bold uppercase rounded-lg hover:bg-yellow-500">OK</button>
-        </div>
-      </div>
-    </div>
-  );
-}
+fs.writeFileSync('src/components/AdminPanel.tsx', content);
+console.log('Admin panel written completely.');

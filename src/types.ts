@@ -12,6 +12,8 @@ export interface Product {
   points: number;
   emoji: string;
   image?: string;
+  images?: string[];
+  productExtras?: Extra[];
   category: 'lanches' | 'porcoes' | 'bebidas' | 'doces';
   choices?: { name: string, price?: number, image?: string }[];
   choiceName?: string;
@@ -39,6 +41,6 @@ export interface OrderInfo {
   discount: number;
   total: number;
   pointsEarned: number;
-  status: 'preparando' | 'a_caminho' | 'entregue';
+  status: 'recebido' | 'preparando' | 'a_caminho' | 'entregue';
   timestamp: Date;
 }

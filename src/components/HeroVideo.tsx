@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { subscribeToBanners, Banner } from '../lib/db';
 
 interface HeroVideoProps {
   onGoToStore: (showLastOrders: boolean) => void;
@@ -56,6 +57,7 @@ export default function HeroVideo({ onGoToStore }: HeroVideoProps) {
       <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-6xl mx-auto py-10 md:py-16 px-4">
         
         {/* Banner Carousel */}
+        {promos.length > 0 && (
         <div className="relative w-full aspect-[4/4] sm:aspect-[16/9] md:aspect-[21/9] rounded-2xl md:rounded-[32px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.5)] mb-8 border border-white/10 group">
           <AnimatePresence mode="wait">
             <motion.div
@@ -90,16 +92,19 @@ export default function HeroVideo({ onGoToStore }: HeroVideoProps) {
           </button>
 
           {/* Dots */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-            {promos.map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => setCurrentPromo(idx)}
-                className={`h-2 rounded-full transition-all duration-300 ${idx === currentPromo ? 'w-8 bg-[#F28B20]' : 'w-2 bg-white/50 hover:bg-white/80'}`}
-              />
-            ))}
-          </div>
+          {promos.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+              {promos.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCurrentPromo(idx)}
+                  className={`h-2 rounded-full transition-all duration-300 ${idx === currentPromo ? 'w-8 bg-[#F28B20]' : 'w-2 bg-white/50 hover:bg-white/80'}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
+        )}
         
         
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="w-full flex flex-col sm:flex-row justify-center gap-4 max-w-2xl mx-auto">
