@@ -223,13 +223,8 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
           </div>
         )}
       </div>
-      <ConfirmModal isOpen={confirmDeleteOpen} message={`Tem certeza que deseja apagar ${selectedIds.size} pedidos permanentemente?`} onConfirm={performDelete} onCancel={() => setConfirmDeleteOpen(false)} />
-      <ConfirmModal isOpen={!!deleteId} message="Tem certeza? Removerá o produto para sempre." onConfirm={performDeleteProd} onCancel={() => setDeleteId(null)} />
-      <PromptModal isOpen={promptImage} title="URL da Imagem" onConfirm={performAddImage} onCancel={() => setPromptImage(false)} />
-      <PromptModal isOpen={promptExtraName} title="Nome do Adicional" onConfirm={performAddExtraName} onCancel={() => setPromptExtraName(false)} />
-      <PromptModal isOpen={promptExtraPrice} title="Preço do Adicional" onConfirm={performAddExtraPrice} onCancel={() => setPromptExtraPrice(false)} />
-      <ConfirmModal isOpen={!!deleteId} message="Tem certeza que deseja apagar o cupom?" onConfirm={performDeletePromo} onCancel={() => setDeleteId(null)} />
-      <ConfirmModal isOpen={!!deleteId} message="Tem certeza? O banner será removido do site." onConfirm={performDeleteBanner} onCancel={() => setDeleteId(null)} />
+
+      
     </div>
   );
 }
@@ -268,7 +263,7 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
 
   const bulkChangeStatus = async (status: string) => {
     if (selectedIds.size === 0) return;
-    for (const id of Array.from(selectedIds)) {
+    for (const id of Array.from(selectedIds) as string[]) {
       await updateOrderStatus(id, status);
     }
     addToast({ message: `${selectedIds.size} pedidos movidos para ${status.toUpperCase()}`, type: 'success' });
@@ -294,7 +289,7 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
   };
   
   const performDelete = async () => {
-    for (const id of Array.from(selectedIds)) {
+    for (const id of Array.from(selectedIds) as string[]) {
       await deleteOrder(id);
     }
     addToast({ message: 'Pedidos apagados', type: 'success' });
@@ -402,6 +397,7 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
           />
         )}
       </AnimatePresence>
+      <ConfirmModal isOpen={confirmDeleteOpen} message={`Tem certeza que deseja apagar ${selectedIds.size} pedidos permanentemente?`} onConfirm={performDelete} onCancel={() => setConfirmDeleteOpen(false)} />
     </div>
   );
 }
@@ -702,6 +698,10 @@ function ProductEditor({ products }: { products: Product[] }) {
           </div>
         ))}
       </div>
+      <ConfirmModal isOpen={!!deleteId} message="Tem certeza? Removerá o produto para sempre." onConfirm={performDeleteProd} onCancel={() => setDeleteId(null)} />
+      <PromptModal isOpen={promptImage} title="URL da Imagem" onConfirm={performAddImage} onCancel={() => setPromptImage(false)} />
+      <PromptModal isOpen={promptExtraName} title="Nome do Adicional" onConfirm={performAddExtraName} onCancel={() => setPromptExtraName(false)} />
+      <PromptModal isOpen={promptExtraPrice} title="Preço do Adicional" onConfirm={performAddExtraPrice} onCancel={() => setPromptExtraPrice(false)} />
     </div>
   );
 }
@@ -790,6 +790,7 @@ function PromoEditor({ promos }: { promos: PromoCode[] }) {
           </div>
         ))}
       </div>
+      <ConfirmModal isOpen={!!deleteId} message="Tem certeza que deseja apagar o cupom?" onConfirm={performDeletePromo} onCancel={() => setDeleteId(null)} />
     </div>
   );
 }
@@ -895,6 +896,7 @@ function BannerEditor({ banners }: { banners: Banner[] }) {
           </div>
         ))}
       </div>
+      <ConfirmModal isOpen={!!deleteId} message="Tem certeza? O banner será removido do site." onConfirm={performDeleteBanner} onCancel={() => setDeleteId(null)} />
     </div>
   );
 }

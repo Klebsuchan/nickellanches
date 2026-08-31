@@ -11,7 +11,7 @@ export default function RenderWithNickel({ text }: { text: string }) {
     <>
       {parts.map((part, i) => {
         if (part.toLowerCase() === 'nickel') {
-          return <NickelText key={i} />;
+          return <span key={i}><NickelText /></span>;
         }
         return <React.Fragment key={i}>{part}</React.Fragment>;
       })}
