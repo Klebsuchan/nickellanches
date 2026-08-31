@@ -1,29 +1,6 @@
 const fs = require('fs');
 let content = fs.readFileSync('src/App.tsx', 'utf8');
 
-// 1. Add CheckoutModal import
-if (!content.includes('import CheckoutModal')) {
-  content = content.replace(
-    "import CartDrawer from './components/CartDrawer';",
-    "import CartDrawer from './components/CartDrawer';\nimport CheckoutModal from './components/CheckoutModal';"
-  );
-}
-
-// 2. Add isCheckoutOpen state
-if (!content.includes('const [isCheckoutOpen, setIsCheckoutOpen]')) {
-  content = content.replace(
-    "const [isCartOpen, setIsCartOpen] = useState(false);",
-    "const [isCartOpen, setIsCartOpen] = useState(false);\n  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);"
-  );
-}
-
-// 3. Update CartDrawer onCheckout to open CheckoutModal
-content = content.replace(
-  "onCheckout={() => setView('store')}",
-  "onCheckout={() => { setIsCartOpen(false); setIsCheckoutOpen(true); }}"
-);
-
-// 4. Add the CheckoutModal component
 const checkoutModalJSX = `
       <CheckoutModal
         isOpen={isCheckoutOpen}
@@ -58,7 +35,7 @@ const checkoutModalJSX = `
           msg += \`Endereço: \${details.address}\\n\`;
           msg += \`Forma de Pagamento: \${details.paymentMethod}\\n\`;
           
-          const phone = '555199999999'; // Placeholder, replace with actual store number
+          const phone = '5551980302275'; // Dummy number
           window.open(\`https://wa.me/\${phone}?text=\${encodeURIComponent(msg)}\`, '_blank');
           
           setCart([]);
@@ -69,12 +46,9 @@ const checkoutModalJSX = `
 `;
 
 content = content.replace(
-  "</AnimatePresence>\n\n      {/* Main Content */}",
-  "</AnimatePresence>\n" + checkoutModalJSX + "\n      {/* Main Content */}"
+  "<CartDrawer",
+  checkoutModalJSX + "\n      <CartDrawer"
 );
 
-// 5. Update `handleAddToCart` in ProductModal to open CartDrawer
-// Wait, `handleAddToCart` is in App.tsx! Let's check how it's defined.
-
 fs.writeFileSync('src/App.tsx', content);
-console.log('App.tsx patched for checkout');
+console.log('CheckoutModal inserted in App.tsx');

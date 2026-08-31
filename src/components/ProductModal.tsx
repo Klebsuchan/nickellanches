@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Plus, Minus, Check } from 'lucide-react';
 import { Product, Extra, CartItem } from '../types';
+import { AVAILABLE_EXTRAS } from '../data';
 
 interface ProductModalProps {
   product: Product | null;

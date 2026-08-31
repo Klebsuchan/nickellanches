@@ -130,6 +130,12 @@ export default function CartDrawer({
                 >
                   Finalizar Pedido
                 </button>
+                <button 
+                  onClick={onClose}
+                  className="w-full py-3 mt-3 bg-white border-2 border-stone-200 text-stone-600 font-bold tracking-wide uppercase rounded-xl hover:bg-stone-50 transition-colors flex items-center justify-center text-sm"
+                >
+                  Continuar Comprando
+                </button>
               </div>
             )}
           </motion.div>
