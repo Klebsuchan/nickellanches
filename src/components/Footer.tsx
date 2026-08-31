@@ -20,11 +20,11 @@ export default function Footer({ onOpenModal }: FooterProps) {
             </div>
           </div>
           <p className="text-stone-400 font-medium mb-6 text-sm leading-relaxed">
-            Desde 2015 entregando a melhor experiência em lanches artesanais. 
+            Entregando a melhor experiência em lanches artesanais. 
             Ingredientes selecionados e muito sabor em cada mordida.
           </p>
           <div className="text-stone-500 text-xs font-bold uppercase tracking-wider space-y-1">
-            <p>CNPJ: 12.345.678/0001-90</p>
+            <p>CNPJ: 63.024.150/0001-55</p>
             <p><NickelText /> LANCHES LTDA</p>
           </div>
         </div>
@@ -69,12 +69,7 @@ export default function Footer({ onOpenModal }: FooterProps) {
                 <span className="font-medium text-sm">WhatsApp: (54) 99959-8388</span>
               </a>
             </li>
-            <li>
-              <a href="mailto:contato@nickellanches.com.br" className="flex items-center gap-3 text-stone-400 hover:text-white transition-colors group">
-                <Mail size={18} className="shrink-0" />
-                <span className="font-medium text-sm">contato@nickellanches.com.br</span>
-              </a>
-            </li>
+            
             <li className="flex items-start gap-3 text-stone-400">
               <MapPin size={18} className="shrink-0 mt-0.5" />
               <span className="font-medium text-sm leading-relaxed">R. Uruguai, 919 - Petrópolis<br/>Passo Fundo - RS, 99050-030</span>

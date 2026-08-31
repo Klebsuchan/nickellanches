@@ -514,62 +514,6 @@ export default function App() {
       {view === 'profile' && (
         <ProfileView onClose={() => setView('menu')} />
       )}
-      {view === 'about' && (
-        <div className="w-full min-h-screen bg-white relative z-50">
-          <header className="py-4 px-6 flex items-center gap-4 bg-white sticky top-0 z-50 border-b border-stone-100 shadow-sm">
-            <button onClick={() => { setView('menu'); window.scrollTo(0,0); }} className="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center text-stone-900 hover:bg-stone-200 transition-colors">
-              <ArrowRight size={20} className="rotate-180" />
-            </button>
-            <h1 className="text-lg font-black text-stone-900 tracking-tight uppercase">Quem Somos</h1>
-          </header>
-          
-          <div className="max-w-4xl mx-auto px-6 py-10 pb-32">
-            <div className="mb-12">
-              <h2 className="text-3xl md:text-5xl font-black text-[#4E2A84] mb-4 uppercase tracking-tighter">Nossa História</h2>
-              <p className="text-stone-600 font-medium leading-relaxed md:text-lg">Tudo começou com uma paixão gigante por lanches de verdade. Na <NickelText /> Lanches, nós não fazemos apenas comida, nós construímos momentos. Acreditamos que um xis bem feito e um cachorro-quente no capricho podem transformar o seu dia.</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-              <div className="bg-[#FCF9F5] p-8 rounded-[32px] border border-[#F2E8D5]">
-                 <div className="text-5xl mb-4">👨‍🍳</div>
-                 <h3 className="text-2xl font-black text-stone-900 mb-2 tracking-tight">Nossa Equipe</h3>
-                 <p className="text-stone-500 text-sm leading-relaxed">Uma família de chapeiros, atendentes e entregadores dedicados. Nossa equipe trabalha em sincronia perfeita para garantir que cada ingrediente seja tratado com o respeito que a sua fome merece.</p>
-              </div>
-              <div className="bg-[#F4EBF6] p-8 rounded-[32px] border border-[#E9D9EE]">
-                 <div className="text-5xl mb-4">🍳</div>
-                 <h3 className="text-2xl font-black text-[#4E2A84] mb-2 tracking-tight">A Cozinha</h3>
-                 <p className="text-stone-600 text-sm leading-relaxed">Nosso santuário. Uma cozinha industrial moderna, higienizada rigorosamente e otimizada para que os lanches saiam na chapa na temperatura exata, selando o sabor da carne e derretendo o queijo perfeitamente.</p>
-              </div>
-            </div>
-
-            <div className="bg-stone-900 text-white p-8 md:p-12 rounded-[32px] mb-12 shadow-xl relative overflow-hidden">
-               <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2"></div>
-               <h3 className="text-3xl font-black mb-4 uppercase tracking-tight text-[#F28B20]">Como é feito & Embalado</h3>
-               <p className="text-stone-300 font-medium leading-relaxed mb-6">Cada lanche é montado passo a passo seguindo um padrão rigoroso. A maionese é caseira, o pão é sempre fresco. Na hora de embalar, usamos materiais térmicos especiais que conservam o calor e a crocância até a sua porta, evitando que o lanche chegue murcho.</p>
-               <ul className="space-y-4">
-                 <li className="flex items-center gap-3">
-                   <div className="w-8 h-8 bg-stone-800 rounded-full flex items-center justify-center text-green-400">✓</div>
-                   <span className="font-bold text-sm">Ingredientes Selecionados Diariamente</span>
-                 </li>
-                 <li className="flex items-center gap-3">
-                   <div className="w-8 h-8 bg-stone-800 rounded-full flex items-center justify-center text-green-400">✓</div>
-                   <span className="font-bold text-sm">Chapa na Temperatura Ideal (200°C)</span>
-                 </li>
-                 <li className="flex items-center gap-3">
-                   <div className="w-8 h-8 bg-stone-800 rounded-full flex items-center justify-center text-green-400">✓</div>
-                   <span className="font-bold text-sm">Embalagem Térmica Anti-Umidade</span>
-                 </li>
-               </ul>
-            </div>
-            
-            <button onClick={() => { setView('menu'); window.scrollTo(0,0); }} className="w-full bg-[#F28B20] text-white font-black uppercase tracking-widest py-4 rounded-2xl hover:bg-orange-500 transition-colors shadow-lg">
-              Voltar e Pedir Agora
-            </button>
-          </div>
-        </div>
-      )}
-
-
       {/* Info Modals */}
       <AnimatePresence>
         {activeModal && (
