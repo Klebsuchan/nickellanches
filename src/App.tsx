@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import NickelText from './components/NickelText';
 import RenderWithNickel from './components/RenderWithNickel';
 import { motion, AnimatePresence } from 'motion/react';
@@ -29,7 +29,7 @@ import CheckoutModal from './components/CheckoutModal';
 import { useToast } from './components/Toast';
 import { auth } from './lib/firebase';
 import { User as FirebaseUser } from 'firebase/auth';
-import { subscribeToProducts, subscribeToPromos, seedDatabase, createUserProfile, getUserProfile, addXpToUser, saveOrder, UserProfile, Order } from './lib/db';
+import { subscribeToOrder, getLatestOrders, subscribeToProducts, subscribeToPromos, seedDatabase, createUserProfile, getUserProfile, addXpToUser, saveOrder, UserProfile, Order } from './lib/db';
 import { playSound } from './lib/audio';
 
 export default function App() {
@@ -137,6 +137,49 @@ export default function App() {
     }
   }, []);
 
+  
+  const prevStatusRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!activeOrder?.id) return;
+    
+    const unsub = subscribeToOrder(activeOrder.id, (orderData) => {
+      if (orderData.status && orderData.status !== prevStatusRef.current) {
+        const newStatus = orderData.status;
+        
+        if (prevStatusRef.current !== null) { // only if it's a change, not initial load
+          if (newStatus === 'em_preparo') {
+            addToast({
+              title: 'Oba!',
+              message: 'Seu lanche entrou em preparo. A chapa tá quente!',
+              type: 'info'
+            });
+            playSound('powerup');
+          } else if (newStatus === 'a_caminho') {
+            addToast({
+              title: 'Partiu!',
+              message: 'O motoboy saiu para entrega. Fique atento!',
+              type: 'success'
+            });
+            playSound('powerup');
+          } else if (newStatus === 'entregue') {
+            addToast({
+              title: 'Entrega Concluída',
+              message: 'Seu lanche chegou. Bom apetite!',
+              type: 'success'
+            });
+            playSound('powerup');
+          }
+        }
+        
+        prevStatusRef.current = newStatus;
+      }
+    });
+    
+    return () => unsub();
+  }, [activeOrder?.id, addToast]);
+
+
   const handleAcceptCookies = () => {
     localStorage.setItem('cookiesAccepted', 'true');
     setShowCookies(false);
@@ -149,6 +192,18 @@ export default function App() {
         await createUserProfile(u);
         const profile = await getUserProfile(u.uid);
         setUserProfile(profile);
+        const orders = await getLatestOrders(u.uid);
+        const mappedOrders = orders.map(o => ({
+          id: o.id || '',
+          items: o.items || [],
+          subtotal: o.totalPrice || 0,
+          discount: 0,
+          total: o.totalPrice || 0,
+          pointsEarned: o.totalPoints || 0,
+          status: o.status || 'recebido',
+          timestamp: o.createdAt?.toDate ? o.createdAt.toDate() : new Date(o.createdAt || Date.now())
+        }));
+        setOrderHistory(mappedOrders as OrderInfo[]);
         setUserPoints(profile?.xp || 0);
       } else {
         setUserProfile(null);

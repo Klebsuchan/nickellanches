@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { ArrowRight, MapPin, Plus, Trash2 } from 'lucide-react';
+import { ArrowRight, MapPin, Plus, Trash2, Clock, ChevronDown, ShoppingBag, CreditCard } from 'lucide-react';
+import { OrderInfo } from '../types';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface Address {
   id: string;
@@ -7,30 +9,43 @@ interface Address {
   number: string;
   neighborhood: string;
   city: string;
+  reference?: string;
 }
 
 interface ProfileViewProps {
+  orderHistory?: OrderInfo[];
   onClose: () => void;
 }
 
-export default function ProfileView({ onClose }: ProfileViewProps) {
-  const [addresses, setAddresses] = useState<Address[]>([
-    { id: '1', street: 'Rua das Flores', number: '123', neighborhood: 'Centro', city: 'São Paulo' }
-  ]);
+export default function ProfileView({ onClose, orderHistory = [] }: ProfileViewProps) {
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [addresses, setAddresses] = useState<Address[]>(() => {
+    const saved = localStorage.getItem('user_addresses');
+    return saved ? JSON.parse(saved) : [];
+  });
+  
+  const [recentPayments, setRecentPayments] = useState<string[]>(() => {
+    const saved = localStorage.getItem('recent_payments');
+    return saved ? JSON.parse(saved) : ['PIX na Entrega', 'Cartão de Crédito'];
+  });
   const [showForm, setShowForm] = useState(false);
-  const [newAddress, setNewAddress] = useState({ street: '', number: '', neighborhood: '', city: '' });
+  const [newAddress, setNewAddress] = useState({ street: '', number: '', neighborhood: '', city: 'Passo Fundo', reference: '' });
 
   const handleAddAddress = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAddress.street || !newAddress.number) return;
     
-    setAddresses([...addresses, { ...newAddress, id: Date.now().toString() }]);
-    setNewAddress({ street: '', number: '', neighborhood: '', city: '' });
+    const updated = [...addresses, { ...newAddress, id: Date.now().toString() }];
+    setAddresses(updated);
+    localStorage.setItem('user_addresses', JSON.stringify(updated));
+    setNewAddress({ street: '', number: '', neighborhood: '', city: 'Passo Fundo', reference: '' });
     setShowForm(false);
   };
 
   const handleRemoveAddress = (id: string) => {
-    setAddresses(addresses.filter(a => a.id !== id));
+    const updated = addresses.filter(a => a.id !== id);
+    setAddresses(updated);
+    localStorage.setItem('user_addresses', JSON.stringify(updated));
   };
 
   return (
@@ -62,7 +77,7 @@ export default function ProfileView({ onClose }: ProfileViewProps) {
           )}
         </div>
 
-        {showForm && (
+                {showForm && (
           <form onSubmit={handleAddAddress} className="bg-white p-6 rounded-3xl border border-stone-200 shadow-sm mb-8 animate-fade-in">
             <h4 className="font-bold text-lg mb-4 text-[#4E2A84]">Adicionar Endereço</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -81,6 +96,18 @@ export default function ProfileView({ onClose }: ProfileViewProps) {
                 </div>
               </div>
             </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-1">Cidade</label>
+                <input required value={newAddress.city} onChange={e => setNewAddress({...newAddress, city: e.target.value})} className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 focus:outline-none focus:border-[#4E2A84] font-medium" placeholder="Passo Fundo" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-1">Ponto de Referência (Opcional)</label>
+                <input value={newAddress.reference || ''} onChange={e => setNewAddress({...newAddress, reference: e.target.value})} className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 focus:outline-none focus:border-[#4E2A84] font-medium" placeholder="Ex: Perto do mercado" />
+              </div>
+            </div>
+            
             <div className="flex justify-end gap-3 mt-6">
               <button type="button" onClick={() => setShowForm(false)} className="px-6 py-2.5 rounded-xl font-bold text-stone-500 hover:bg-stone-100 transition-colors">Cancelar</button>
               <button type="submit" className="px-6 py-2.5 rounded-xl font-bold bg-[#F28B20] text-white hover:bg-orange-500 transition-colors shadow-sm">Salvar Endereço</button>
@@ -91,13 +118,16 @@ export default function ProfileView({ onClose }: ProfileViewProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {addresses.map((addr) => (
             <div key={addr.id} className="bg-white border border-stone-200 p-5 rounded-2xl flex items-start justify-between shadow-sm group hover:border-[#F28B20] transition-colors">
+              
               <div className="flex gap-3">
                 <div className="mt-1 text-[#F28B20]"><MapPin size={20} /></div>
                 <div>
                   <p className="font-bold text-stone-900">{addr.street}, {addr.number}</p>
                   <p className="text-sm text-stone-500 font-medium">{addr.neighborhood} - {addr.city}</p>
+                  {addr.reference && <p className="text-xs text-stone-400 mt-1">Ref: {addr.reference}</p>}
                 </div>
               </div>
+
               <button onClick={() => handleRemoveAddress(addr.id)} className="text-stone-300 hover:text-red-500 transition-colors p-2">
                 <Trash2 size={18} />
               </button>
@@ -110,6 +140,90 @@ export default function ProfileView({ onClose }: ProfileViewProps) {
             </div>
           )}
         </div>
+      
+        
+        <div className="mb-12">
+          <h3 className="text-2xl font-black uppercase tracking-tight text-stone-900 mb-6 flex items-center gap-2">
+            <CreditCard className="text-[#F28B20]" size={24} /> Métodos de Pagamento Recentes
+          </h3>
+          <div className="flex flex-wrap gap-3">
+            {recentPayments.map((payment, idx) => (
+              <div key={idx} className="bg-white border border-stone-200 px-5 py-3 rounded-xl shadow-sm flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                <span className="font-bold text-stone-700">{payment}</span>
+              </div>
+            ))}
+            {recentPayments.length === 0 && (
+              <p className="text-stone-500 font-medium text-sm">Nenhum pagamento recente.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-12 mb-8">
+          <h3 className="text-2xl font-black uppercase tracking-tight text-stone-900 mb-6 flex items-center gap-2">
+            <Clock className="text-[#F28B20]" size={24} /> Histórico de Pedidos
+          </h3>
+          
+          <div className="space-y-4">
+            {orderHistory.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-3xl border border-stone-200 border-dashed">
+                <ShoppingBag size={32} className="mx-auto mb-3 text-stone-300" />
+                <p className="font-medium text-stone-500">Nenhum pedido encontrado.</p>
+              </div>
+            ) : (
+              orderHistory.map(order => (
+                <div key={order.id} className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm transition-all">
+                  <div 
+                    onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
+                    className="p-5 flex items-center justify-between cursor-pointer hover:bg-stone-50 transition-colors"
+                  >
+                    <div>
+                      <p className="font-bold text-stone-900 text-lg">Pedido #{order.id}</p>
+                      <p className="text-sm text-stone-500 font-medium">
+                        {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(order.timestamp)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="font-bold text-[#4E2A84]">R$ {order.total.toFixed(2).replace('.', ',')}</span>
+                      <ChevronDown size={20} className={`text-stone-400 transition-transform ${expandedOrder === order.id ? 'rotate-180' : ''}`} />
+                    </div>
+                  </div>
+                  
+                  <AnimatePresence>
+                    {expandedOrder === order.id && (
+                      <motion.div 
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="border-t border-stone-100 bg-stone-50/50"
+                      >
+                        <div className="p-5 space-y-3">
+                          {order.items.map((item, idx) => (
+                            <div key={idx} className="flex justify-between text-sm">
+                              <div>
+                                <span className="font-bold text-stone-700">{item.quantity}x</span>{' '}
+                                <span className="font-medium text-stone-600">{item.name}</span>
+                                {item.extras && item.extras.length > 0 && (
+                                  <div className="text-xs text-stone-500 ml-5 mt-0.5">
+                                    + {item.extras.map(e => e.name).join(', ')}
+                                  </div>
+                                )}
+                              </div>
+                              <span className="font-medium text-stone-600">
+                                R$ {((item.price + (item.extras?.reduce((acc, e) => acc + e.price, 0) || 0)) * item.quantity).toFixed(2).replace('.', ',')}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
       </div>
     </div>
   );
