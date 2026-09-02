@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import NickelText from './components/NickelText';
 import RenderWithNickel from './components/RenderWithNickel';
 import { motion, AnimatePresence } from 'motion/react';
-import { MessageCircle, Plus, Menu, Search, SlidersHorizontal, Bell, ShoppingCart, Star, ChefHat, LogOut, ArrowRight, Dog, Tag, Heart, Utensils, BookOpen, Flame, Info, Home, ShoppingBag, User, LayoutGrid, MoreVertical } from 'lucide-react';
+import { MessageCircle, Plus, Menu, Search, SlidersHorizontal, Bell, ShoppingCart, Star, ChefHat, LogOut, ArrowRight, Gamepad2, Tag, Heart, Utensils, BookOpen, Flame, Info, Home, ShoppingBag, User, LayoutGrid, MoreVertical } from 'lucide-react';
 import { MENU_ITEMS, DISCOUNT_CODES } from './data';
 import { CartItem, Product, OrderInfo } from './types';
 import AutoMarquee from './components/AutoMarquee';
@@ -553,13 +553,13 @@ export default function App() {
             <button onClick={() => { setView('store'); setShowLastOrdersState(false); window.scrollTo(0,0); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Cardápio</button>
             <button onClick={() => { document.getElementById('quem-somos')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Quem Somos</button>
             <button onClick={() => { document.getElementById('contato')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Contato</button>
-            <button onClick={() => setView('game')} className="text-sm font-bold uppercase tracking-wider text-[#4E2A84] hover:text-[#F28B20] transition-colors flex items-center gap-2"><Dog size={16}/> Jogue nosso jogo</button>
+            <button onClick={() => setView('game')} className="text-sm font-bold uppercase tracking-wider text-[#4E2A84] hover:text-[#F28B20] transition-colors flex items-center gap-2"><Gamepad2 size={16}/> Jogue nosso jogo</button>
             <button onClick={() => { setView('store'); setShowLastOrdersState(true); window.scrollTo(0,0); }} className="bg-[#F28B20] text-white px-6 py-2.5 rounded-full text-sm font-bold uppercase tracking-wider hover:bg-orange-500 transition-colors shadow-sm">Faça seu Pedido</button>
           </nav>
 
           <div className="flex items-center gap-2 md:gap-3 lg:hidden relative">
             <button onClick={() => setView('game')} className="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center text-[#4E2A84] hover:bg-stone-200 transition-colors">
-              <Dog size={18} />
+              <Gamepad2 size={18} />
             </button>
             <button onClick={() => setView('profile')} className="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center text-[#F28B20]">
               <User size={18} />
@@ -591,7 +591,7 @@ export default function App() {
                     Contato
                   </button>
                   <button onClick={() => { setIsMobileMenuOpen(false); setView('game'); }} className="text-left px-4 py-3 font-bold text-sm text-[#4E2A84] uppercase tracking-wide hover:bg-stone-50 transition-colors flex items-center gap-2">
-                    <Dog size={16} /> Jogue nosso jogo
+                    <Gamepad2 size={16} /> Jogue nosso jogo
                   </button>
                 </motion.div>
               )}
@@ -601,7 +601,7 @@ export default function App() {
           {/* Desktop User/Cart icons */}
           <div className="hidden lg:flex items-center gap-3">
             <button onClick={() => setView('game')} className="w-12 h-12 bg-stone-50 rounded-full flex items-center justify-center text-[#4E2A84] border border-stone-200 hover:bg-stone-100 transition-colors">
-              <Dog size={20} />
+              <Gamepad2 size={20} />
             </button>
              <button onClick={() => setView('profile')} className="w-12 h-12 bg-stone-50 rounded-full flex items-center justify-center text-[#F28B20] border border-stone-200 hover:bg-stone-100 transition-colors">
               <User size={20} />
