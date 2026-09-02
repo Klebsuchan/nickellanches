@@ -12,6 +12,7 @@ interface CartDrawerProps {
   discountCode: string;
   setDiscountCode: (code: string) => void;
   onApplyDiscount: () => void;
+  onRemoveDiscount: () => void;
   appliedDiscount: number | null;
   totalCartBase: number;
   discountAmount: number;
@@ -21,7 +22,7 @@ interface CartDrawerProps {
 
 export default function CartDrawer({
   isOpen, onClose, cart, onRemoveItem, discountCode, setDiscountCode, onApplyDiscount,
-  appliedDiscount, totalCartBase, discountAmount, totalCart, onCheckout
+  appliedDiscount, totalCartBase, discountAmount, totalCart, onCheckout, onRemoveDiscount
 }: CartDrawerProps) {
   return (
     <AnimatePresence>
@@ -91,20 +92,30 @@ export default function CartDrawer({
 
             {cart.length > 0 && (
               <div className="p-6 bg-white border-t-4 border-black">
-                <div className="flex gap-2 mb-4">
+                                <div className="flex gap-2 mb-4">
                   <input 
                     type="text" 
                     placeholder="Cupom de Desconto" 
                     value={discountCode}
                     onChange={(e) => setDiscountCode(e.target.value)}
-                    className="flex-1 border-2 border-black rounded-lg px-4 font-bold uppercase placeholder:normal-case outline-none focus:ring-4 focus:ring-yellow-400/50"
+                    disabled={appliedDiscount !== null}
+                    className="flex-1 border-2 border-black rounded-lg px-4 font-bold uppercase placeholder:normal-case outline-none focus:ring-4 focus:ring-yellow-400/50 disabled:bg-stone-100 disabled:text-stone-500"
                   />
-                  <button 
-                    onClick={onApplyDiscount}
-                    className="px-6 py-2 bg-black text-yellow-400 font-bold uppercase rounded-lg hover:bg-stone-800 transition-colors"
-                  >
-                    Aplicar
-                  </button>
+                  {appliedDiscount !== null ? (
+                    <button 
+                      onClick={onRemoveDiscount}
+                      className="px-4 py-2 bg-red-100 text-red-600 font-bold uppercase rounded-lg hover:bg-red-200 transition-colors"
+                    >
+                      Remover
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={onApplyDiscount}
+                      className="px-6 py-2 bg-black text-yellow-400 font-bold uppercase rounded-lg hover:bg-stone-800 transition-colors"
+                    >
+                      Aplicar
+                    </button>
+                  )}
                 </div>
                 
                 <div className="space-y-2 mb-6 font-bold text-sm">

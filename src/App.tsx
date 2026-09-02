@@ -236,10 +236,16 @@ export default function App() {
     setCart(prev => prev.filter(item => item.cartItemId !== cartItemId));
   };
 
+  const removeDiscount = () => {
+    setAppliedDiscount(null);
+    setDiscountCode('');
+  };
+
   const applyDiscount = () => {
     const code = discountCode.toUpperCase();
     if (discountCodes[code]) {
       setAppliedDiscount(discountCodes[code]);
+      setDiscountCode('');
       playSound('laser');
       addToast({ message: 'Cupom aplicado com sucesso!', type: 'success', title: 'Desconto' });
     } else {
@@ -293,7 +299,7 @@ export default function App() {
     msg += `Endereço: ${details.address}\n`;
     msg += `Forma de Pagamento: ${details.paymentMethod}\n`;
     
-    const phone = '5554999598388';
+    const phone = '5554999598389';
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
     
     // 2. Save order to Firebase
@@ -728,7 +734,7 @@ export default function App() {
 
       {/* WhatsApp Button */}
       <a 
-        href="https://wa.me/5554999598388" 
+        href="https://wa.me/5554999598389" 
         target="_blank" 
         rel="noopener noreferrer"
         className="fixed bottom-4 right-4 md:bottom-8 md:right-8 bg-[#25D366] text-white p-4 rounded-full border-2 border-black shadow-[4px_4px_0px_#000] hover:shadow-[6px_6px_0px_#000] hover:-translate-y-2 transition-all z-[90] flex items-center justify-center group"
@@ -840,6 +846,7 @@ export default function App() {
         discountCode={discountCode}
         setDiscountCode={setDiscountCode}
         onApplyDiscount={applyDiscount}
+        onRemoveDiscount={removeDiscount}
         appliedDiscount={appliedDiscount}
         totalCartBase={totalCartBase}
         discountAmount={discountAmount}
