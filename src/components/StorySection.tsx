@@ -30,7 +30,7 @@ export default function StorySection() {
           {/* Videos */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="rounded-[32px] overflow-hidden shadow-lg border-4 border-[#F28B20] relative aspect-[3/4] md:aspect-square bg-stone-900 group">
-              <video 
+              <video preload="auto" 
                 autoPlay loop muted playsInline 
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
               >
@@ -43,7 +43,7 @@ export default function StorySection() {
             </div>
             
             <div className="rounded-[32px] overflow-hidden shadow-lg border-4 border-[#4E2A84] relative aspect-[3/4] md:aspect-square bg-stone-900 group">
-              <video 
+              <video preload="auto" 
                 autoPlay loop muted playsInline 
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
               >

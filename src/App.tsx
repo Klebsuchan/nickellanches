@@ -403,7 +403,7 @@ export default function App() {
               
               <div className="h-44 w-full bg-[#FCF9F5] rounded-[24px] mb-5 flex items-center justify-center relative overflow-hidden group">
                  {item.image ? (
-                   <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                   <img loading="lazy" decoding="async"  src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                  ) : (
                    <span className="text-8xl group-hover:scale-110 transition-transform duration-300 drop-shadow-xl translate-y-2">
                       {item.emoji}
@@ -542,7 +542,7 @@ export default function App() {
       <header className="sticky top-0 z-50 bg-white border-b border-stone-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
-            <img src="/logo.png" alt="Nickel Lanches" className="h-16 sm:h-20 md:h-24 w-auto object-contain drop-shadow-md" />
+            <img loading="eager" fetchPriority="high" src="/logo.png" alt="Nickel Lanches" className="h-16 sm:h-20 md:h-24 w-auto object-contain drop-shadow-md" />
             <div className="flex flex-col justify-center -ml-2 sm:-ml-3">
               <h1 className="text-2xl sm:text-3xl md:text-4xl tracking-tighter leading-none"><NickelText /></h1>
               <h2 className="text-sm sm:text-lg md:text-xl tracking-tighter leading-none -mt-0.5 sm:-mt-1" style={{ fontFamily: '"Russo One", sans-serif', fontStyle: 'italic', color: '#FFFFFF', WebkitTextStroke: '1px black', textShadow: '1px 1px 0px #000' }}>LANCHES</h2>
@@ -773,7 +773,7 @@ export default function App() {
             transition={{ duration: 2, ease: "easeInOut" }}
             className="fixed inset-0 pointer-events-none z-[100] text-9xl drop-shadow-2xl flex items-center justify-center"
           >
-            <img src="/cochirrinho16bit.png" alt="Cachorrinho" className="w-48 h-48 object-contain drop-shadow-2xl scale-x-[-1]" />
+            <img loading="lazy" decoding="async"  src="/cochirrinho16bit.png" alt="Cachorrinho" className="w-48 h-48 object-contain drop-shadow-2xl scale-x-[-1]" />
           </motion.div>
         )}
       </AnimatePresence>

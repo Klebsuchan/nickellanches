@@ -21,7 +21,7 @@ export default function AppetiteVideo({ onGoToStore }: AppetiteVideoProps) {
            transition={{ duration: 0.8, ease: "easeOut" }}
            className="w-full relative rounded-[24px] md:rounded-[32px] border-4 border-stone-200 shadow-xl overflow-hidden bg-stone-100 flex justify-center"
          >
-           <video 
+           <video preload="auto" 
              autoPlay loop muted playsInline 
              className="w-full h-auto max-h-[70vh] md:max-h-[85vh] object-cover block"
            >
@@ -38,7 +38,7 @@ export default function AppetiteVideo({ onGoToStore }: AppetiteVideoProps) {
             transition={{ delay: 0.4, duration: 0.6 }}
             className="absolute top-0 left-4 sm:left-6 z-10 bg-white rounded-br-[16px] sm:rounded-br-[32px] md:rounded-br-[48px] p-2 pr-3 pb-3 sm:pt-4 sm:pl-4 sm:pr-6 sm:pb-6 md:pt-6 md:pl-6 md:pr-10 md:pb-10 flex flex-col items-center justify-center"
          >
-            <img src="/logo.png" alt="Nickel Lanches" className="w-16 sm:w-28 md:w-48 h-auto object-contain drop-shadow-sm" />
+            <img loading="eager" fetchPriority="high" src="/logo.png" alt="Nickel Lanches" className="w-16 sm:w-28 md:w-48 h-auto object-contain drop-shadow-sm" />
             
             {/* SVG Smooth Curve Right */}
             <svg className="absolute top-0 -right-[12px] sm:-right-[24px] md:-right-[32px] w-[12px] h-[12px] sm:w-[24px] sm:h-[24px] md:w-[32px] md:h-[32px] text-white fill-current pointer-events-none" viewBox="0 0 32 32">

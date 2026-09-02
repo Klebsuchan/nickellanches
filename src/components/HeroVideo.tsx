@@ -46,7 +46,7 @@ export default function HeroVideo({ onGoToStore }: HeroVideoProps) {
   return (
     <div className="w-full relative rounded-[24px] md:rounded-[32px] overflow-hidden shadow-xl min-h-[500px] flex items-center justify-center bg-stone-900">
       {/* Video Background */}
-      <video 
+      <video preload="auto" 
         autoPlay loop muted playsInline 
         className="absolute inset-0 w-full h-full object-cover z-0 filter brightness-[0.25]"
       >
@@ -68,7 +68,7 @@ export default function HeroVideo({ onGoToStore }: HeroVideoProps) {
               transition={{ duration: 0.8, ease: "easeInOut" }}
               className="absolute inset-0 w-full h-full bg-stone-900"
             >
-              <img src={promos[currentPromo].image} alt={promos[currentPromo].title} className="w-full h-full object-cover opacity-90" referrerPolicy="no-referrer" />
+              <img loading="lazy" decoding="async"  src={promos[currentPromo].image} alt={promos[currentPromo].title} className="w-full h-full object-cover opacity-90" referrerPolicy="no-referrer" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end items-start p-6 md:p-12 text-left">
                 <span className="bg-[#F28B20] text-white font-black px-4 py-1.5 rounded-full text-xs md:text-sm uppercase tracking-widest shadow-lg mb-3">
                   🔥 Destaque

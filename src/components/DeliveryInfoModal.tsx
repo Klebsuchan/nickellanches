@@ -37,8 +37,8 @@ export default function DeliveryInfoModal({ onClose }: { onClose: () => void }) 
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <img src="https://images.unsplash.com/photo-1572656306390-40a9fc3899f7?q=80&w=400&auto=format&fit=crop" className="w-full h-32 md:h-48 object-cover rounded-2xl" alt="Ingredientes frescos" referrerPolicy="no-referrer" />
-                <img src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=400&auto=format&fit=crop" className="w-full h-32 md:h-48 object-cover rounded-2xl" alt="Chapa de lanches" referrerPolicy="no-referrer" />
+                <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1572656306390-40a9fc3899f7?q=80&w=400&auto=format&fit=crop" className="w-full h-32 md:h-48 object-cover rounded-2xl" alt="Ingredientes frescos" referrerPolicy="no-referrer" />
+                <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=400&auto=format&fit=crop" className="w-full h-32 md:h-48 object-cover rounded-2xl" alt="Chapa de lanches" referrerPolicy="no-referrer" />
               </div>
             </div>
 
