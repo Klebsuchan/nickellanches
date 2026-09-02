@@ -98,10 +98,13 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
 
   useEffect(() => {
     const img = new Image();
-    img.src = '/cochirrinho16bit.png';
     img.onload = () => {
       dogImageRef.current = img;
     };
+    img.src = '/cochirrinho16bit.png';
+    if (img.complete) {
+      dogImageRef.current = img;
+    }
   }, []);
 
   const gameState = useRef({

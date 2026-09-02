@@ -773,7 +773,7 @@ export default function App() {
             transition={{ duration: 2, ease: "easeInOut" }}
             className="fixed inset-0 pointer-events-none z-[100] text-9xl drop-shadow-2xl flex items-center justify-center"
           >
-            🐶🚀
+            <img src="/cochirrinho16bit.png" alt="Cachorrinho" className="w-48 h-48 object-contain drop-shadow-2xl scale-x-[-1]" />
           </motion.div>
         )}
       </AnimatePresence>
