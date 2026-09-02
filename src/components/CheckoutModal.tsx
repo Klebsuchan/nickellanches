@@ -142,6 +142,10 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, onConfirm 
                       </div>
                     ))}
                   </div>
+                  <div className="flex justify-between text-stone-500 font-bold uppercase text-xs pt-3 pb-2 border-t border-stone-100">
+                    <span>Frete</span>
+                    <span className="text-right">Calculado no WhatsApp</span>
+                  </div>
                   <div className="flex justify-between items-center pt-3 border-t border-stone-100">
                     <span className="font-bold text-stone-500 uppercase text-sm">Total a pagar</span>
                     <span className="font-black text-2xl text-[#F28B20]">R$ {total.toFixed(2).replace('.', ',')}</span>

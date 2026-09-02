@@ -1,34 +1,8 @@
 const fs = require('fs');
+let content = fs.readFileSync('src/components/CartDrawer.tsx', 'utf8');
 
-let code = fs.readFileSync('src/App.tsx', 'utf8');
+const targetStr = '                  <div className="flex justify-between text-xl text-black font-black uppercase pt-2 border-t-2 border-stone-100">';
+const replacement = '                  <div className="flex justify-between text-stone-500 font-bold uppercase text-xs pt-2">\n                    <span>Frete</span>\n                    <span className="text-right">Calculado no WhatsApp</span>\n                  </div>\n                  <div className="flex justify-between text-xl text-black font-black uppercase pt-2 border-t-2 border-stone-100">';
 
-// Add import
-if (!code.includes("import CartDrawer")) {
-  code = code.replace(
-    "import ProductModal from './components/ProductModal';",
-    "import ProductModal from './components/ProductModal';\nimport CartDrawer from './components/CartDrawer';"
-  );
-}
-
-// Add the CartDrawer to the end of the file right above </AnimatePresence> that closes modals, or just before <ProductModal
-code = code.replace(
-  '<ProductModal',
-  `      <CartDrawer 
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        cart={cart}
-        onRemoveItem={removeFromCart}
-        discountCode={discountCode}
-        setDiscountCode={setDiscountCode}
-        onApplyDiscount={applyDiscount}
-        appliedDiscount={appliedDiscount}
-        totalCartBase={totalCartBase}
-        discountAmount={discountAmount}
-        totalCart={totalCart}
-        onCheckout={() => setView('store')}
-      />
-      <ProductModal`
-);
-
-fs.writeFileSync('src/App.tsx', code);
-console.log('patched app to include CartDrawer');
+content = content.replace(targetStr, replacement);
+fs.writeFileSync('src/components/CartDrawer.tsx', content);

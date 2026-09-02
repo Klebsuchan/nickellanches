@@ -118,6 +118,10 @@ export default function CartDrawer({
                       <span>- R$ {discountAmount.toFixed(2).replace('.', ',')}</span>
                     </div>
                   )}
+                  <div className="flex justify-between text-stone-500 font-bold uppercase text-xs pt-2">
+                    <span>Frete</span>
+                    <span className="text-right">Calculado no WhatsApp</span>
+                  </div>
                   <div className="flex justify-between text-xl text-black font-black uppercase pt-2 border-t-2 border-stone-100">
                     <span>Total</span>
                     <span>R$ {totalCart.toFixed(2).replace('.', ',')}</span>

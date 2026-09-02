@@ -79,16 +79,6 @@ export default function App() {
     };
   }, []);
 
-  // Also auto-apply if cart changes and a promo is available
-  useEffect(() => {
-    if (cart.length > 0 && !appliedDiscount) {
-      const codes = Object.keys(discountCodes);
-      if (codes.length > 0) {
-        setDiscountCode(codes[0]);
-        setAppliedDiscount(discountCodes[codes[0]]);
-      }
-    }
-  }, [cart.length, discountCodes]);
 
   
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -295,7 +285,7 @@ export default function App() {
     if (discountAmount > 0) {
       msg += `*Desconto:* -R$ ${discountAmount.toFixed(2).replace('.', ',')}\n`;
     }
-    msg += `*TOTAL: R$ ${totalCart.toFixed(2).replace('.', ',')}*\n\n`;
+    msg += `*TOTAL: R$ ${totalCart.toFixed(2).replace('.', ',')} + Frete a calcular*\n\n`;
     
     msg += `*DADOS PARA ENTREGA:*\n`;
     msg += `Nome: ${details.name}\n`;
