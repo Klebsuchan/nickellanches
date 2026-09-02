@@ -193,6 +193,9 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
   const productsRef = collection(db, "products");
   return onSnapshot(productsRef, (snap) => {
     callback(snap.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Product[]);
+  }, (error) => {
+    console.error("Error subscribing to products (offline or missing rules):", error);
+    // Don't crash
   });
 };
 
@@ -200,6 +203,8 @@ export const subscribeToPromos = (callback: (promos: PromoCode[]) => void) => {
   const promosRef = collection(db, "promos");
   return onSnapshot(promosRef, (snap) => {
     callback(snap.docs.map(doc => ({ ...doc.data(), id: doc.id })) as PromoCode[]);
+  }, (error) => {
+    console.error("Error subscribing to promos:", error);
   });
 };
 
@@ -209,6 +214,8 @@ export const subscribeToOrder = (orderId: string, callback: (order: Order) => vo
     if (doc.exists()) {
       callback({ id: doc.id, ...doc.data() } as Order);
     }
+  }, (error) => {
+    console.error("Error subscribing to order:", error);
   });
 };
 
@@ -221,28 +228,32 @@ export const subscribeToAllOrders = (callback: (orders: Order[]) => void) => {
 };
 
 export const seedDatabase = async (initialProducts: Product[], initialPromos: { [key: string]: number }) => {
-  const productsRef = collection(db, "products");
-  const promosRef = collection(db, "promos");
-  const metaRef = doc(db, "system", "metadata");
+  try {
+    const productsRef = collection(db, "products");
+    const promosRef = collection(db, "promos");
+    const metaRef = doc(db, "system", "metadata");
+    
+    const metaSnap = await getDoc(metaRef);
+    const currentVersion = metaSnap.exists() ? metaSnap.data().seedVersion : 0;
+    const TARGET_VERSION = 3; // Increment this to force re-seed
   
-  const metaSnap = await getDoc(metaRef);
-  const currentVersion = metaSnap.exists() ? metaSnap.data().seedVersion : 0;
-  const TARGET_VERSION = 3; // Increment this to force re-seed
-
-  const productsSnap = await getDocs(productsRef);
-  
-  if (productsSnap.empty || currentVersion < TARGET_VERSION) {
-    for (const p of initialProducts) {
-      await setDoc(doc(db, "products", p.id!), p, { merge: true });
+    const productsSnap = await getDocs(productsRef);
+    
+    if (productsSnap.empty || currentVersion < TARGET_VERSION) {
+      for (const p of initialProducts) {
+        await setDoc(doc(db, "products", p.id!), p, { merge: true });
+      }
+      await setDoc(metaRef, { seedVersion: TARGET_VERSION }, { merge: true });
     }
-    await setDoc(metaRef, { seedVersion: TARGET_VERSION }, { merge: true });
-  }
-  
-  const promosSnap = await getDocs(promosRef);
-  if (promosSnap.empty) {
-    for (const [code, discount] of Object.entries(initialPromos)) {
-      await setDoc(doc(db, "promos", code), { code, discount });
+    
+    const promosSnap = await getDocs(promosRef);
+    if (promosSnap.empty) {
+      for (const [code, discount] of Object.entries(initialPromos)) {
+        await setDoc(doc(db, "promos", code), { code, discount });
+      }
     }
+  } catch (error) {
+    console.error("Erro ao sincronizar banco de dados (provavelmente offline ou sem permissão):", error);
   }
 };
 

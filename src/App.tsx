@@ -27,7 +27,7 @@ import ProductModal from './components/ProductModal';
 import CartDrawer from './components/CartDrawer';
 import CheckoutModal from './components/CheckoutModal';
 import { useToast } from './components/Toast';
-import { auth } from './lib/firebase';
+import { auth, signInWithGoogle, signOut } from './lib/firebase';
 import { User as FirebaseUser } from 'firebase/auth';
 import { subscribeToOrder, getLatestOrders, subscribeToProducts, subscribeToPromos, seedDatabase, createUserProfile, getUserProfile, addXpToUser, saveOrder, UserProfile, Order } from './lib/db';
 import { playSound } from './lib/audio';
@@ -61,7 +61,7 @@ export default function App() {
   const [discountCodes, setDiscountCodes] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    // seedDatabase(MENU_ITEMS, DISCOUNT_CODES);
+    seedDatabase(MENU_ITEMS, DISCOUNT_CODES);
     const unsubProducts = subscribeToProducts(setMenuItems);
     const unsubPromos = subscribeToPromos((promos) => {
       const codeMap = promos.reduce((acc, curr) => ({ ...acc, [curr.code]: curr.discount }), {});
@@ -179,22 +179,26 @@ export default function App() {
     const unsubscribe = auth.onAuthStateChanged(async (u) => {
       setUser(u);
       if (u) {
-        await createUserProfile(u);
-        const profile = await getUserProfile(u.uid);
-        setUserProfile(profile);
-        const orders = await getLatestOrders(u.uid);
-        const mappedOrders = orders.map(o => ({
-          id: o.id || '',
-          items: o.items || [],
-          subtotal: o.totalPrice || 0,
-          discount: 0,
-          total: o.totalPrice || 0,
-          pointsEarned: o.totalPoints || 0,
-          status: o.status || 'recebido',
-          timestamp: o.createdAt?.toDate ? o.createdAt.toDate() : new Date(o.createdAt || Date.now())
-        }));
-        setOrderHistory(mappedOrders as OrderInfo[]);
-        setUserPoints(profile?.xp || 0);
+        try {
+          await createUserProfile(u);
+          const profile = await getUserProfile(u.uid);
+          setUserProfile(profile);
+          const orders = await getLatestOrders(u.uid);
+          const mappedOrders = orders.map(o => ({
+            id: o.id || '',
+            items: o.items || [],
+            subtotal: o.totalPrice || 0,
+            discount: 0,
+            total: o.totalPrice || 0,
+            pointsEarned: o.totalPoints || 0,
+            status: o.status || 'recebido',
+            timestamp: o.createdAt?.toDate ? o.createdAt.toDate() : new Date(o.createdAt || Date.now())
+          }));
+          setOrderHistory(mappedOrders as OrderInfo[]);
+          setUserPoints(profile?.xp || 0);
+        } catch (error) {
+          console.error("Error loading user data (possibly offline or no permissions):", error);
+        }
       } else {
         setUserProfile(null);
         setUserPoints(0);
@@ -655,7 +659,14 @@ export default function App() {
       <div className="relative z-10 w-full h-full">
             {view === 'store' && renderStore()}
       {view === 'profile' && (
-        <ProfileView onClose={() => setView('menu')} />
+        <ProfileView 
+          onClose={() => setView('menu')} 
+          orderHistory={orderHistory} 
+          user={user} 
+          userProfile={userProfile} 
+          onLogin={signInWithGoogle} 
+          onLogout={signOut} 
+        />
       )}
       {/* Info Modals */}
       <AnimatePresence>
