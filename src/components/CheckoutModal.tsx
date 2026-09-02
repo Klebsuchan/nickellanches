@@ -32,13 +32,14 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, onConfirm 
   const [name, setName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [address, setAddress] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('PIX (Pagamento na Entrega)');
+  const [paymentMethod, setPaymentMethod] = useState('Pagamento Online Seguro (Stripe)');
+  const [isProcessing, setIsProcessing] = useState(false);
   const [changeFor, setChangeFor] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
 
@@ -60,6 +61,48 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, onConfirm 
     }
 
     let finalPayment = paymentMethod;
+
+    if (paymentMethod === 'Pagamento Online Seguro (Stripe)') {
+      setIsProcessing(true);
+      try {
+        // Save pending order to localStorage to recover after Stripe redirect
+        localStorage.setItem('pendingStripeOrder', JSON.stringify({
+          cart,
+          details: {
+            name: name.trim(),
+            whatsapp: whatsapp.trim(),
+            address: address.trim(),
+            paymentMethod: 'Stripe Online'
+          }
+        }));
+
+        const response = await fetch('/api/create-checkout-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: cart,
+            orderDetails: {
+              name: name.trim(),
+              whatsapp: whatsapp.trim(),
+              address: address.trim(),
+            }
+          }),
+        });
+
+        const data = await response.json();
+        
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          setErrorMessage(data.error || 'Erro ao processar pagamento online. Verifique se as chaves da Stripe estão configuradas.');
+        }
+      } catch (err: any) {
+        setErrorMessage('Erro de conexão ao iniciar o pagamento.');
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
 
     onConfirm({ 
       name: name.trim(), 
