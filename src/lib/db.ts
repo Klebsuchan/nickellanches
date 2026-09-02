@@ -20,6 +20,7 @@ export interface Order {
   userId?: string;
   userName?: string;
   paymentMethod?: string;
+  whatsapp?: string;
   address?: string;
 }
 

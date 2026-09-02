@@ -215,7 +215,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, onConfirm 
                           key={method.id}
                           className={`flex items-center justify-between p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
                             isSelected 
-                              ? 'border-[#F28B20] bg-orange-50/60 shadow-sm'
+                              ? 'border-[#F28B20] bg-orange-50 shadow-sm'
                               : 'border-stone-200 hover:border-stone-300 bg-stone-50/50 hover:bg-stone-50'
                           }`}
                         >
@@ -253,7 +253,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, onConfirm 
                             onChange={(e) => {
                               if (e.target.checked) setPaymentMethod(method.id);
                             }}
-                            className="sr-only" 
+                            className="hidden" 
                           />
                         </label>
                       );
@@ -261,6 +261,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, onConfirm 
                   </div>
 
                   {/* Campo de Troco caso seja Dinheiro */}
+                  <AnimatePresence>
                   {paymentMethod === 'Dinheiro na Entrega' && (
                     <motion.div 
                       initial={{ opacity: 0, height: 0 }}
@@ -280,6 +281,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, onConfirm 
                       />
                     </motion.div>
                   )}
+                  </AnimatePresence>
                 </div>
 
                 {errorMessage && (
