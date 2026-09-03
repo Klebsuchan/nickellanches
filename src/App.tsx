@@ -302,6 +302,9 @@ export default function App() {
     msg += `WhatsApp: ${details.whatsapp}\n`;
     msg += `Endereço: ${details.address}\n`;
     msg += `Forma de Pagamento: ${details.paymentMethod}\n`;
+    if (details.changeFor) {
+      msg += `Troco para: R$ ${details.changeFor}\n`;
+    }
     
     const phone = '5554999598389';
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');

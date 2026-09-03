@@ -38,7 +38,7 @@ const MOCK_FEEDBACKS: Feedback[] = [
     userId: 'mock3',
     userName: 'Amanda Costa',
     userAvatar: 'https://randomuser.me/api/portraits/women/68.jpg',
-    text: 'Salsicha artesanal faz toda a diferença. Recomendo o X-Bacon Mágico pra todo mundo de Passo Fundo.',
+    text: 'O bacon bem crocante e a maionese caseira fazem toda a diferença. Recomendo o Xis Bacon pra todo mundo de Passo Fundo.',
     location: 'Passo Fundo, RS',
     rating: 5,
     foodPhoto: '/images/xisbacon-1.avif',
