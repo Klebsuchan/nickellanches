@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+const fs = require('fs');
+
+const content = `import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, CheckCircle, Smartphone, MapPin, CreditCard, User as UserIcon, AlertCircle } from 'lucide-react';
 import { CartItem } from '../types';
@@ -244,3 +246,6 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, onConfirm 
     </AnimatePresence>
   );
 }
+`;
+
+fs.writeFileSync('src/components/CheckoutModal.tsx', content);

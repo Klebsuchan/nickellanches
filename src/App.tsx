@@ -342,11 +342,12 @@ export default function App() {
     setDiscountCode('');
     setIsCartOpen(false);
     setIsCheckoutOpen(false);
-    setView('game');
+    setView('profile');
+    window.scrollTo(0,0);
     
     addToast({
       title: 'Pedido Enviado!',
-      message: 'Pedido enviado para o WhatsApp e lanche na chapa!',
+      message: 'Pedido enviado! Acompanhe o preparo e jogue enquanto espera.',
       type: 'info'
     });
   };
@@ -659,9 +660,7 @@ export default function App() {
       <div className="relative z-10 w-full h-full">
             {view === 'store' && renderStore()}
       {view === 'profile' && (
-        <ProfileView 
-          onClose={() => setView('menu')} 
-          orderHistory={orderHistory} 
+        <ProfileView onClose={() => setView('menu')} orderHistory={orderHistory} onPlayGame={() => setView('game')}
           user={user} 
           userProfile={userProfile} 
           onLogin={signInWithGoogle} 
