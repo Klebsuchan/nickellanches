@@ -29,11 +29,12 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, onConfirm 
   const [name, setName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [address, setAddress] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'cartao' | 'dinheiro'>('pix');
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'cartao' | 'dinheiro' | 'fiado'>('pix');
   const [changeOption, setChangeOption] = useState<'none' | 'need'>('none');
   const [changeFor, setChangeFor] = useState('');
   const [isProcessingStripe, setIsProcessingStripe] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [showFiadoPrank, setShowFiadoPrank] = useState(false);
 
   if (!isOpen) return null;
 
@@ -398,6 +399,27 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, onConfirm 
                         )}
                       </motion.div>
                     )}
+                    
+                    {/* Opção Fiado (Prank) */}
+                    <label 
+                      onClick={() => {
+                        setShowFiadoPrank(true);
+                        // Reverts back to 'pix' after 3 seconds automatically or just keep the prank modal open
+                      }}
+                      className={`flex items-center justify-between p-3.5 rounded-xl border-2 cursor-pointer transition-all border-stone-200 hover:border-stone-300 bg-stone-50/50`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center border-stone-300 bg-white`}>
+                        </div>
+                        <div className={`p-2 rounded-lg bg-stone-100 text-stone-600`}>
+                          <UserIcon size={18} />
+                        </div>
+                        <div>
+                          <span className="font-bold text-sm text-stone-900 block">Fiado (Só para os de verdade)</span>
+                          <span className="text-xs text-stone-500 font-medium">Anota na minha conta e depois eu pago</span>
+                        </div>
+                      </div>
+                    </label>
                   </div>
                 </div>
 
@@ -439,6 +461,40 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, onConfirm 
               </p>
             </div>
 
+          </motion.div>
+        </div>
+      )}
+      
+      {/* Prank Modal Fiado */}
+      {showFiadoPrank && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowFiadoPrank(false)}
+            className="absolute inset-0 bg-black/60 backdrop-blur-md"
+          />
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.8, rotate: -5 }}
+            animate={{ opacity: 1, scale: 1, rotate: 0 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ type: "spring", bounce: 0.5, duration: 0.6 }}
+            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl relative z-10 p-6 flex flex-col items-center text-center overflow-hidden"
+          >
+            <div className="w-20 h-20 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4">
+              <span className="text-4xl">🤡</span>
+            </div>
+            <h3 className="text-2xl font-black text-stone-900 uppercase mb-2">Acreditou mesmo? kkkk</h3>
+            <p className="text-stone-600 font-medium mb-6">
+              Aqui fiado só amanhã! Escolhe outra forma de pagamento aí, espertinho(a).
+            </p>
+            <button 
+              onClick={() => setShowFiadoPrank(false)}
+              className="w-full bg-[#F28B20] text-white rounded-xl py-3 font-bold uppercase tracking-wider shadow-lg hover:bg-[#d97a1c] transition-all active:scale-95"
+            >
+              Tá bom, parei
+            </button>
           </motion.div>
         </div>
       )}
