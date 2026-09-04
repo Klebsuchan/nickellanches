@@ -321,7 +321,7 @@ export const MENU_ITEMS: Product[] = [
   "points": 135,
   "emoji": "👨‍👩‍👧‍👦",
   "image": "/images/xisnickelmix-1.jpg",
-  "category": "lanches"
+  "category": "combos"
 },
   {
   "id": "c2",
@@ -331,7 +331,7 @@ export const MENU_ITEMS: Product[] = [
   "points": 37,
   "emoji": "👦",
   "image": "/images/nickeldog-1.avif",
-  "category": "lanches"
+  "category": "combos"
 },
   {
   "id": "c3",
@@ -341,7 +341,7 @@ export const MENU_ITEMS: Product[] = [
   "points": 52,
   "emoji": "🏆",
   "image": "/images/xisespecial-1.avif",
-  "category": "lanches"
+  "category": "combos"
 },
   {
   "id": "c4",
@@ -351,7 +351,67 @@ export const MENU_ITEMS: Product[] = [
   "points": 105,
   "emoji": "💑",
   "image": "/images/xisespecial-1.avif",
-  "category": "lanches"
+  "category": "combos"
+},
+{
+  "id": "p1",
+  "name": "Batata Frita P",
+  "description": "Porção pequena de batata frita bem crocante",
+  "price": 15,
+  "points": 22,
+  "emoji": "🍟",
+  "image": "/images/batatafritap.avif",
+  "category": "porcoes"
+},
+{
+  "id": "p2",
+  "name": "Batata Frita M",
+  "description": "Porção média de batata frita bem crocante",
+  "price": 24,
+  "points": 36,
+  "emoji": "🍟",
+  "image": "/images/batafritam.avif",
+  "category": "porcoes"
+},
+{
+  "id": "p3",
+  "name": "Batata Frita G",
+  "description": "Porção grande de batata frita, serve até 3 pessoas",
+  "price": 36,
+  "points": 54,
+  "emoji": "🍟",
+  "image": "/images/batatafritag.avif",
+  "category": "porcoes"
+},
+{
+  "id": "p4",
+  "name": "Batata Frita P com Cheddar e Bacon",
+  "description": "Porção pequena de batata frita com cheddar e bacon crocante em cubos",
+  "price": 25,
+  "points": 37,
+  "emoji": "🍟",
+  "image": "/images/batatacheddarbacon.jpg",
+  "category": "porcoes"
+},
+{
+  "id": "p5",
+  "name": "Batata Frita M com Cheddar e Bacon",
+  "description": "Porção média de batata frita com cheddar e bacon crocante em cubos",
+  "price": 34,
+  "points": 51,
+  "emoji": "🍟",
+  "image": "/images/batatafritambacon.jpg",
+  "category": "porcoes"
+},
+{
+  "id": "p6",
+  "name": "Batata Frita G com Cheddar e Bacon",
+  "description": "Porção grande de batata frita com muito cheddar e bacon crocante em cubos",
+  "price": 46,
+  "points": 69,
+  "emoji": "🍟",
+  "image": "/images/batatafritagcheddar.jpg",
+  "category": "porcoes"
 }
 ];
 

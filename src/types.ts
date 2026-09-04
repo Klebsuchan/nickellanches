@@ -14,7 +14,7 @@ export interface Product {
   image?: string;
   images?: string[];
   productExtras?: Extra[];
-  category: 'lanches' | 'porcoes' | 'bebidas' | 'doces';
+  category: 'lanches' | 'porcoes' | 'bebidas' | 'doces' | 'combos';
   choices?: { name: string, price?: number, image?: string }[];
   choiceName?: string;
 }

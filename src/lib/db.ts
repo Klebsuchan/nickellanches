@@ -235,7 +235,7 @@ export const seedDatabase = async (initialProducts: Product[], initialPromos: { 
     
     const metaSnap = await getDoc(metaRef);
     const currentVersion = metaSnap.exists() ? metaSnap.data().seedVersion : 0;
-    const TARGET_VERSION = 5; // Increment this to force re-seed
+    const TARGET_VERSION = 8; // Increment this to force re-seed
   
     const productsSnap = await getDocs(productsRef);
     

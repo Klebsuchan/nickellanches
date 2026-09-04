@@ -42,7 +42,7 @@ export default function App() {
   }
 
   const [activeTab, setActiveTab] = useState<'cardapio' | 'historia' | 'cozinha' | 'comunidade'>('cardapio');
-  const [selectedCategory, setSelectedCategory] = useState<'Todos' | 'Xis' | 'Cachorro Quente' | 'Bebidas'>('Todos');
+  const [selectedCategory, setSelectedCategory] = useState<'Todos' | 'Xis' | 'Cachorro Quente' | 'Combos' | 'Porções' | 'Bebidas'>('Todos');
   const [view, setView] = useState<'menu' | 'store' | 'game' | 'admin' | 'about' | 'profile'>('menu');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -503,6 +503,8 @@ export default function App() {
               { id: 'Todos', emoji: '🍔', label: 'Todos' },
               { id: 'Xis', emoji: '🍔', label: 'Xis' },
               { id: 'Cachorro Quente', emoji: '🌭', label: 'Cachorros' },
+              { id: 'Combos', emoji: '🥤', label: 'Combos' },
+              { id: 'Porções', emoji: '🍟', label: 'Porções' },
               { id: 'Bebidas', emoji: '🥤', label: 'Bebidas' }
             ].map(cat => (
               <button
@@ -531,6 +533,10 @@ export default function App() {
                  ? xisItems
                : selectedCategory === 'Cachorro Quente'
                  ? hotDogItems
+               : selectedCategory === 'Combos'
+                 ? menuItems.filter(item => item.category === 'combos')
+               : selectedCategory === 'Porções'
+                 ? menuItems.filter(item => item.category === 'porcoes' || item.category === 'porções')
                : menuItems.filter(item => item.category === selectedCategory.toLowerCase()),
             selectedCategory === 'Todos' ? 'Todos os Lanches' : selectedCategory
           )}
