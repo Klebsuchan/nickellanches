@@ -235,7 +235,7 @@ export const seedDatabase = async (initialProducts: Product[], initialPromos: { 
     
     const metaSnap = await getDoc(metaRef);
     const currentVersion = metaSnap.exists() ? metaSnap.data().seedVersion : 0;
-    const TARGET_VERSION = 8; // Increment this to force re-seed
+    const TARGET_VERSION = 9; // Increment this to force re-seed
   
     const productsSnap = await getDocs(productsRef);
     
@@ -365,12 +365,6 @@ export const subscribeToBanners = (callback: (banners: Banner[]) => void) => {
           image: "/images/comboloucura.jpg",
           title: "Promoção Loucura",
           description: "4 X-Especiais por R$ 90 + Refri 2L Charrua"
-        },
-        {
-          id: '2',
-          image: "https://images.unsplash.com/photo-1576107232684-1279f390859f?q=80&w=1200&auto=format&fit=crop",
-          title: "Promoção Fim de Mês",
-          description: "Batata Frita com Maionese Caseira por R$ 6!"
         }
       ]);
     } else {

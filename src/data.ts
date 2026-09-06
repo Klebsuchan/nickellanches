@@ -320,7 +320,7 @@ export const MENU_ITEMS: Product[] = [
   "price": 90,
   "points": 135,
   "emoji": "👨‍👩‍👧‍👦",
-  "image": "/images/xisnickelmix-1.jpg",
+  "image": "/images/combofamilia.jpg",
   "category": "combos"
 },
   {
@@ -350,7 +350,7 @@ export const MENU_ITEMS: Product[] = [
   "price": 70,
   "points": 105,
   "emoji": "💑",
-  "image": "/images/xisespecial-1.avif",
+  "image": "/images/combocasal.avif",
   "category": "combos"
 },
 {

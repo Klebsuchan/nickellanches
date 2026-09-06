@@ -20,12 +20,6 @@ export default function HeroVideo({ onGoToStore }: HeroVideoProps) {
       description: "4 X-Especiais por R$ 90 + Refri 2L Charrua"
     },
     {
-      id: 2,
-      image: "https://images.unsplash.com/photo-1576107232684-1279f390859f?q=80&w=1200&auto=format&fit=crop",
-      title: "Promoção Fim de Mês",
-      description: "Batata Frita com Maionese Caseira por R$ 6!"
-    },
-    {
       id: 3,
       image: "/images/combinhocasal.jpg",
       title: "Combinho Casal",
