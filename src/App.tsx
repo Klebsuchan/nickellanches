@@ -568,16 +568,13 @@ export default function App() {
           </nav>
 
           <div className="flex items-center gap-2 md:gap-3 lg:hidden relative">
-            <button onClick={() => setView('game')} className="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center text-[#4E2A84] hover:bg-stone-200 transition-colors">
-              <Gamepad2 size={18} />
+            <button onClick={() => setView('game')} className="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center text-[#4E2A84] hover:bg-stone-200 transition-colors">
+              <Gamepad2 size={24} />
             </button>
-            <button onClick={() => setView('profile')} className="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center text-[#F28B20]">
-              <User size={18} />
-            </button>
-            <button onClick={() => setIsCartOpen(true)} className="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center text-stone-900 relative">
-              <ShoppingBag size={18} />
+            <button onClick={() => setIsCartOpen(true)} className="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center text-stone-900 relative">
+              <ShoppingBag size={24} />
               {cart.reduce((sum, item) => sum + item.quantity, 0) > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#4E2A84] rounded-full flex items-center justify-center text-[10px] text-white font-bold">
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#4E2A84] rounded-full flex items-center justify-center text-[10px] text-white font-bold border-2 border-white">
                   {cart.reduce((sum, item) => sum + item.quantity, 0)}
                 </span>
               )}
@@ -594,13 +591,16 @@ export default function App() {
                   exit={{ opacity: 0, y: -10 }}
                   className="absolute top-12 right-0 w-48 bg-white border border-stone-200 rounded-2xl shadow-xl flex flex-col py-2 z-50 overflow-hidden"
                 >
-                  <button onClick={() => { setIsMobileMenuOpen(false); document.getElementById('quem-somos')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-left px-4 py-3 font-bold text-sm text-stone-700 uppercase tracking-wide hover:bg-stone-50 transition-colors">
+                  <button onClick={() => { setIsMobileMenuOpen(false); setView('profile'); }} className="text-left px-4 py-3 font-bold text-sm text-[#F28B20] uppercase tracking-wide hover:bg-stone-50 transition-colors flex items-center gap-2">
+                    <User size={16} /> Minha Conta
+                  </button>
+                  <button onClick={() => { setIsMobileMenuOpen(false); document.getElementById('quem-somos')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-left px-4 py-3 font-bold text-sm text-stone-700 uppercase tracking-wide hover:bg-stone-50 transition-colors border-t border-stone-100">
                     Quem Somos
                   </button>
                   <button onClick={() => { setIsMobileMenuOpen(false); document.getElementById('contato')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-left px-4 py-3 font-bold text-sm text-stone-700 uppercase tracking-wide hover:bg-stone-50 transition-colors">
                     Contato
                   </button>
-                  <button onClick={() => { setIsMobileMenuOpen(false); setView('game'); }} className="text-left px-4 py-3 font-bold text-sm text-[#4E2A84] uppercase tracking-wide hover:bg-stone-50 transition-colors flex items-center gap-2">
+                  <button onClick={() => { setIsMobileMenuOpen(false); setView('game'); }} className="text-left px-4 py-3 font-bold text-sm text-[#4E2A84] uppercase tracking-wide hover:bg-stone-50 transition-colors flex items-center gap-2 border-t border-stone-100">
                     <Gamepad2 size={16} /> Jogue nosso jogo
                   </button>
                 </motion.div>
@@ -630,7 +630,13 @@ export default function App() {
 
       {/* Hero Section */}
       <div className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 mt-6 mb-8">
-        <HeroVideo onGoToStore={(showLastOrders) => { setView('store'); setShowLastOrdersState(showLastOrders); window.scrollTo(0, 0); }} />
+        <HeroVideo 
+          onGoToStore={(showLastOrders) => { setView('store'); setShowLastOrdersState(showLastOrders); window.scrollTo(0, 0); }} 
+          onOpenProduct={(id) => { 
+            const p = menuItems.find(item => item.id === id); 
+            if (p) setSelectedProduct(p); 
+          }}
+        />
       </div>
 
       {/* Quem Somos Section */}

@@ -5,9 +5,10 @@ import { subscribeToBanners, Banner } from '../lib/db';
 
 interface HeroVideoProps {
   onGoToStore: (showLastOrders: boolean) => void;
+  onOpenProduct?: (productId: string) => void;
 }
 
-export default function HeroVideo({ onGoToStore }: HeroVideoProps) {
+export default function HeroVideo({ onGoToStore, onOpenProduct }: HeroVideoProps) {
   const scrollToMenu = () => {
     document.getElementById('cardapio')?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -15,15 +16,31 @@ export default function HeroVideo({ onGoToStore }: HeroVideoProps) {
   const promos = [
     {
       id: 1,
-      image: "/images/comboloucura.jpg",
-      title: "Promoção Loucura",
-      description: "4 X-Especiais por R$ 90 + Refri 2L Charrua"
+      productId: "32",
+      image: "/images/magma-1.png",
+      title: "Xis Magma",
+      description: "Carne, queijo muçarela, provolone, cheddar, calabresa, milho, tomate, maionese caseira."
+    },
+    {
+      id: 2,
+      productId: "33",
+      image: "/images/xiscemuche-1.jpg",
+      title: "Xis Cemuche",
+      description: "2 carnes, cebola caramelizada, 2 queijos muçarela, dupla cheddar, molho especial apimentado..."
     },
     {
       id: 3,
-      image: "/images/combinhocasal.jpg",
-      title: "Combinho Casal",
-      description: "O lanche perfeito para dividir com quem você ama!"
+      productId: "35",
+      image: "/images/bomba-1.png",
+      title: "Xis Bomba",
+      description: "Carne, queijo muçarela, cheddar, milho, ervilha, bacon, batata frita, barbecue, maionese caseira."
+    },
+    {
+      id: 4,
+      productId: "31",
+      image: "/images/olympus-1.png",
+      title: "Xis Olympus",
+      description: "Carne, queijo, bacon, ovo, anéis de cebola, alface, tomate, barbecue e maionese caseira."
     }
   ];
 
@@ -38,7 +55,7 @@ export default function HeroVideo({ onGoToStore }: HeroVideoProps) {
   }, []);
 
   return (
-    <div className="w-full relative rounded-[24px] md:rounded-[32px] overflow-hidden shadow-xl min-h-[500px] flex items-center justify-center bg-stone-900">
+    <div className="w-full relative rounded-[24px] md:rounded-[32px] overflow-hidden shadow-xl min-h-[350px] md:min-h-[500px] flex items-center justify-center bg-stone-900">
       {/* Video Background */}
       <video preload="auto" 
         autoPlay loop muted playsInline 
@@ -48,11 +65,11 @@ export default function HeroVideo({ onGoToStore }: HeroVideoProps) {
         Seu navegador não suporta vídeos.
       </video>
       
-      <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-6xl mx-auto py-10 md:py-16 px-4">
+      <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-6xl mx-auto py-6 sm:py-10 md:py-16 px-4">
         
         {/* Banner Carousel */}
         {promos.length > 0 && (
-        <div className="relative w-full aspect-[4/4] sm:aspect-[16/9] md:aspect-[21/9] rounded-2xl md:rounded-[32px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.5)] mb-8 border border-white/10 group">
+        <div className="relative w-full aspect-[16/9] md:aspect-[21/9] rounded-2xl md:rounded-[32px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.5)] mb-6 md:mb-8 border border-white/10 group">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentPromo}
@@ -60,17 +77,22 @@ export default function HeroVideo({ onGoToStore }: HeroVideoProps) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.8, ease: "easeInOut" }}
-              className="absolute inset-0 w-full h-full bg-stone-900"
+              className="absolute inset-0 w-full h-full bg-stone-900 cursor-pointer"
+              onClick={() => {
+                if (onOpenProduct && promos[currentPromo].productId) {
+                  onOpenProduct(promos[currentPromo].productId);
+                }
+              }}
             >
-              <img loading="lazy" decoding="async"  src={promos[currentPromo].image} alt={promos[currentPromo].title} className="w-full h-full object-cover opacity-90" referrerPolicy="no-referrer" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end items-start p-6 md:p-12 text-left">
-                <span className="bg-[#F28B20] text-white font-black px-4 py-1.5 rounded-full text-xs md:text-sm uppercase tracking-widest shadow-lg mb-3">
-                  🔥 Destaque
+              <img loading="lazy" decoding="async"  src={promos[currentPromo].image} alt={promos[currentPromo].title} className="w-full h-full object-cover opacity-90 transition-transform duration-700 hover:scale-105" referrerPolicy="no-referrer" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end items-start p-4 sm:p-6 md:p-12 text-left pointer-events-none">
+                <span className="bg-[#F28B20] text-white font-black px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[10px] md:text-sm uppercase tracking-widest shadow-lg mb-2 md:mb-3">
+                  🔥 Peça Agora
                 </span>
-                <h3 className="text-3xl md:text-5xl lg:text-6xl font-black uppercase tracking-tight text-white mb-2 leading-none drop-shadow-xl">
+                <h3 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-black uppercase tracking-tight text-white mb-1 md:mb-2 leading-none drop-shadow-xl">
                   {promos[currentPromo].title}
                 </h3>
-                <p className="text-stone-200 font-bold text-sm md:text-xl drop-shadow-md max-w-3xl">
+                <p className="text-stone-200 font-bold text-xs sm:text-sm md:text-xl drop-shadow-md max-w-3xl line-clamp-2 md:line-clamp-none">
                   {promos[currentPromo].description}
                 </p>
               </div>
