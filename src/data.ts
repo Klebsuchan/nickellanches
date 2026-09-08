@@ -190,7 +190,7 @@ export const MENU_ITEMS: Product[] = [
     "price": 23,
     "points": 34,
     "emoji": "🍔",
-    "image": "/images/xisespecial-1.avif",
+    "image": "/images/xisespecial.jpeg",
     "category": "lanches"
   },
   {
@@ -260,7 +260,7 @@ export const MENU_ITEMS: Product[] = [
     "price": 38,
     "points": 57,
     "emoji": "🍔",
-    "image": "/images/xisfilé-1.avif",
+    "image": "/images/filéprime.jpeg",
     "category": "lanches"
   },
   {
