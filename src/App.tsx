@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import NickelText from './components/NickelText';
 import RenderWithNickel from './components/RenderWithNickel';
 import { motion, AnimatePresence } from 'motion/react';
-import { MessageCircle, Plus, Menu, Search, SlidersHorizontal, Bell, ShoppingCart, Star, ChefHat, LogOut, ArrowRight, Gamepad2, Tag, Heart, Utensils, BookOpen, Flame, Info, Home, ShoppingBag, User, LayoutGrid, MoreVertical } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Plus, Menu, Search, SlidersHorizontal, Bell, ShoppingCart, Star, ChefHat, LogOut, ArrowRight, Gamepad2, Tag, Heart, Utensils, BookOpen, Flame, Info, Home, ShoppingBag, User, LayoutGrid, MoreVertical } from 'lucide-react';
 import { MENU_ITEMS, DISCOUNT_CODES } from './data';
 import { CartItem, Product, OrderInfo } from './types';
 import AutoMarquee from './components/AutoMarquee';
@@ -92,6 +92,71 @@ export default function App() {
     const saved = localStorage.getItem('favorites');
     return saved ? JSON.parse(saved) : [];
   });
+
+  // --- Navigation & History Management ---
+  const goBack = () => window.history.back();
+
+  const navigateToView = (newView: typeof view, extraState: any = {}) => {
+    if (view === newView && !extraState.showLastOrdersState) return;
+    window.history.pushState({ view: newView, ...extraState }, '');
+    setView(newView);
+    if (extraState.showLastOrdersState !== undefined) {
+      setShowLastOrdersState(extraState.showLastOrdersState);
+    }
+    window.scrollTo(0, 0);
+  };
+
+  const openProduct = (p: Product) => {
+    window.history.pushState({ view, product: p.id }, '');
+    setSelectedProduct(p);
+  };
+
+  const openCart = () => {
+    window.history.pushState({ view, cart: true }, '');
+    setIsCartOpen(true);
+  };
+
+  const openCheckout = () => {
+    window.history.pushState({ view, checkout: true }, '');
+    setIsCheckoutOpen(true);
+    setIsCartOpen(false);
+  };
+
+  useEffect(() => {
+    if (!window.history.state) {
+      window.history.replaceState({ view: 'menu' }, '');
+    }
+
+    const handlePopState = (e: PopStateEvent) => {
+      const state = e.state;
+      if (!state) {
+        setView('menu');
+        setIsCartOpen(false);
+        setIsCheckoutOpen(false);
+        setSelectedProduct(null);
+        return;
+      }
+
+      setView(state.view || 'menu');
+      if (state.showLastOrdersState !== undefined) {
+        setShowLastOrdersState(state.showLastOrdersState);
+      }
+      setIsCartOpen(!!state.cart);
+      setIsCheckoutOpen(!!state.checkout);
+      
+      if (state.product) {
+        setMenuItems(prev => {
+          const p = prev.find(m => m.id === state.product);
+          setSelectedProduct(p || null);
+          return prev;
+        });
+      } else {
+        setSelectedProduct(null);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const handleLogoClick = () => {
     setLogoClicks(prev => {
@@ -213,7 +278,7 @@ export default function App() {
       cartItemId: Math.random().toString(36).substring(2, 9),
     }));
     setCart(prev => [...prev, ...newCartItems]);
-    setIsCartOpen(true);
+    openCart();
     playSound('jump');
     addToast({
       title: 'Pedido Repetido!',
@@ -223,7 +288,7 @@ export default function App() {
   };
 
   const handleProductClick = (product: Product) => {
-    setSelectedProduct(product);
+    openProduct(product);
   };
 
   const handleAddToCart = (cartItem: CartItem) => {
@@ -233,7 +298,7 @@ export default function App() {
       message: `${cartItem.name} adicionado ao carrinho!`,
       type: 'success'
     });
-    setIsCartOpen(true);
+    openCart();
   };
 
   const removeFromCart = (cartItemId: string) => {
@@ -345,7 +410,7 @@ export default function App() {
     setDiscountCode('');
     setIsCartOpen(false);
     setIsCheckoutOpen(false);
-    setView('profile');
+    navigateToView('profile');
     window.scrollTo(0,0);
     
     addToast({
@@ -368,7 +433,7 @@ export default function App() {
         type: 'xp'
       });
     }
-    setView('menu');
+    navigateToView('menu');
     setActiveOrder(null);
     setShowReview(true);
   };
@@ -466,14 +531,14 @@ export default function App() {
         <header className="sticky top-0 z-50 bg-white border-b border-stone-100 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 py-4 flex justify-between items-center">
             <div className="flex items-center gap-4">
-              <button onClick={() => { setView('menu'); window.scrollTo(0,0); }} className="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center text-stone-900 hover:bg-stone-200 transition-colors">
+              <button onClick={() => { navigateToView('menu'); window.scrollTo(0,0); }} className="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center text-stone-900 hover:bg-stone-200 transition-colors">
                 <ArrowRight size={20} className="rotate-180" />
               </button>
               <h1 className="text-xl md:text-2xl font-black text-[#4E2A84] font-display uppercase tracking-widest leading-none mt-1">VOLTAR AO INÍCIO</h1>
             </div>
             
             <div className="flex items-center gap-2 md:gap-3">
-              <button onClick={() => setIsCartOpen(true)} className="w-10 h-10 md:w-12 md:h-12 bg-[#F28B20] rounded-full flex items-center justify-center text-white relative shadow-md hover:bg-orange-500 transition-colors">
+              <button onClick={() => openCart()} className="w-10 h-10 md:w-12 md:h-12 bg-[#F28B20] rounded-full flex items-center justify-center text-white relative shadow-md hover:bg-orange-500 transition-colors">
                 <ShoppingBag size={20} />
                 {cart.reduce((sum, item) => sum + item.quantity, 0) > 0 && (
                   <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#4E2A84] rounded-full flex items-center justify-center text-[10px] text-white font-bold border-2 border-white">
@@ -486,7 +551,7 @@ export default function App() {
         </header>
 
         {showLastOrdersState && lastOrderedProducts.length > 0 && (
-          <AutoMarquee items={lastOrderedProducts} onItemClick={setSelectedProduct} />
+          <AutoMarquee items={lastOrderedProducts} onItemClick={openProduct} />
         )}
 
         <div id="cardapio" className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 py-12">
@@ -560,18 +625,18 @@ export default function App() {
           </div>
           
           <nav className="hidden lg:flex items-center gap-8">
-            <button onClick={() => { setView('store'); setShowLastOrdersState(false); window.scrollTo(0,0); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Cardápio</button>
+            <button onClick={() => { navigateToView('store'); setShowLastOrdersState(false); window.scrollTo(0,0); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Cardápio</button>
             <button onClick={() => { document.getElementById('quem-somos')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Quem Somos</button>
             <button onClick={() => { document.getElementById('contato')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Contato</button>
-            <button onClick={() => setView('game')} className="text-sm font-bold uppercase tracking-wider text-[#4E2A84] hover:text-[#F28B20] transition-colors flex items-center gap-2"><Gamepad2 size={16}/> Jogue nosso jogo</button>
-            <button onClick={() => { setView('store'); setShowLastOrdersState(true); window.scrollTo(0,0); }} className="bg-[#F28B20] text-white px-6 py-2.5 rounded-full text-sm font-bold uppercase tracking-wider hover:bg-orange-500 transition-colors shadow-sm">Faça seu Pedido</button>
+            <button onClick={() => navigateToView('game')} className="text-sm font-bold uppercase tracking-wider text-[#4E2A84] hover:text-[#F28B20] transition-colors flex items-center gap-2"><Gamepad2 size={16}/> Jogue nosso jogo</button>
+            <button onClick={() => { navigateToView('store'); setShowLastOrdersState(true); window.scrollTo(0,0); }} className="bg-[#F28B20] text-white px-6 py-2.5 rounded-full text-sm font-bold uppercase tracking-wider hover:bg-orange-500 transition-colors shadow-sm">Faça seu Pedido</button>
           </nav>
 
           <div className="flex items-center gap-2 md:gap-3 lg:hidden relative">
-            <button onClick={() => setView('game')} className="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center text-[#4E2A84] hover:bg-stone-200 transition-colors">
+            <button onClick={() => navigateToView('game')} className="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center text-[#4E2A84] hover:bg-stone-200 transition-colors">
               <Gamepad2 size={24} />
             </button>
-            <button onClick={() => setIsCartOpen(true)} className="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center text-stone-900 relative">
+            <button onClick={() => openCart()} className="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center text-stone-900 relative">
               <ShoppingBag size={24} />
               {cart.reduce((sum, item) => sum + item.quantity, 0) > 0 && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#4E2A84] rounded-full flex items-center justify-center text-[10px] text-white font-bold border-2 border-white">
@@ -591,7 +656,7 @@ export default function App() {
                   exit={{ opacity: 0, y: -10 }}
                   className="absolute top-12 right-0 w-48 bg-white border border-stone-200 rounded-2xl shadow-xl flex flex-col py-2 z-50 overflow-hidden"
                 >
-                  <button onClick={() => { setIsMobileMenuOpen(false); setView('profile'); }} className="text-left px-4 py-3 font-bold text-sm text-[#F28B20] uppercase tracking-wide hover:bg-stone-50 transition-colors flex items-center gap-2">
+                  <button onClick={() => { setIsMobileMenuOpen(false); navigateToView('profile'); }} className="text-left px-4 py-3 font-bold text-sm text-[#F28B20] uppercase tracking-wide hover:bg-stone-50 transition-colors flex items-center gap-2">
                     <User size={16} /> Minha Conta
                   </button>
                   <button onClick={() => { setIsMobileMenuOpen(false); document.getElementById('quem-somos')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-left px-4 py-3 font-bold text-sm text-stone-700 uppercase tracking-wide hover:bg-stone-50 transition-colors border-t border-stone-100">
@@ -600,7 +665,7 @@ export default function App() {
                   <button onClick={() => { setIsMobileMenuOpen(false); document.getElementById('contato')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-left px-4 py-3 font-bold text-sm text-stone-700 uppercase tracking-wide hover:bg-stone-50 transition-colors">
                     Contato
                   </button>
-                  <button onClick={() => { setIsMobileMenuOpen(false); setView('game'); }} className="text-left px-4 py-3 font-bold text-sm text-[#4E2A84] uppercase tracking-wide hover:bg-stone-50 transition-colors flex items-center gap-2 border-t border-stone-100">
+                  <button onClick={() => { setIsMobileMenuOpen(false); navigateToView('game'); }} className="text-left px-4 py-3 font-bold text-sm text-[#4E2A84] uppercase tracking-wide hover:bg-stone-50 transition-colors flex items-center gap-2 border-t border-stone-100">
                     <Gamepad2 size={16} /> Jogue nosso jogo
                   </button>
                 </motion.div>
@@ -610,13 +675,13 @@ export default function App() {
           
           {/* Desktop User/Cart icons */}
           <div className="hidden lg:flex items-center gap-3">
-            <button onClick={() => setView('game')} className="w-12 h-12 bg-stone-50 rounded-full flex items-center justify-center text-[#4E2A84] border border-stone-200 hover:bg-stone-100 transition-colors">
+            <button onClick={() => navigateToView('game')} className="w-12 h-12 bg-stone-50 rounded-full flex items-center justify-center text-[#4E2A84] border border-stone-200 hover:bg-stone-100 transition-colors">
               <Gamepad2 size={20} />
             </button>
-             <button onClick={() => setView('profile')} className="w-12 h-12 bg-stone-50 rounded-full flex items-center justify-center text-[#F28B20] border border-stone-200 hover:bg-stone-100 transition-colors">
+             <button onClick={() => navigateToView('profile')} className="w-12 h-12 bg-stone-50 rounded-full flex items-center justify-center text-[#F28B20] border border-stone-200 hover:bg-stone-100 transition-colors">
               <User size={20} />
             </button>
-            <button onClick={() => setIsCartOpen(true)} className="w-12 h-12 bg-stone-50 rounded-full flex items-center justify-center text-stone-900 border border-stone-200 hover:bg-stone-100 transition-colors relative">
+            <button onClick={() => openCart()} className="w-12 h-12 bg-stone-50 rounded-full flex items-center justify-center text-stone-900 border border-stone-200 hover:bg-stone-100 transition-colors relative">
               <ShoppingBag size={20} />
               {cart.reduce((sum, item) => sum + item.quantity, 0) > 0 && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#4E2A84] rounded-full border-2 border-white flex items-center justify-center text-[10px] text-white font-bold">
@@ -631,10 +696,10 @@ export default function App() {
       {/* Hero Section */}
       <div className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 mt-6 mb-8">
         <HeroVideo 
-          onGoToStore={(showLastOrders) => { setView('store'); setShowLastOrdersState(showLastOrders); window.scrollTo(0, 0); }} 
+          onGoToStore={(showLastOrders) => { navigateToView('store'); setShowLastOrdersState(showLastOrders); window.scrollTo(0, 0); }} 
           onOpenProduct={(id) => { 
             const p = menuItems.find(item => item.id === id); 
-            if (p) setSelectedProduct(p); 
+            if (p) openProduct(p); 
           }}
         />
       </div>
@@ -642,7 +707,7 @@ export default function App() {
       {/* Quem Somos Section */}
       <div id="quem-somos" className="bg-white scroll-mt-20">
         <div className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 py-8 md:py-16">
-          <AppetiteVideo onGoToStore={(showLastOrders) => { setView('store'); setShowLastOrdersState(showLastOrders); window.scrollTo(0, 0); }} />
+          <AppetiteVideo onGoToStore={(showLastOrders) => { navigateToView('store'); setShowLastOrdersState(showLastOrders); window.scrollTo(0, 0); }} />
         </div>
         <StorySection />
         
@@ -675,7 +740,7 @@ export default function App() {
       <div className="relative z-10 w-full h-full">
             {view === 'store' && renderStore()}
       {view === 'profile' && (
-        <ProfileView onClose={() => setView('menu')} orderHistory={orderHistory} onPlayGame={() => setView('game')}
+        <ProfileView onClose={() => navigateToView('menu')} orderHistory={orderHistory} onPlayGame={() => navigateToView('game')}
           user={user} 
           userProfile={userProfile} 
           onLogin={signInWithGoogle} 
@@ -741,9 +806,23 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Back Button (Floating) */}
+      {(view !== 'menu' || isCartOpen || isCheckoutOpen || selectedProduct) && (
+        <button 
+          onClick={goBack}
+          className="fixed bottom-4 right-4 md:bottom-8 md:right-8 bg-white text-stone-900 p-4 rounded-full shadow-xl border-2 border-stone-200 hover:bg-stone-100 hover:-translate-y-2 transition-all z-[90] flex items-center justify-center group"
+          title="Voltar"
+        >
+          <ArrowLeft size={28} />
+          <span className="absolute right-full mr-4 bg-stone-900 text-white font-bold px-3 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg pointer-events-none">
+            Voltar
+          </span>
+        </button>
+      )}
+
       {/* Cart Button (Floating) */}
       <button 
-        onClick={() => { setIsCartOpen(true); playSound('jump'); }}
+        onClick={() => { openCart(); playSound('jump'); }}
         className="fixed bottom-4 left-4 md:bottom-8 md:left-8 bg-yellow-400 text-black p-4 rounded-full border-2 border-black shadow-[4px_4px_0px_#000] hover:shadow-[6px_6px_0px_#000] hover:-translate-y-2 transition-all z-[90] flex items-center justify-center group"
       >
         <ShoppingCart size={32} />
@@ -774,8 +853,8 @@ export default function App() {
 
       <div className="relative z-10">
         {view === 'menu' && renderMenu()}
-        {view === 'game' && <DogGame order={activeOrder} onFinishOrder={handleFinishOrder} onClose={() => { setView('menu'); window.scrollTo(0,0); }} onViewAbout={() => { setView('about'); window.scrollTo(0,0); }} />}
-        {view === 'admin' && <AdminPanel onClose={() => setView('menu')} />}
+        {view === 'game' && <DogGame order={activeOrder} onFinishOrder={handleFinishOrder} onClose={() => { navigateToView('menu'); window.scrollTo(0,0); }} onViewAbout={() => { navigateToView('about'); window.scrollTo(0,0); }} />}
+        {view === 'admin' && <AdminPanel onClose={() => navigateToView('menu')} />}
       </div>
       
       <AnimatePresence>
@@ -857,7 +936,7 @@ export default function App() {
             
       <CheckoutModal
         isOpen={isCheckoutOpen}
-        onClose={() => setIsCheckoutOpen(false)}
+        onClose={goBack}
         cart={cart}
         total={totalCart}
         onConfirm={handleCheckout}
@@ -865,7 +944,7 @@ export default function App() {
 
       <CartDrawer 
         isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
+        onClose={goBack}
         cart={cart}
         onRemoveItem={removeFromCart}
         discountCode={discountCode}
@@ -876,12 +955,12 @@ export default function App() {
         totalCartBase={totalCartBase}
         discountAmount={discountAmount}
         totalCart={totalCart}
-        onCheckout={() => { setIsCartOpen(false); setIsCheckoutOpen(true); }}
+        onCheckout={() => { setIsCartOpen(false); openCheckout(); }}
       />
       <ProductModal 
         product={selectedProduct}
         isOpen={selectedProduct !== null}
-        onClose={() => setSelectedProduct(null)}
+        onClose={goBack}
         onAddToCart={handleAddToCart}
       />
       </div>

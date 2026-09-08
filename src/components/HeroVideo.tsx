@@ -69,7 +69,7 @@ export default function HeroVideo({ onGoToStore, onOpenProduct }: HeroVideoProps
         
         {/* Banner Carousel */}
         {promos.length > 0 && (
-        <div className="relative w-full aspect-[16/9] md:aspect-[21/9] rounded-2xl md:rounded-[32px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.5)] mb-6 md:mb-8 border border-white/10 group">
+        <div className="relative w-full aspect-[4/3] md:aspect-[21/9] rounded-2xl md:rounded-[32px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.5)] mb-6 md:mb-8 border border-white/10 group">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentPromo}
@@ -77,15 +77,15 @@ export default function HeroVideo({ onGoToStore, onOpenProduct }: HeroVideoProps
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.8, ease: "easeInOut" }}
-              className="absolute inset-0 w-full h-full bg-stone-900 cursor-pointer"
+              className="absolute inset-0 w-full h-full bg-stone-100 cursor-pointer"
               onClick={() => {
                 if (onOpenProduct && promos[currentPromo].productId) {
                   onOpenProduct(promos[currentPromo].productId);
                 }
               }}
             >
-              <img loading="lazy" decoding="async"  src={promos[currentPromo].image} alt={promos[currentPromo].title} className="w-full h-full object-cover opacity-90 transition-transform duration-700 hover:scale-105" referrerPolicy="no-referrer" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end items-start p-4 sm:p-6 md:p-12 text-left pointer-events-none">
+              <img loading="lazy" decoding="async"  src={promos[currentPromo].image} alt={promos[currentPromo].title} className="w-full h-full object-cover object-[center_center] md:object-[center_60%] transition-transform duration-700 hover:scale-105" referrerPolicy="no-referrer" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end items-start p-4 sm:p-6 md:p-12 text-left pointer-events-none h-full pt-[30%]">
                 <span className="bg-[#F28B20] text-white font-black px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[10px] md:text-sm uppercase tracking-widest shadow-lg mb-2 md:mb-3">
                   🔥 Peça Agora
                 </span>
