@@ -266,9 +266,9 @@ export const MENU_ITEMS: Product[] = [
   {
     "id": "31",
     "name": "Xis Olympus",
-    "description": "Filé, queijo muçarela, presunto, ovo, milho, ervilha, alface, tomate, cebola na chapa, barbecue, maionese caseira.",
-    "price": 43,
-    "points": 64,
+    "description": "Carne, queijo, bacon, ovo, anéis de cebola, alface, tomate, barbecue e maionese caseira",
+    "price": 32,
+    "points": 48,
     "emoji": "🍔",
     "image": "/images/olympus-1.png",
     "category": "lanches"
