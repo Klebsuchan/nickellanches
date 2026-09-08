@@ -322,68 +322,15 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
         <motion.div 
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="w-full bg-white border border-stone-200 rounded-3xl p-8 mb-8 shadow-sm relative overflow-hidden text-black"
+          className="w-full bg-white border border-stone-200 rounded-3xl p-8 mb-8 shadow-sm relative overflow-hidden text-black flex flex-col items-center justify-center text-center"
         >
-          <h3 className="font-display font-bold uppercase text-xl mb-12 text-center">Status da Missão</h3>
-
-          <div className="relative flex justify-between items-center w-full max-w-3xl mx-auto px-4">
-            
-            {/* Animated Progress Line */}
-            <div className="absolute top-1/2 left-0 w-full h-3 bg-zinc-100 border border-stone-200 -z-20 transform -translate-y-1/2 rounded-full overflow-hidden">
-              <motion.div 
-                className="h-full bg-yellow-400"
-                initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
-                transition={{ ease: "linear" }}
-              />
-            </div>
-
-            {/* Rocket tracking the line */}
-            <motion.div
-              className="absolute top-1/2 -z-10 text-4xl transform -translate-y-1/2"
-              initial={{ left: '0%', x: '-50%' }}
-              animate={{ left: `${progress}%`, x: '-50%' }}
-              transition={{ ease: "linear" }}
-            >
-              🚀
-            </motion.div>
-
-            <div className="flex flex-col items-center gap-2 bg-white px-2">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-sm border ${progress >= 10 ? 'bg-yellow-400 border-black' : 'bg-zinc-100 border-stone-200 text-stone-400'}`}>
-                <Clock size={24} className={progress >= 10 ? 'text-black' : ''} />
-              </div>
-              <span className={`text-xs font-bold uppercase ${progress >= 10 ? 'text-black' : 'text-stone-400'}`}>Pendente</span>
-            </div>
-
-            <div className="flex flex-col items-center gap-2 bg-white px-2">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-sm border ${progress >= 60 ? 'bg-yellow-400 border-black' : 'bg-zinc-100 border-stone-200 text-stone-400'}`}>
-                <Flame size={24} className={progress >= 60 ? 'text-black' : ''} />
-              </div>
-              <span className={`text-xs font-bold uppercase ${progress >= 60 ? 'text-black' : 'text-stone-400'}`}>Preparo</span>
-            </div>
-
-            <div className="flex flex-col items-center gap-2 bg-white px-2">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-sm border ${progress >= 85 ? 'bg-yellow-400 border-black' : 'bg-zinc-100 border-stone-200 text-stone-400'}`}>
-                <Truck size={24} className={progress >= 85 ? 'text-black' : ''} />
-              </div>
-              <span className={`text-xs font-bold uppercase ${progress >= 85 ? 'text-black' : 'text-stone-400'}`}>A Caminho</span>
-            </div>
-            
-            <div className="flex flex-col items-center gap-2 bg-white px-2">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-sm border ${progress >= 100 ? 'bg-green-400 border-black' : 'bg-zinc-100 border-stone-200 text-stone-400'}`}>
-                <CheckCircle size={24} className={progress >= 100 ? 'text-black' : ''} />
-              </div>
-              <span className={`text-xs font-bold uppercase ${progress >= 100 ? 'text-black' : 'text-stone-400'}`}>Entregue</span>
-            </div>
+          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
+            <CheckCircle size={32} />
           </div>
-          
-          <div className="mt-8 text-center text-sm font-bold text-stone-500 bg-zinc-50 py-3 px-6 rounded-full inline-block border border-stone-200 shadow-inner">
-            {orderStatus === 'pendente' && 'Recebemos seu pedido. Aguardando cozinha...'}
-            {orderStatus === 'cozinha_confirmou' && 'A cozinha confirmou! Logo começa o preparo.'}
-            {orderStatus === 'em_preparo' && 'Seu lanche está na chapa! 🍔🔥'}
-            {orderStatus === 'a_caminho' && 'O entregador está a caminho. Prepare a campainha! 🛵'}
-            {orderStatus === 'entregue' && 'Pedido Entregue! Bom apetite! 🎉'}
-          </div>
+          <h3 className="font-display font-bold uppercase text-2xl mb-2 text-stone-800">Pedido em Andamento</h3>
+          <p className="text-stone-500 font-medium max-w-md mx-auto text-sm md:text-base">
+            Seu pedido foi enviado e está em andamento via WhatsApp.<br/>Acompanhe a entrega e o pagamento por lá.
+          </p>
         </motion.div>
       )}
 
