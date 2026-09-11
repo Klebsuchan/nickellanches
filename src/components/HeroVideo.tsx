@@ -100,10 +100,10 @@ export default function HeroVideo({ onGoToStore, onOpenProduct }: HeroVideoProps
           </AnimatePresence>
 
           {/* Controls */}
-          <button onClick={prevPromo} className="absolute left-2 md:left-6 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity border border-white/20">
+          <button onClick={(e) => { e.stopPropagation(); prevPromo(); }} className="absolute left-2 md:left-6 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center backdrop-blur-md opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity border border-white/20 z-20">
             <ChevronLeft size={24} />
           </button>
-          <button onClick={nextPromo} className="absolute right-2 md:right-6 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity border border-white/20">
+          <button onClick={(e) => { e.stopPropagation(); nextPromo(); }} className="absolute right-2 md:right-6 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center backdrop-blur-md opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity border border-white/20 z-20">
             <ChevronRight size={24} />
           </button>
 
