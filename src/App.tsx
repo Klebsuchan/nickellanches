@@ -364,12 +364,23 @@ export default function App() {
     if (discountAmount > 0) {
       msg += `*Desconto:* -R$ ${discountAmount.toFixed(2).replace('.', ',')}\n`;
     }
-    msg += `*TOTAL: R$ ${totalCart.toFixed(2).replace('.', ',')} + Frete a calcular*\n\n`;
+    let finalTotal = totalCart;
+    if (details.deliveryFee) {
+      msg += `*Subtotal:* R$ ${totalCart.toFixed(2).replace('.', ',')}\n`;
+      msg += `*Frete (${details.region}):* R$ ${details.deliveryFee.toFixed(2).replace('.', ',')}\n`;
+      finalTotal = totalCart + details.deliveryFee;
+      msg += `*TOTAL FINAL:* R$ ${finalTotal.toFixed(2).replace('.', ',')}\n\n`;
+    } else {
+      msg += `*TOTAL FINAL:* R$ ${finalTotal.toFixed(2).replace('.', ',')}\n\n`;
+    }
     
     msg += `*DADOS PARA ENTREGA:*\n`;
     msg += `Nome: ${details.name}\n`;
     msg += `WhatsApp: ${details.whatsapp}\n`;
     msg += `Endereço: ${details.address}\n`;
+    if (details.region) {
+      msg += `Região: ${details.region}\n`;
+    }
     msg += `Forma de Pagamento: ${details.paymentMethod}\n`;
     if (details.changeFor) {
       msg += `Troco para: R$ ${details.changeFor}\n`;
@@ -386,7 +397,7 @@ export default function App() {
       const uid = user ? user.uid : 'guest';
       orderId = await saveOrder(uid, {
         items: cart,
-        totalPrice: totalCart,
+        totalPrice: (details.deliveryFee ? totalCart + details.deliveryFee : totalCart),
         totalPoints: totalPoints,
         status: 'recebido',
         userName: details.name || user?.displayName || 'Anônimo',

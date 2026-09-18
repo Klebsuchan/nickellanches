@@ -1,51 +1,88 @@
 const fs = require('fs');
-let content = fs.readFileSync('src/components/CheckoutModal.tsx', 'utf8');
+let code = fs.readFileSync('src/components/CheckoutModal.tsx', 'utf8');
 
-// 1. Remove the "Dinheiro" from PAYMENT_METHODS array
-const paymentMethodObj = `  {
-    id: 'Dinheiro na Entrega',
-    title: 'Dinheiro na Entrega',
-    description: 'Pagamento em notas/moedas na entrega',
-    icon: Banknote,
-  }`;
-content = content.replace(paymentMethodObj + ',', '');
-content = content.replace(paymentMethodObj, '');
+// Add region state
+code = code.replace(
+  "const [paymentMethod, setPaymentMethod] = useState<'pix' | 'cartao' | 'dinheiro' | 'fiado'>('pix');",
+  "const [paymentMethod, setPaymentMethod] = useState<'pix' | 'cartao' | 'dinheiro' | 'fiado'>('pix');\n  const [region, setRegion] = useState<'petropolis' | 'cidade' | 'afastado' | ''>('');"
+);
 
-// 2. Remove the custom finalPayment logic for change (Troco)
-const customPaymentLogic = `    let finalPayment = paymentMethod;
-    if (paymentMethod === 'Dinheiro na Entrega' && changeFor.trim()) {
-      finalPayment += \` (Troco para: \${changeFor.trim()})\`;
-    }`;
-content = content.replace(customPaymentLogic, '    let finalPayment = paymentMethod;');
+// Add validateForm condition
+code = code.replace(
+  "    if (!address.trim()) {\n      setErrorMessage('Por favor, informe seu endereço de entrega completo.');\n      return false;\n    }",
+  "    if (!address.trim()) {\n      setErrorMessage('Por favor, informe seu endereço de entrega completo.');\n      return false;\n    }\n    if (!region) {\n      setErrorMessage('Por favor, selecione sua região para o cálculo do frete.');\n      return false;\n    }"
+);
 
-// 3. Remove the Troco field from UI, and replace it with a text about Cash payments
-const trocoUI = `                  {/* Campo de Troco caso seja Dinheiro */}
-                  <AnimatePresence>
-                  {paymentMethod === 'Dinheiro na Entrega' && (
-                    <motion.div 
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="mt-4 pt-3 border-t border-stone-100"
-                    >
-                      <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
-                        Precisa de troco? Para quanto?
+// Add onConfirm changes
+code = code.replace(
+  "    onConfirm({ \n      name: name.trim(), \n      whatsapp: whatsapp.trim(), \n      address: address.trim(), \n      paymentMethod: finalPaymentLabel,\n      changeFor: formattedChange\n    });",
+  `    let deliveryFee = 0;
+    let regionLabel = '';
+    if (region === 'petropolis') {
+      deliveryFee = 10;
+      regionLabel = 'Petrópolis';
+    } else if (region === 'cidade') {
+      deliveryFee = 15;
+      regionLabel = 'Outros bairros (Cidade)';
+    } else if (region === 'afastado') {
+      deliveryFee = 20;
+      regionLabel = 'Fora do trevo (Afastado)';
+    }
+
+    onConfirm({ 
+      name: name.trim(), 
+      whatsapp: whatsapp.trim(), 
+      address: address.trim(), 
+      paymentMethod: finalPaymentLabel,
+      changeFor: formattedChange,
+      region: regionLabel,
+      deliveryFee: deliveryFee
+    });`
+);
+
+// Add region UI right below address input
+const addressUI = `                    />
+                  </div>
+                </div>
+
+                {/* Forma de Pagamento na Entrega */}`;
+
+const regionUI = `                    />
+                  </div>
+
+                  <div className="pt-2">
+                    <label className="flex items-center gap-2 text-xs font-bold text-stone-700 mb-1.5 uppercase">
+                      <MapPin size={15} className="text-[#F28B20]" /> Região de Entrega (Cálculo de Frete) *
+                    </label>
+                    <div className="space-y-2">
+                      <label className={\`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all \${region === 'petropolis' ? 'border-[#F28B20] bg-orange-50/70 shadow-sm' : 'border-stone-200 hover:border-stone-300 bg-stone-50/50'}\`}>
+                        <div className="flex items-center gap-3">
+                          <input type="radio" name="region" checked={region === 'petropolis'} onChange={() => setRegion('petropolis')} className="hidden" />
+                          <span className="font-bold text-sm text-stone-900">Petrópolis</span>
+                        </div>
+                        <span className="font-bold text-sm text-[#F28B20]">+ R$ 10,00</span>
                       </label>
-                      <input 
-                        type="text" 
-                        value={changeFor} 
-                        onChange={e => setChangeFor(e.target.value)} 
-                        placeholder="Ex: R$ 50,00 ou Não preciso de troco" 
-                        className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm font-medium outline-none focus:border-[#F28B20] focus:ring-2 focus:ring-orange-100 transition-all text-stone-900"
-                      />
-                    </motion.div>
-                  )}
-                  </AnimatePresence>`;
+                      <label className={\`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all \${region === 'cidade' ? 'border-[#F28B20] bg-orange-50/70 shadow-sm' : 'border-stone-200 hover:border-stone-300 bg-stone-50/50'}\`}>
+                        <div className="flex items-center gap-3">
+                          <input type="radio" name="region" checked={region === 'cidade'} onChange={() => setRegion('cidade')} className="hidden" />
+                          <span className="font-bold text-sm text-stone-900">Outros bairros (Cidade)</span>
+                        </div>
+                        <span className="font-bold text-sm text-[#F28B20]">+ R$ 15,00</span>
+                      </label>
+                      <label className={\`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all \${region === 'afastado' ? 'border-[#F28B20] bg-orange-50/70 shadow-sm' : 'border-stone-200 hover:border-stone-300 bg-stone-50/50'}\`}>
+                        <div className="flex items-center gap-3">
+                          <input type="radio" name="region" checked={region === 'afastado'} onChange={() => setRegion('afastado')} className="hidden" />
+                          <span className="font-bold text-sm text-stone-900">Fora do trevo (Afastado)</span>
+                        </div>
+                        <span className="font-bold text-sm text-[#F28B20]">+ R$ 20,00</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
 
-const cashNote = `                  {/* Aviso de pagamento em dinheiro */}
-                  <div className="mt-4 pt-3 border-t border-stone-100 text-center">
-                    <p className="text-xs text-stone-500 font-medium">Pagamento em dinheiro disponível apenas realizando o pedido diretamente no nosso WhatsApp.</p>
-                  </div>`;
-content = content.replace(trocoUI, cashNote);
+                {/* Forma de Pagamento na Entrega */}`;
 
-fs.writeFileSync('src/components/CheckoutModal.tsx', content);
+code = code.replace(addressUI, regionUI);
+
+fs.writeFileSync('src/components/CheckoutModal.tsx', code);
+console.log('Patched CheckoutModal');
