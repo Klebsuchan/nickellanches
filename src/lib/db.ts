@@ -22,6 +22,7 @@ export interface Order {
   paymentMethod?: string;
   whatsapp?: string;
   address?: string;
+  orderNumber?: number;
 }
 
 export const createUserProfile = async (user: FirebaseUser) => {

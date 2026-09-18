@@ -27,7 +27,7 @@ import ProductModal from './components/ProductModal';
 import CartDrawer from './components/CartDrawer';
 import CheckoutModal from './components/CheckoutModal';
 import { useToast } from './components/Toast';
-import { auth, signInWithGoogle, signOut } from './lib/firebase';
+import { auth, signInWithGoogle, signOut, getNextOrderNumber } from './lib/firebase';
 import { User as FirebaseUser } from 'firebase/auth';
 import { subscribeToOrder, getLatestOrders, subscribeToProducts, subscribeToPromos, seedDatabase, createUserProfile, getUserProfile, addXpToUser, saveOrder, UserProfile, Order } from './lib/db';
 import { playSound } from './lib/audio';
@@ -343,8 +343,12 @@ export default function App() {
   const handleCheckout = async (details: any) => {
     if (cart.length === 0) return;
     
+    // Get daily order number
+    const orderNumber = await getNextOrderNumber();
+    const timeNow = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
     // 1. Send WhatsApp message
-    let msg = `Olá! Gostaria de fazer um pedido:\n\n*ITENS DO PEDIDO:*\n`;
+    let msg = `Olá! Me chamo *${details.name.trim()}* e gostaria de fazer um pedido!\n\n*Pedido Número:* ${orderNumber}\n*Gerado às:* ${timeNow}\n\n*ITENS DO PEDIDO:*\n`;
     cart.forEach(item => {
       const itemTotal = (item.price + (item.extras?.reduce((sum, e) => sum + e.price, 0) || 0)) * item.quantity;
       msg += `- ${item.quantity}x ${item.name} (R$ ${itemTotal.toFixed(2).replace('.', ',')})\n`;
@@ -371,8 +375,7 @@ export default function App() {
       msg += `Troco para: R$ ${details.changeFor}\n`;
     }
     
-    const timeNow = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    msg += `\n*⏱️ Pedido gerado às:* ${timeNow}\n`;
+
     
     const phone = '5554999598389';
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
@@ -389,7 +392,8 @@ export default function App() {
         userName: details.name || user?.displayName || 'Anônimo',
         address: details.address,
         paymentMethod: details.paymentMethod,
-        whatsapp: details.whatsapp
+        whatsapp: details.whatsapp,
+        orderNumber
       });
     } catch(e) {
       console.error("Error saving order", e);

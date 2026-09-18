@@ -1,7 +1,10 @@
 const fs = require('fs');
-let content = fs.readFileSync('src/lib/db.ts', 'utf8');
+let code = fs.readFileSync('src/lib/db.ts', 'utf8');
 
-content = content.replace(/doc\(db, 'orders'/g, "doc(db, 'global_orders'");
+code = code.replace(
+  "  address?: string;\n}",
+  "  address?: string;\n  orderNumber?: number;\n}"
+);
 
-fs.writeFileSync('src/lib/db.ts', content);
-console.log('Fixed db.ts');
+fs.writeFileSync('src/lib/db.ts', code);
+console.log('Patched Order Interface');
