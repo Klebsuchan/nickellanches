@@ -17,28 +17,28 @@ export default function HeroVideo({ onGoToStore, onOpenProduct }: HeroVideoProps
     {
       id: 1,
       productId: "32",
-      image: "/images/magma-1.png",
+      image: "/images/magma-destaque.jpeg",
       title: "Xis Magma",
       description: "Carne, queijo muçarela, provolone, cheddar, calabresa, milho, tomate, maionese caseira."
     },
     {
       id: 2,
       productId: "33",
-      image: "/images/xiscemuche-1.jpg",
+      image: "/images/cemuche-destaque.jpeg",
       title: "Xis Cemuche",
       description: "2 carnes, cebola caramelizada, 2 queijos muçarela, dupla cheddar, molho especial apimentado..."
     },
     {
       id: 3,
       productId: "35",
-      image: "/images/bomba-1.png",
+      image: "/images/bomba-destaque.jpeg",
       title: "Xis Bomba",
       description: "Carne, queijo muçarela, cheddar, milho, ervilha, bacon, batata frita, barbecue, maionese caseira."
     },
     {
       id: 4,
       productId: "31",
-      image: "/images/olympus-1.png",
+      image: "/images/olympus-destaque.jpeg",
       title: "Xis Olympus",
       description: "Carne, queijo, bacon, ovo, anéis de cebola, alface, tomate, barbecue e maionese caseira."
     }

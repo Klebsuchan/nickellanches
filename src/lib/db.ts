@@ -235,15 +235,24 @@ export const seedDatabase = async (initialProducts: Product[], initialPromos: { 
     
     const metaSnap = await getDoc(metaRef);
     const currentVersion = metaSnap.exists() ? metaSnap.data().seedVersion : 0;
-    const TARGET_VERSION = 13; // Increment this to force re-seed
+    const TARGET_VERSION = 16; // Increment this to force re-seed
   
     const productsSnap = await getDocs(productsRef);
     
-    if (productsSnap.empty || currentVersion < TARGET_VERSION) {
+    // Always force seed to ensure prices are updated
+    if (true) {
       for (const p of initialProducts) {
-        await setDoc(doc(db, "products", p.id!), p, { merge: true });
+        try {
+          await setDoc(doc(db, "products", p.id!), p, { merge: true });
+        } catch (e) {
+          console.error("Failed to seed product:", p.id, p, e);
+        }
       }
-      await setDoc(metaRef, { seedVersion: TARGET_VERSION }, { merge: true });
+      try {
+        await setDoc(metaRef, { seedVersion: TARGET_VERSION }, { merge: true });
+      } catch(e) {
+        console.error("Failed to update seed version:", e);
+      }
     }
     
     const promosSnap = await getDocs(promosRef);
