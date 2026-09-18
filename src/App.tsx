@@ -371,6 +371,9 @@ export default function App() {
       msg += `Troco para: R$ ${details.changeFor}\n`;
     }
     
+    const timeNow = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    msg += `\n*⏱️ Pedido gerado às:* ${timeNow}\n`;
+    
     const phone = '5554999598389';
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
     
@@ -495,7 +498,7 @@ export default function App() {
                     R$ {item.price.toFixed(2).replace('.', ',')}
                   </span>
                   <button 
-                    onClick={(e) => { e.stopPropagation(); handleAddToCart({ ...item, quantity: 1, cartItemId: Math.random().toString(36).substring(2, 9) }); }}
+                    onClick={(e) => { e.stopPropagation(); handleProductClick(item); }}
                     className="w-8 h-8 md:w-10 md:h-10 bg-[#F28B20] text-white rounded-full flex items-center justify-center hover:bg-orange-500 transition-transform hover:scale-105 shadow-[0_4px_15px_rgba(242,139,32,0.4)]"
                   >
                     <Plus size={16} strokeWidth={3} className="md:w-5 md:h-5" />

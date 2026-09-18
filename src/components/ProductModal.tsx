@@ -115,7 +115,7 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
   };
 
   const isBeverage = product.category?.toLowerCase() === "bebidas" || (product.name || '').toLowerCase().includes('água') || (product.name || '').toLowerCase().includes('refri');
-  const displayExtras = (product.productExtras && product.productExtras.length > 0) ? product.productExtras : (!isBeverage ? AVAILABLE_EXTRAS : []);
+  const displayExtras = (product.productExtras && product.productExtras.length > 0) ? product.productExtras : AVAILABLE_EXTRAS;
 
   const displayImage = selectedChoice?.image || product.image || (product.images && product.images.length > 0 ? product.images[0] : null);
 
