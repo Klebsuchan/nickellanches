@@ -79,7 +79,20 @@ async function startServer() {
         }
       }
 
-      const origin = req.get('origin') || `http://localhost:${PORT}`;
+      let origin = req.body.origin || req.body.clientOrigin;
+      if (!origin) origin = req.get('origin');
+      if (!origin && req.get('referer')) {
+        try {
+          const refUrl = new URL(req.get('referer')!);
+          origin = refUrl.origin;
+        } catch (_) {}
+      }
+      if (!origin && req.get('x-forwarded-host')) {
+        const proto = req.get('x-forwarded-proto') || 'https';
+        origin = `${proto}://${req.get('x-forwarded-host')}`;
+      }
+      if (!origin) origin = `http://localhost:${PORT}`;
+      origin = origin.replace(/\/+$/, '');
 
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],

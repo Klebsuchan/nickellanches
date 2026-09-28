@@ -1,12 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Printer, CheckSquare, Lock, X, Plus, Trash2, Edit2, Package, Tag, Clock, Save, Eye, EyeOff, Settings, List, Check, ArrowRight, ImagePlus, ChevronLeft, ChevronRight, RefreshCw, XCircle, Grid, Image as ImageIcon, Send, CreditCard, QrCode } from 'lucide-react';
-import { Order, getProducts, saveProduct, deleteProduct, getPromos, savePromo, deletePromo, getAllOrders, updateOrderStatus, PromoCode, subscribeToAllOrders, Banner, getBanners, saveBanner, deleteBanner, subscribeToProducts, subscribeToPromos, subscribeToBanners, deleteOrder, saveOrderAdmin, subscribeToPaymentSettings, PaymentSettings } from '../lib/db';
+import { Printer, CheckSquare, Lock, X, Plus, Trash2, Edit2, Package, Tag, Clock, Save, Eye, EyeOff, Settings, List, Check, ArrowRight, ImagePlus, ChevronLeft, ChevronRight, RefreshCw, XCircle, Grid, Image as ImageIcon, Send, CreditCard, QrCode, ExternalLink } from 'lucide-react';
+import { Order, getProducts, saveProduct, deleteProduct, getPromos, savePromo, deletePromo, getAllOrders, updateOrderStatus, PromoCode, subscribeToAllOrders, Banner, getBanners, saveBanner, deleteBanner, subscribeToProducts, subscribeToPromos, subscribeToBanners, deleteOrder, saveOrderAdmin, subscribeToPaymentSettings, PaymentSettings, PrinterSettings, DEFAULT_PRINTER_SETTINGS, savePrinterSettings, subscribeToPrinterSettings } from '../lib/db';
 import { Product, Extra } from '../types';
 import { useToast } from './Toast';
 import { playSound } from '../lib/audio';
 import NickelText from './NickelText';
 import PaymentSettingsEditor from './PaymentSettingsEditor';
+import PrintSettingsEditor from './PrintSettingsEditor';
+import PrintableReceipt from './PrintableReceipt';
+import PrintModal from './PrintModal';
+import { getConnectedUsbPrinter, sendRawToUsbPrinter, buildReceiptEscPos } from '../lib/escpos';
+import { executeUniversalPrint } from '../lib/printerService';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -14,25 +19,16 @@ interface AdminPanelProps {
 
 
 // ----------------------------------------------------------------------
-// SAFE PRINT HELPER
+// SAFE PRINT HELPER (SPOOLER & WEBUSB DIRECT)
 // ----------------------------------------------------------------------
-export const triggerSafePrint = (addToast: any) => {
-  let isIframe = false;
-  try {
-    isIframe = window.self !== window.top;
-  } catch (e) {
-    isIframe = true;
-  }
-  
-  if (isIframe) {
-    addToast({ message: 'A pré-visualização bloqueia impressão! Abra em NOVA ABA para imprimir.', type: 'error' });
-  } else {
-    try {
-      setTimeout(() => window.print(), 500);
-    } catch (e) {
-      addToast({ message: 'Erro nativo ao imprimir.', type: 'error' });
-    }
-  }
+export const executePrintOrder = async (
+  order: Order,
+  settings: PrinterSettings,
+  setOrderToPrint: (o: Order | null) => void,
+  addToast: any
+) => {
+  setOrderToPrint(order);
+  await executeUniversalPrint(order, settings, addToast);
 };
 
 export default function AdminPanel({ onClose }: AdminPanelProps) {
@@ -49,11 +45,14 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
   const [paymentSettings, setPaymentSettings] = useState<PaymentSettings | undefined>(undefined);
   
   const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
-  const [printSettings, setPrintSettings] = useState({
-    autoPrint: localStorage.getItem('auto_print_enabled') !== 'false',
-    printerType: localStorage.getItem('printer_type') || 'thermal_80', // thermal_80, thermal_58, normal
-    printHeader: localStorage.getItem('print_header') || 'NICKEL LANCHES',
-    printSubHeader: localStorage.getItem('print_subheader') || 'Delivery de Verdade!'
+  const [printSettings, setPrintSettings] = useState<PrinterSettings>(() => {
+    const cached = localStorage.getItem('nickel_printer_settings');
+    if (cached) {
+      try {
+        return { ...DEFAULT_PRINTER_SETTINGS, ...JSON.parse(cached) };
+      } catch (_) {}
+    }
+    return DEFAULT_PRINTER_SETTINGS;
   });
 
   const autoPrintRef = useRef(printSettings.autoPrint);
@@ -61,11 +60,15 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
 
   useEffect(() => {
     autoPrintRef.current = printSettings.autoPrint;
-    localStorage.setItem('auto_print_enabled', String(printSettings.autoPrint));
-    localStorage.setItem('printer_type', printSettings.printerType);
-    localStorage.setItem('print_header', printSettings.printHeader);
-    localStorage.setItem('print_subheader', printSettings.printSubHeader);
-  }, [printSettings]);
+  }, [printSettings.autoPrint]);
+
+  useEffect(() => {
+    const unsubPrinter = subscribeToPrinterSettings((s) => {
+      setPrintSettings(s);
+      autoPrintRef.current = s.autoPrint;
+    });
+    return () => unsubPrinter();
+  }, []);
   
   const { addToast } = useToast();
 
@@ -87,12 +90,14 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
         setOrders(prev => {
           if (autoPrintRef.current) {
             const currentIds = new Set(prev.map(o => o.id));
+            const freshPrinted = new Set<string>(JSON.parse(localStorage.getItem('printed_orders') || '[]'));
             newOrders.forEach(order => {
-              if (order.status === 'recebido' && order.id && !currentIds.has(order.id) && !printedOrders.current.has(order.id)) {
-                setOrderToPrint(order);
+              if (order.status === 'recebido' && order.id && !currentIds.has(order.id) && !freshPrinted.has(order.id)) {
+                freshPrinted.add(order.id);
                 printedOrders.current.add(order.id);
-                localStorage.setItem('printed_orders', JSON.stringify(Array.from(printedOrders.current)));
-                triggerSafePrint(addToast);
+                localStorage.setItem('printed_orders', JSON.stringify(Array.from(freshPrinted)));
+                playSound('order_alert');
+                executePrintOrder(order, printSettings, setOrderToPrint, addToast);
               }
             });
           }
@@ -171,11 +176,19 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
           <TabButton icon={<ImageIcon size={20}/>} label="Banners" active={activeTab === 'banners'} onClick={() => setActiveTab('banners')} />
           <TabButton icon={<CreditCard size={20}/>} label="Pagamentos" active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} />
           <div className="my-4 border-t border-stone-800"></div>
-          <TabButton icon={<Settings size={20}/>} label="Impressão" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
+          <TabButton icon={<Printer size={20}/>} label="Impressora" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
         </nav>
 
-        <div className="mt-8 pt-4 border-t border-stone-800 text-xs text-stone-500 font-bold uppercase tracking-widest text-center">
-          Versão 2.0.0
+        <div className="mt-8 pt-4 border-t border-stone-800 flex flex-col items-center gap-2 text-xs text-stone-500 font-bold uppercase tracking-widest text-center">
+          <a
+            href="/painel-admin"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-yellow-400 hover:text-yellow-300 normal-case font-bold tracking-normal transition-colors"
+          >
+            Abrir em Nova Aba <ExternalLink size={13} />
+          </a>
+          <span>Versão 2.1.0</span>
         </div>
       </div>
 
@@ -186,65 +199,103 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
         {activeTab === 'promos' && <PromoEditor promos={promos} />}
         {activeTab === 'banners' && <BannerEditor banners={banners} />}
         {activeTab === 'payments' && <PaymentSettingsEditor initialSettings={paymentSettings} />}
-        {activeTab === 'settings' && <PrintSettingsEditor settings={printSettings} setSettings={setPrintSettings} onTestPrint={() => { setOrderToPrint({ id: 'TESTE-123', createdAt: { toDate: () => new Date() }, items: [{ name: 'Lanche Teste de Impressão', price: 0, quantity: 1, extras: [] }], totalPrice: 0, userName: 'Teste', address: 'Teste', paymentMethod: 'Teste', status: 'recebido' }); triggerSafePrint(addToast); }} />}
-      </div>
-
-      {/* Printable Area */}
-      <div id="printable-command" className={`hidden print:block mx-auto text-black font-mono leading-tight bg-white ${printSettings.printerType === 'thermal_58' ? 'w-[58mm] text-[10px]' : printSettings.printerType === 'normal' ? 'w-[100mm] text-sm' : 'w-[80mm] text-xs'}`}>
-        {orderToPrint && (
-          <div className="p-2">
-            <div className="text-center mb-4 border-b-2 border-black pb-2">
-              <h2 className="font-bold text-xl uppercase font-display">{printSettings.printHeader}</h2>
-              {printSettings.printSubHeader && <p className="font-bold">{printSettings.printSubHeader}</p>}
-            </div>
-            
-            <div className="mb-4 font-bold">
-              <p className="text-lg border border-black p-1 text-center mb-2">SENHA: {orderToPrint.id?.substring(0,4).toUpperCase()}</p>
-              <p>ID: #{orderToPrint.id}</p>
-              <p>Data: {orderToPrint.createdAt?.toDate ? orderToPrint.createdAt.toDate().toLocaleString() : new Date().toLocaleString()}</p>
-              <p className="mt-2 border-t border-dashed border-black pt-2 text-lg">Cliente: {orderToPrint.userName || 'Anônimo'}</p>
-              <p>Pagamento: {orderToPrint.paymentMethod || 'A Confirmar'}</p>
-              {orderToPrint.receiptAuthCode && (
-                <div className="my-1 border border-black p-1 text-[10px] bg-stone-50">
-                  <p className="font-bold">COMPROVANTE: {orderToPrint.receiptAuthCode}</p>
-                  {orderToPrint.receiptTimestamp && <p>Horário: {orderToPrint.receiptTimestamp}</p>}
-                  {orderToPrint.receiptNotes && <p>Obs: {orderToPrint.receiptNotes}</p>}
-                  {orderToPrint.receiptFileName && <p>Anexo: {orderToPrint.receiptFileName}</p>}
-                </div>
-              )}
-              <p>Entrega: {orderToPrint.address || 'Retirada no Balcão'}</p>
-            </div>
-            
-            <div className="border-t-2 border-b-2 border-black py-2 mb-4">
-              <div className="font-bold mb-2 uppercase text-center bg-black text-white">ITENS DO PEDIDO</div>
-              {orderToPrint.items.map((item, i) => {
-                const extrasTotal = item.extras?.reduce((s, e) => s + e.price, 0) || 0;
-                const itemTotal = (item.price + extrasTotal) * item.quantity;
-                return (
-                <div key={i} className="mb-3 border-b border-dashed border-stone-300 pb-2">
-                  <div className="flex justify-between font-bold text-base">
-                    <span>{item.quantity}x {item.name}</span>
-                    <span>R$ {itemTotal.toFixed(2)}</span>
-                  </div>
-                  {item.extras && item.extras.length > 0 && (
-                    <div className="pl-4 font-bold uppercase mt-1">+ {item.extras.map(e => e.name).join(', ')}</div>
-                  )}
-                  {item.observation && (
-                    <div className="pl-4 italic font-bold uppercase mt-1">- Obs: {item.observation}</div>
-                  )}
-                </div>
-              )})}
-            </div>
-            
-            <div className="text-right">
-              <div className="font-black text-2xl uppercase mt-2">TOTAL: R$ {orderToPrint.totalPrice.toFixed(2)}</div>
-              <p className="font-bold uppercase mt-4 text-center border-t-2 border-black pt-2">Agradecemos a preferência!</p>
-              <p className="text-center font-bold">***</p>
-            </div>
-          </div>
+        {activeTab === 'settings' && (
+          <PrintSettingsEditor
+            settings={printSettings}
+            setSettings={setPrintSettings}
+            onSaveSettings={async (updated) => {
+              await savePrinterSettings(updated);
+              setPrintSettings(updated);
+            }}
+            onTestPrint={() => {
+              const testOrder: Order = {
+                id: 'TESTE-101',
+                orderNumber: 1,
+                createdAt: { toDate: () => new Date() },
+                userName: 'Braian Kleber (Teste)',
+                whatsapp: '(54) 99106-4604',
+                address: 'Roberto Dalla Lana, 332 - Petrópolis',
+                region: 'Passo Fundo',
+                paymentMethod: 'Pix',
+                receiptAuthCode: 'AUT-NKL-PIX-9821',
+                receiptTimestamp: 'Hoje às 19:26',
+                receiptNotes: 'Tocar o interfone.',
+                deliveryFee: 6.00,
+                totalPrice: 95.00,
+                totalPoints: 120,
+                status: 'recebido',
+                items: [
+                  {
+                    name: 'Cachorro Quente Tradicional',
+                    price: 39.00,
+                    quantity: 1,
+                    extras: [{ name: 'Uma carne a mais', price: 6.00 }, { name: 'Mussarela', price: 0 }],
+                    observation: 'Caprichar no molho especial'
+                  },
+                  {
+                    name: 'Xis Especial',
+                    price: 25.00,
+                    quantity: 2,
+                    extras: [],
+                    observation: '1 sem tomate e 1 bem prensado'
+                  }
+                ]
+              };
+              executePrintOrder(testOrder, printSettings, setOrderToPrint, addToast);
+            }}
+          />
         )}
       </div>
 
+      {/* Printable Area for Thermal / Standard Printers */}
+      <div 
+        id="printable-command" 
+        className={`hidden print:block mx-auto text-black font-mono leading-tight bg-white ${
+          printSettings.printerType === 'thermal_58'
+            ? 'thermal-58'
+            : printSettings.printerType === 'normal'
+            ? 'normal-a4'
+            : 'thermal-80'
+        }`}
+      >
+        {orderToPrint && (
+          <>
+            {printSettings.printCopies === 2 ? (
+              <>
+                <PrintableReceipt
+                  order={orderToPrint}
+                  settings={printSettings}
+                  viaTitle="VIA 1 - COZINHA / PREPARO"
+                  isKitchenOnly={true}
+                />
+                <div className="print-page-break my-4 border-b-2 border-dashed border-black"></div>
+                <PrintableReceipt
+                  order={orderToPrint}
+                  settings={printSettings}
+                  viaTitle="VIA 2 - ENTREGA / CLIENTE"
+                  isKitchenOnly={false}
+                />
+              </>
+            ) : (
+              <PrintableReceipt
+                order={orderToPrint}
+                settings={printSettings}
+                viaTitle={undefined}
+                isKitchenOnly={false}
+              />
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Print Modal with USB Diagnostics & 1-Click Print */}
+      {orderToPrint && (
+        <PrintModal
+          order={orderToPrint}
+          settings={printSettings}
+          onClose={() => setOrderToPrint(null)}
+        />
+      )}
       
     </div>
   );
@@ -297,8 +348,7 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
     let delay = 0;
     selectedOrders.forEach((order: Order) => {
       setTimeout(() => {
-        setOrderToPrint(order);
-        triggerSafePrint(addToast);
+        executePrintOrder(order, printSettings, setOrderToPrint, addToast);
       }, delay);
       delay += 2500;
     });
@@ -379,7 +429,9 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
                   
                   <div className="pr-8 cursor-pointer" onClick={() => setEditingOrder(order)}>
                     <div className="flex justify-between items-start mb-1">
-                      <span className="font-black text-lg">#{order.id?.substring(0,6).toUpperCase()}</span>
+                      <span className="font-black text-lg text-stone-900">
+                        {order.orderNumber ? `PEDIDO #${order.orderNumber}` : `#${order.id?.substring(0,6).toUpperCase()}`}
+                      </span>
                       <span className="text-xs text-stone-500 font-bold bg-stone-100 px-2 py-1 rounded">
                         {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}
                       </span>
@@ -390,7 +442,20 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
                     </div>
                     <div className="flex justify-between items-center border-t border-dashed border-stone-200 pt-2">
                       <span className="font-black text-green-600">R$ {order.totalPrice.toFixed(2)}</span>
-                      <span className="text-xs font-bold uppercase bg-stone-100 px-2 py-0.5 rounded text-stone-600 border border-stone-200">{order.paymentMethod || 'Não info'}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold uppercase bg-stone-100 px-2 py-0.5 rounded text-stone-600 border border-stone-200">{order.paymentMethod || 'Não info'}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            executePrintOrder(order, printSettings, setOrderToPrint, addToast);
+                          }}
+                          className="p-1.5 bg-stone-100 hover:bg-yellow-400 hover:text-black rounded-lg transition-colors text-stone-700"
+                          title="Imprimir Comanda"
+                        >
+                          <Printer size={15} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -412,8 +477,7 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
               setEditingOrder(null);
             }}
             onPrint={() => {
-              setOrderToPrint(editingOrder);
-              triggerSafePrint(addToast);
+              executePrintOrder(editingOrder, printSettings, setOrderToPrint, addToast);
             }}
           />
         )}
@@ -937,89 +1001,6 @@ function BannerEditor({ banners }: { banners: Banner[] }) {
         ))}
       </div>
       <ConfirmModal isOpen={!!deleteId} message="Tem certeza? O banner será removido do site." onConfirm={performDeleteBanner} onCancel={() => setDeleteId(null)} />
-    </div>
-  );
-}
-
-// ----------------------------------------------------------------------
-// PRINT SETTINGS
-// ----------------------------------------------------------------------
-function PrintSettingsEditor({ settings, setSettings, onTestPrint }: any) {
-  const { addToast } = useToast();
-
-  const handleSave = () => {
-    addToast({ message: 'Configurações de impressão salvas localmente!', type: 'success' });
-  };
-
-  return (
-    <div className="max-w-3xl">
-      <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-stone-200">
-        <h2 className="text-2xl font-display uppercase font-bold flex items-center gap-2">
-          <Settings size={24} className="text-yellow-500" /> Configurações de Impressora
-        </h2>
-      </div>
-
-      <div className="bg-white p-8 rounded-2xl border-2 border-stone-200 shadow-sm space-y-8">
-        <div>
-          <h3 className="font-black uppercase border-b-2 border-stone-100 pb-2 mb-4">Comportamento</h3>
-          <label className="flex items-center gap-3 cursor-pointer p-4 border border-stone-200 rounded-xl hover:bg-stone-50 transition-colors">
-            <div className={`w-12 h-6 rounded-full transition-colors relative ${settings.autoPrint ? 'bg-green-500' : 'bg-stone-300'}`}>
-              <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${settings.autoPrint ? 'left-7' : 'left-1'}`}></div>
-            </div>
-            <div>
-              <div className="font-bold uppercase">Impressão Automática</div>
-              <div className="text-xs text-stone-500 font-medium">Imprime o pedido assim que ele entra no painel. Requer permissão de popup no navegador.</div>
-            </div>
-          </label>
-        </div>
-
-        <div>
-          <h3 className="font-black uppercase border-b-2 border-stone-100 pb-2 mb-4">Formato da Comanda</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <label className={`border-2 rounded-xl p-4 cursor-pointer text-center transition-all ${settings.printerType === 'thermal_80' ? 'border-yellow-400 bg-yellow-50' : 'border-stone-200 hover:border-stone-300'}`}>
-              <input type="radio" name="ptype" className="hidden" checked={settings.printerType === 'thermal_80'} onChange={() => setSettings({...settings, printerType: 'thermal_80'})} />
-              <Printer size={32} className="mx-auto mb-2 text-stone-600" />
-              <div className="font-bold uppercase">Térmica 80mm</div>
-              <div className="text-xs text-stone-500 mt-1">Padrão Restaurantes</div>
-            </label>
-            <label className={`border-2 rounded-xl p-4 cursor-pointer text-center transition-all ${settings.printerType === 'thermal_58' ? 'border-yellow-400 bg-yellow-50' : 'border-stone-200 hover:border-stone-300'}`}>
-              <input type="radio" name="ptype" className="hidden" checked={settings.printerType === 'thermal_58'} onChange={() => setSettings({...settings, printerType: 'thermal_58'})} />
-              <Printer size={24} className="mx-auto mb-2 text-stone-600" />
-              <div className="font-bold uppercase">Térmica 58mm</div>
-              <div className="text-xs text-stone-500 mt-1">Bobina Menor</div>
-            </label>
-            <label className={`border-2 rounded-xl p-4 cursor-pointer text-center transition-all ${settings.printerType === 'normal' ? 'border-yellow-400 bg-yellow-50' : 'border-stone-200 hover:border-stone-300'}`}>
-              <input type="radio" name="ptype" className="hidden" checked={settings.printerType === 'normal'} onChange={() => setSettings({...settings, printerType: 'normal'})} />
-              <Printer size={40} className="mx-auto mb-2 text-stone-600" />
-              <div className="font-bold uppercase">A4 / Normal</div>
-              <div className="text-xs text-stone-500 mt-1">Impressora Doméstica</div>
-            </label>
-          </div>
-        </div>
-
-        <div>
-          <h3 className="font-black uppercase border-b-2 border-stone-100 pb-2 mb-4">Cabeçalho da Impressão</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Nome Principal</label>
-              <input value={settings.printHeader} onChange={e => setSettings({...settings, printHeader: e.target.value})} className="w-full border-2 border-stone-200 p-3 rounded-lg font-bold font-display uppercase tracking-widest text-lg" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Subtítulo / Slogan</label>
-              <input value={settings.printSubHeader} onChange={e => setSettings({...settings, printSubHeader: e.target.value})} className="w-full border-2 border-stone-200 p-3 rounded-lg font-bold" />
-            </div>
-          </div>
-        </div>
-
-        <div className="pt-6 border-t-2 border-stone-100 flex flex-col md:flex-row gap-4">
-          <button onClick={onTestPrint} className="flex-1 bg-stone-100 text-stone-700 border-2 border-stone-300 px-8 py-4 rounded-xl font-bold uppercase tracking-widest hover:bg-stone-200 transition-colors flex items-center justify-center gap-2">
-            <Printer size={20} /> Escolher Impressora / Testar
-          </button>
-          <button onClick={handleSave} className="flex-1 bg-stone-900 text-yellow-400 px-8 py-4 rounded-xl font-bold uppercase tracking-widest shadow-md hover:bg-stone-800 transition-colors flex items-center justify-center gap-2">
-            <Save size={20} /> Salvar Configurações
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

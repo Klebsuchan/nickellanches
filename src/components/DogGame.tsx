@@ -31,7 +31,7 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(order.whatsappMessage)}`, '_blank');
       addToast({
         title: 'Abrindo WhatsApp...',
-        message: 'Pedido e comprovante oficial encaminhados com sucesso!',
+        message: 'Pedido encaminhado com sucesso!',
         type: 'success'
       });
     }
@@ -478,7 +478,7 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
               className="flex-1 bg-green-500 hover:bg-green-600 text-white font-black uppercase tracking-wider py-4 rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2 text-sm cursor-pointer"
             >
               <MessageCircle size={20} />
-              <span>Encaminhar Pedido & Comprovante ao WhatsApp</span>
+              <span>Encaminhar Pedido ao WhatsApp</span>
             </button>
             {onClose && (
               <button 

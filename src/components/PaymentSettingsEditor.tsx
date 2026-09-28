@@ -13,7 +13,9 @@ import {
   ExternalLink,
   ShieldCheck,
   Smartphone,
-  Wallet
+  Wallet,
+  Landmark,
+  Building2
 } from 'lucide-react';
 import { PaymentSettings, savePaymentSettings, DEFAULT_PAYMENT_SETTINGS } from '../lib/db';
 import { generatePixPayload, generatePixQRCode } from '../lib/pix';
@@ -33,6 +35,10 @@ export default function PaymentSettingsEditor({ initialSettings }: PaymentSettin
       cardOnline: {
         ...DEFAULT_PAYMENT_SETTINGS.cardOnline,
         ...(initialSettings.cardOnline || {})
+      },
+      bankAccount: {
+        ...DEFAULT_PAYMENT_SETTINGS.bankAccount,
+        ...(initialSettings.bankAccount || {})
       }
     };
   });
@@ -42,6 +48,7 @@ export default function PaymentSettingsEditor({ initialSettings }: PaymentSettin
   const [previewQrCodeUrl, setPreviewQrCodeUrl] = useState('');
   const [previewPixPayload, setPreviewPixPayload] = useState('');
   const [copiedPayload, setCopiedPayload] = useState(false);
+  const [copiedBankField, setCopiedBankField] = useState<string | null>(null);
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -52,6 +59,10 @@ export default function PaymentSettingsEditor({ initialSettings }: PaymentSettin
         cardOnline: {
           ...DEFAULT_PAYMENT_SETTINGS.cardOnline,
           ...(initialSettings.cardOnline || {})
+        },
+        bankAccount: {
+          ...DEFAULT_PAYMENT_SETTINGS.bankAccount,
+          ...(initialSettings.bankAccount || {})
         }
       });
     }
@@ -65,6 +76,7 @@ export default function PaymentSettingsEditor({ initialSettings }: PaymentSettin
       merchantName: settings.pix.merchantName,
       merchantCity: settings.pix.merchantCity,
       amount: amountNum,
+      keyType: settings.pix.keyType,
       txid: 'PREVIEW'
     });
     setPreviewPixPayload(payload);
@@ -226,9 +238,27 @@ export default function PaymentSettingsEditor({ initialSettings }: PaymentSettin
             </div>
 
             <div>
-              <label className="text-xs font-bold text-stone-700 uppercase block mb-1.5">
-                Chave PIX da sua Conta Bancária *
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-stone-700 uppercase">
+                  Chave PIX da sua Conta Bancária *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setSettings({
+                    ...settings,
+                    pix: {
+                      ...settings.pix,
+                      keyType: 'telefone',
+                      key: '54999598389',
+                      instructions: 'A chave PIX é o próprio número de WhatsApp da lanchonete: (54) 99959-8389. Ao fazer o PIX, anexe o comprovante na conversa do WhatsApp para agilizar a preparação!'
+                    }
+                  })}
+                  className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all cursor-pointer"
+                >
+                  <span>📱</span>
+                  <span>Usar WhatsApp da Loja (54) 99959-8389</span>
+                </button>
+              </div>
               <input
                 type="text"
                 value={settings.pix.key}
@@ -239,6 +269,9 @@ export default function PaymentSettingsEditor({ initialSettings }: PaymentSettin
                 placeholder="Ex: 54999598389 ou nickellanches@gmail.com"
                 className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-semibold text-stone-900 outline-none focus:border-[#F28B20] text-sm"
               />
+              <span className="text-[11px] text-stone-500 mt-1 block">
+                Para telefone/WhatsApp, o QR Code e o Copia e Cola são gerados automaticamente com o código internacional do Banco Central (+55).
+              </span>
             </div>
 
             <div>
@@ -378,7 +411,306 @@ export default function PaymentSettingsEditor({ initialSettings }: PaymentSettin
           </div>
         </div>
 
-        {/* 2. SEÇÃO CARTÃO DE CRÉDITO E DÉBITO ONLINE */}
+        {/* 2. SEÇÃO CONTA BANCÁRIA (AGÊNCIA & CONTA / TED / DOC / DEPÓSITO) */}
+        <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-stone-200 gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                <Landmark size={26} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-black text-lg text-stone-900 uppercase">Conta Bancária (Agência & Conta)</h3>
+                  <span className="bg-blue-100 text-blue-800 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
+                    TED / DOC / Entre Contas
+                  </span>
+                </div>
+                <p className="text-xs text-stone-500 font-medium">
+                  Para clientes que preferem pagar transferindo direto para o seu banco via agência e conta
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold text-stone-700">Conta Bancária Ativa?</span>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={settings.bankAccount?.enabled ?? true} 
+                  onChange={e => setSettings({
+                    ...settings,
+                    bankAccount: {
+                      ...settings.bankAccount,
+                      enabled: e.target.checked
+                    }
+                  })} 
+                  className="sr-only peer" 
+                />
+                <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Form Fields (7 cols) */}
+            <div className="lg:col-span-7 space-y-4">
+              <div>
+                <label className="text-xs font-bold text-stone-700 uppercase block mb-1.5">
+                  Instituição Financeira / Banco *
+                </label>
+                <input
+                  type="text"
+                  value={settings.bankAccount?.bankName || ''}
+                  onChange={e => setSettings({
+                    ...settings,
+                    bankAccount: { ...settings.bankAccount, bankName: e.target.value }
+                  })}
+                  placeholder="Ex: Nubank (260), Banco do Brasil, Bradesco, Itaú, Caixa, Sicredi"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-semibold text-stone-900 outline-none focus:border-blue-500 text-sm"
+                />
+                
+                {/* Sugestões rápidas de banco */}
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  <span className="text-[10px] text-stone-400 font-bold uppercase py-0.5">Sugestões:</span>
+                  {[
+                    'Nubank (260)',
+                    'Banco do Brasil (001)',
+                    'Bradesco (237)',
+                    'Itaú (341)',
+                    'Caixa Econômica (104)',
+                    'Sicredi (748)',
+                    'Inter (077)'
+                  ].map(b => (
+                    <button
+                      key={b}
+                      type="button"
+                      onClick={() => setSettings({
+                        ...settings,
+                        bankAccount: { ...settings.bankAccount, bankName: b }
+                      })}
+                      className="text-[10px] bg-stone-100 hover:bg-stone-200 text-stone-700 px-2 py-0.5 rounded-md font-semibold transition-colors"
+                    >
+                      {b.split(' ')[0]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-stone-700 uppercase block mb-1.5">
+                    Número da Agência *
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.bankAccount?.agency || ''}
+                    onChange={e => setSettings({
+                      ...settings,
+                      bankAccount: { ...settings.bankAccount, agency: e.target.value }
+                    })}
+                    placeholder="Ex: 0001 ou 1234-5"
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-semibold text-stone-900 outline-none focus:border-blue-500 text-sm font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-stone-700 uppercase block mb-1.5">
+                    Número da Conta com Dígito *
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.bankAccount?.accountNumber || ''}
+                    onChange={e => setSettings({
+                      ...settings,
+                      bankAccount: { ...settings.bankAccount, accountNumber: e.target.value }
+                    })}
+                    placeholder="Ex: 99106460-4"
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-semibold text-stone-900 outline-none focus:border-blue-500 text-sm font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-stone-700 uppercase block mb-1.5">
+                    Tipo de Conta
+                  </label>
+                  <select
+                    value={settings.bankAccount?.accountType || 'corrente'}
+                    onChange={e => setSettings({
+                      ...settings,
+                      bankAccount: { ...settings.bankAccount, accountType: e.target.value as any }
+                    })}
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-semibold text-stone-900 outline-none focus:border-blue-500 text-sm"
+                  >
+                    <option value="corrente">Conta Corrente (CC)</option>
+                    <option value="poupanca">Conta Poupança (CP)</option>
+                    <option value="pagamento">Conta de Pagamento</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-stone-700 uppercase block mb-1.5">
+                    CPF ou CNPJ do Titular
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.bankAccount?.holderDocument || ''}
+                    onChange={e => setSettings({
+                      ...settings,
+                      bankAccount: { ...settings.bankAccount, holderDocument: e.target.value }
+                    })}
+                    placeholder="Ex: 000.000.000-00 (Opcional, mas útil p/ TED)"
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-semibold text-stone-900 outline-none focus:border-blue-500 text-sm font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-stone-700 uppercase block mb-1.5">
+                  Nome Completo do Titular da Conta *
+                </label>
+                <input
+                  type="text"
+                  value={settings.bankAccount?.holderName || ''}
+                  onChange={e => setSettings({
+                    ...settings,
+                    bankAccount: { ...settings.bankAccount, holderName: e.target.value }
+                  })}
+                  placeholder="Ex: Braian Kleber Camargo"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-semibold text-stone-900 outline-none focus:border-blue-500 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-stone-700 uppercase block mb-1.5">
+                  Instruções para o Cliente
+                </label>
+                <input
+                  type="text"
+                  value={settings.bankAccount?.instructions || ''}
+                  onChange={e => setSettings({
+                    ...settings,
+                    bankAccount: { ...settings.bankAccount, instructions: e.target.value }
+                  })}
+                  placeholder="Ex: Faça a transferência com o valor exato do pedido e anexe o comprovante com agência e conta."
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-medium text-stone-900 outline-none focus:border-blue-500 text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Live Bank Card Preview (5 cols) */}
+            <div className="lg:col-span-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase text-stone-600 flex items-center gap-1.5">
+                  <Eye size={14} className="text-blue-600" /> Prévia do Cartão de Depósito
+                </span>
+                <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full uppercase">
+                  Como o cliente vê
+                </span>
+              </div>
+
+              {/* Physical/Digital Card Graphic */}
+              <div className="bg-gradient-to-br from-stone-900 via-stone-850 to-stone-950 text-white p-5 rounded-2xl border-2 border-stone-800 shadow-xl relative overflow-hidden space-y-4">
+                {/* Background watermark */}
+                <div className="absolute -right-4 -bottom-6 text-white/5 pointer-events-none">
+                  <Landmark size={140} />
+                </div>
+
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-400 block">
+                      DADOS PARA TRANSFERÊNCIA
+                    </span>
+                    <h4 className="font-black text-lg text-white uppercase tracking-tight">
+                      {settings.bankAccount?.bankName || 'BANCO A DEFINIR'}
+                    </h4>
+                  </div>
+                  <div className="p-2 bg-stone-800/80 rounded-xl border border-stone-700 text-yellow-400">
+                    <Building2 size={20} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div className="bg-stone-800/70 p-2.5 rounded-xl border border-stone-700">
+                    <span className="text-[10px] text-stone-400 uppercase font-bold block">Agência</span>
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="font-mono font-black text-sm text-yellow-300">
+                        {settings.bankAccount?.agency || '0001'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (settings.bankAccount?.agency) {
+                            navigator.clipboard.writeText(settings.bankAccount.agency);
+                            setCopiedBankField('agency');
+                            playSound('coin');
+                            addToast({ message: 'Agência copiada!', type: 'success' });
+                            setTimeout(() => setCopiedBankField(null), 2000);
+                          }
+                        }}
+                        className="text-[10px] text-stone-400 hover:text-white p-1 rounded bg-stone-700/60 transition-colors"
+                        title="Copiar Agência"
+                      >
+                        {copiedBankField === 'agency' ? <Check size={11} className="text-green-400" /> : <Copy size={11} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-stone-800/70 p-2.5 rounded-xl border border-stone-700">
+                    <span className="text-[10px] text-stone-400 uppercase font-bold block">
+                      Conta ({settings.bankAccount?.accountType === 'poupanca' ? 'Poupança' : 'Corrente'})
+                    </span>
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="font-mono font-black text-sm text-yellow-300">
+                        {settings.bankAccount?.accountNumber || '00000000-0'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (settings.bankAccount?.accountNumber) {
+                            navigator.clipboard.writeText(settings.bankAccount.accountNumber);
+                            setCopiedBankField('account');
+                            playSound('coin');
+                            addToast({ message: 'Conta copiada!', type: 'success' });
+                            setTimeout(() => setCopiedBankField(null), 2000);
+                          }
+                        }}
+                        className="text-[10px] text-stone-400 hover:text-white p-1 rounded bg-stone-700/60 transition-colors"
+                        title="Copiar Conta"
+                      >
+                        {copiedBankField === 'account' ? <Check size={11} className="text-green-400" /> : <Copy size={11} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-stone-800 pt-3 space-y-1">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-stone-400">Titular:</span>
+                    <span className="font-bold text-white uppercase text-right">
+                      {settings.bankAccount?.holderName || 'NOME DO TITULAR'}
+                    </span>
+                  </div>
+                  {settings.bankAccount?.holderDocument && (
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-stone-400">CPF/CNPJ:</span>
+                      <span className="font-mono text-stone-300 text-right">
+                        {settings.bankAccount.holderDocument}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-blue-500/10 border border-blue-500/20 p-2.5 rounded-xl text-[11px] text-blue-200 leading-tight">
+                  {settings.bankAccount?.instructions || 'O cliente poderá copiar a agência e conta em 1 clique na finalização do pedido.'}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. SEÇÃO CARTÃO DE CRÉDITO E DÉBITO ONLINE */}
         <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-stone-200 gap-3">
             <div className="flex items-center gap-3">

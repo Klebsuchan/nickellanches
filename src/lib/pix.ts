@@ -6,6 +6,7 @@ export interface PixPayloadParams {
   merchantCity: string;
   amount: number;
   txid?: string;
+  keyType?: 'telefone' | 'cpf' | 'cnpj' | 'email' | 'aleatoria' | string;
 }
 
 function normalizeString(str: string, maxLength: number): string {
@@ -43,11 +44,34 @@ export function generatePixPayload({
   merchantName,
   merchantCity,
   amount,
-  txid = '***'
+  txid = '***',
+  keyType
 }: PixPayloadParams): string {
   if (!key) return '';
 
-  const cleanKey = key.trim();
+  let cleanKey = key.trim();
+  const digitsOnly = cleanKey.replace(/\D/g, '');
+
+  // Padrão do Banco Central do Brasil para chaves PIX de telefone:
+  // Deve conter o prefixo internacional +55 (ex: +5554999598389)
+  const isPhone = keyType === 'telefone' || 
+    cleanKey.startsWith('+55') || 
+    (!cleanKey.includes('@') && !cleanKey.includes('-') && (digitsOnly.length === 10 || digitsOnly.length === 11) && keyType !== 'cpf');
+
+  if (isPhone) {
+    if (cleanKey.startsWith('+55')) {
+      cleanKey = `+55${cleanKey.replace('+55', '').replace(/\D/g, '')}`;
+    } else if (digitsOnly.length === 12 || digitsOnly.length === 13) {
+      if (digitsOnly.startsWith('55')) {
+        cleanKey = `+${digitsOnly}`;
+      } else {
+        cleanKey = `+55${digitsOnly}`;
+      }
+    } else if (digitsOnly.length === 10 || digitsOnly.length === 11) {
+      cleanKey = `+55${digitsOnly}`;
+    }
+  }
+
   const cleanName = normalizeString(merchantName || 'NICKEL LANCHES', 25) || 'NICKEL LANCHES';
   const cleanCity = normalizeString(merchantCity || 'PASSO FUNDO', 15) || 'PASSO FUNDO';
   const formattedAmount = Number(amount || 0).toFixed(2);

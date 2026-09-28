@@ -29,7 +29,8 @@ import CheckoutModal from './components/CheckoutModal';
 import { useToast } from './components/Toast';
 import { auth, signInWithGoogle, signOut, getNextOrderNumber } from './lib/firebase';
 import { User as FirebaseUser } from 'firebase/auth';
-import { subscribeToOrder, getLatestOrders, subscribeToProducts, subscribeToPromos, seedDatabase, createUserProfile, getUserProfile, addXpToUser, saveOrder, UserProfile, Order } from './lib/db';
+import { subscribeToOrder, getLatestOrders, subscribeToProducts, subscribeToPromos, seedDatabase, createUserProfile, getUserProfile, addXpToUser, saveOrder, UserProfile, Order, getPrinterSettings, subscribeToAllOrders } from './lib/db';
+import { executeUniversalPrint } from './lib/printerService';
 import { playSound } from './lib/audio';
 
 export default function App() {
@@ -157,6 +158,49 @@ export default function App() {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // Auto-impressão de novos pedidos em tempo real (para o balcão / computador da lanchonete)
+  useEffect(() => {
+    let isInitial = true;
+    const printedOrders = new Set<string>(JSON.parse(localStorage.getItem('printed_orders') || '[]'));
+
+    const unsubscribe = subscribeToAllOrders(async (orders) => {
+      // No primeiro carregamento, marca os existentes para não reimprimir pedidos antigos
+      if (isInitial) {
+        orders.forEach(o => {
+          if (o.id) printedOrders.add(o.id);
+        });
+        localStorage.setItem('printed_orders', JSON.stringify(Array.from(printedOrders)));
+        isInitial = false;
+        return;
+      }
+
+      // Procura novos pedidos com status 'recebido' que ainda não foram impressos
+      for (const order of orders) {
+        if (order.status === 'recebido' && order.id && !printedOrders.has(order.id)) {
+          printedOrders.add(order.id);
+          localStorage.setItem('printed_orders', JSON.stringify(Array.from(printedOrders)));
+
+          try {
+            const settings = await getPrinterSettings();
+            if (settings.autoPrint) {
+              playSound('order_alert');
+              addToast({
+                title: '🔔 Novo Pedido Recebido!',
+                message: `Pedido #${order.orderNumber || order.id.slice(0, 4)} de ${order.userName || 'Cliente'} imprimindo automaticamente!`,
+                type: 'success'
+              });
+              executeUniversalPrint(order, settings, addToast);
+            }
+          } catch (err) {
+            console.warn('Erro ao auto-imprimir novo pedido em background:', err);
+          }
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [addToast]);
 
   const handleLogoClick = () => {
     setLogoClicks(prev => {
@@ -463,67 +507,57 @@ export default function App() {
       finalTotal = computedTotalCart + details.deliveryFee;
     }
 
-    // 1. Build WhatsApp message with full order + official payment receipt (to be sent after dog game)
-    let msg = `🍔 *NICKEL LANCHES - NOVO PEDIDO #${orderNumber}*\n`;
-    msg += `📅 *Emissão:* ${dateNow} às ${timeNow}\n`;
-    msg += `════════════════════════════════════\n\n`;
+    // 1. Build WhatsApp message following the exact customer template requested
+    const clientName = (details.name || 'Cliente').trim();
+    const clientNameUpper = clientName.toUpperCase();
 
-    msg += `👤 *DADOS DO CLIENTE & ENTREGA:*\n`;
-    msg += `• *Cliente:* ${details.name.trim()}\n`;
-    msg += `• *WhatsApp:* ${details.whatsapp.trim()}\n`;
-    msg += `• *Endereço:* ${details.address.trim()}\n`;
-    if (details.region) {
-      msg += `• *Região / Bairro:* ${details.region}\n`;
-    }
+    let msg = `Me chamo ${clientNameUpper}\n\n`;
+    msg += `e gostaria de fazer um pedido aqui pelo whatsapp!\n\n`;
+    msg += `Pedido Número: #${orderNumber}\n`;
+    msg += `Gerado às: ${timeNow}\n\n`;
+    msg += `ITENS DO PEDIDO:\n\n`;
 
-    msg += `\n🛒 *ITENS DO PEDIDO:*\n`;
     activeCart.forEach(item => {
       const itemTotal = (item.price + (item.extras?.reduce((sum, e) => sum + e.price, 0) || 0)) * item.quantity;
       msg += `- ${item.quantity}x ${item.name} (R$ ${itemTotal.toFixed(2).replace('.', ',')})\n`;
       if (item.extras && item.extras.length > 0) {
-        msg += `  *Adicionais:* ${item.extras.map(e => e.name).join(', ')}\n`;
+        msg += `Adicionais: ${item.extras.map(e => e.name).join(', ')}\n`;
       }
-      if (item.observation) {
-        msg += `  *Obs:* ${item.observation}\n`;
+      if (item.observation && item.observation.trim()) {
+        msg += `Observação: ${item.observation.trim()}\n`;
       }
-      msg += '\n';
     });
-    
-    msg += `💵 *DISCRIMINAÇÃO DOS VALORES:*\n`;
-    msg += `• *Subtotal dos Lanches:* R$ ${baseSubtotal.toFixed(2).replace('.', ',')}\n`;
-    if (activeDiscount > 0) {
-      msg += `• *Desconto Aplicado:* -R$ ${activeDiscount.toFixed(2).replace('.', ',')}\n`;
-    }
-    if (details.deliveryFee) {
-      msg += `• *Taxa de Entrega (${details.region}):* R$ ${details.deliveryFee.toFixed(2).replace('.', ',')}\n`;
-    }
-    msg += `• *VALOR TOTAL DO PEDIDO:* *R$ ${finalTotal.toFixed(2).replace('.', ',')}*\n\n`;
 
-    msg += `════════════════════════════════════\n`;
-    msg += `🧾 *COMPROVANTE OFICIAL DE PAGAMENTO*\n`;
-    msg += `════════════════════════════════════\n`;
-    msg += `🆔 *Protocolo de Autenticação:* ${authCode}\n`;
-    msg += `⏰ *Data/Hora do Registro:* ${details.receiptTimestamp || `${dateNow} às ${timeNow}`}\n`;
-    msg += `💳 *Forma de Pagamento:* ${details.paymentMethod}\n`;
-    msg += `💰 *Valor Quitado:* *R$ ${finalTotal.toFixed(2).replace('.', ',')}*\n`;
-    msg += `🏪 *Favorecido:* Nickel Lanches (Passo Fundo/RS)\n`;
-    if (details.pixKey) {
-      msg += `🔑 *Chave PIX Cadastrada:* ${details.pixKey}\n`;
+    msg += `\n`;
+
+    let totalLine = `TOTAL: R$ ${computedTotalCart.toFixed(2).replace('.', ',')}`;
+    if (details.deliveryFee && details.deliveryFee > 0) {
+      totalLine += ` + Frete R$ ${details.deliveryFee.toFixed(2).replace('.', ',')} (Total: R$ ${finalTotal.toFixed(2).replace('.', ',')})`;
+    } else {
+      totalLine += ` + Frete a calcular`;
     }
-    msg += `📊 *Situação:* ✅ ${details.isOnlinePayment ? 'PAGAMENTO ONLINE REALIZADO COM SUCESSO' : 'CONFIRMADO PARA COBRANÇA NA ENTREGA'}\n`;
+    msg += `${totalLine}\n\n`;
+
+    msg += `DADOS PARA ENTREGA:\n`;
+    msg += `Nome: ${clientName}\n`;
+    msg += `WhatsApp: ${(details.whatsapp || '').trim()}\n`;
+    const cleanAddress = (details.address || '').trim();
+    const regionSuffix = details.region && details.region !== 'Frete a calcular' && !cleanAddress.toLowerCase().includes(details.region.toLowerCase())
+      ? ` (${details.region})`
+      : '';
+    msg += `Endereço: ${cleanAddress}${regionSuffix}\n`;
+    
+    let paymentText = details.paymentMethod || 'Pix';
     if (details.changeFor) {
-      msg += `💵 *Troco Necessário para:* R$ ${details.changeFor}\n`;
+      paymentText += ` (Troco para R$ ${details.changeFor})`;
     }
-    if (details.receiptNotes) {
-      msg += `📝 *Observação do Pagador:* ${details.receiptNotes}\n`;
+    msg += `Forma de Pagamento: ${paymentText}`;
+    if (paymentText.toLowerCase().includes('pix')) {
+      msg += `\n*Chave PIX (WhatsApp): (54) 99959-8389*`;
     }
-    if (details.receiptFileName) {
-      msg += `📎 *Comprovante Anexo:* Arquivo "${details.receiptFileName}" (imagem enviada nesta conversa)\n`;
+    if (details.receiptNotes && details.receiptNotes.trim()) {
+      msg += `\nObservação da Entrega: ${details.receiptNotes.trim()}`;
     }
-    msg += `🔒 *Autenticação Eletrônica:* SHA256-${authHash}\n`;
-    msg += `════════════════════════════════════\n\n`;
-    msg += `_Comprovante e pedido gerados automaticamente pelo sistema Nickel Lanches._\n`;
-    msg += `_Aguardando confirmação e preparo do pedido!_`;
     
     // 2. Save order and receipt to Firebase
     let orderId = Math.random().toString(36).substring(2, 9).toUpperCase();
@@ -538,6 +572,9 @@ export default function App() {
         address: details.address,
         paymentMethod: details.paymentMethod,
         whatsapp: details.whatsapp,
+        deliveryFee: details.deliveryFee || 0,
+        changeFor: details.changeFor || '',
+        region: details.region || '',
         orderNumber,
         receiptAuthCode: authCode,
         receiptTimestamp: details.receiptTimestamp || `${dateNow} às ${timeNow}`,
@@ -545,6 +582,39 @@ export default function App() {
         receiptFileName: details.receiptFileName || '',
         receiptSummary: `R$ ${finalTotal.toFixed(2).replace('.', ',')} via ${details.paymentMethod}`
       });
+
+      // 3. Auto-impressão imediata assim que o pedido é realizado
+      try {
+        const printerSettings = await getPrinterSettings();
+        if (printerSettings.autoPrint) {
+          const printedSet = new Set<string>(JSON.parse(localStorage.getItem('printed_orders') || '[]'));
+          printedSet.add(orderId);
+          localStorage.setItem('printed_orders', JSON.stringify(Array.from(printedSet)));
+
+          const orderObj: Order = {
+            id: orderId,
+            orderNumber,
+            userName: details.name || user?.displayName || 'Anônimo',
+            address: details.address || '',
+            paymentMethod: details.paymentMethod || 'Pix',
+            whatsapp: details.whatsapp || '',
+            deliveryFee: details.deliveryFee || 0,
+            changeFor: details.changeFor || '',
+            region: details.region || '',
+            totalPrice: finalTotal,
+            totalPoints: earnedPoints,
+            items: activeCart,
+            receiptNotes: details.receiptNotes || '',
+            status: 'recebido',
+            createdAt: new Date()
+          };
+
+          playSound('order_alert');
+          executeUniversalPrint(orderObj, printerSettings, addToast);
+        }
+      } catch (printErr) {
+        console.warn('Erro ao acionar auto-impressão imediata:', printErr);
+      }
     } catch(e) {
       console.error("Error saving order", e);
     }
@@ -580,7 +650,7 @@ export default function App() {
     
     addToast({
       title: 'Pedido Confirmado!',
-      message: 'Divirta-se com o minigame do cachorrinho! O comprovante será enviado ao WhatsApp.',
+      message: 'Divirta-se com o minigame do cachorrinho! Seu pedido será enviado ao WhatsApp.',
       type: 'success'
     });
   };
@@ -598,7 +668,7 @@ export default function App() {
       playSound('powerup');
       addToast({
         title: 'Pedido Encaminhado ao WhatsApp!',
-        message: `Comprovante enviado e você ganhou +${activeOrder.pointsEarned} XP!`,
+        message: `Pedido enviado e você ganhou +${activeOrder.pointsEarned} XP!`,
         type: 'xp'
       });
     }

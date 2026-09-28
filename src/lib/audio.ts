@@ -1,4 +1,4 @@
-export const playSound = (type: 'coin' | 'powerup' | 'error' | 'jump' | 'laser') => {
+export const playSound = (type: 'coin' | 'powerup' | 'error' | 'jump' | 'laser' | 'bell' | 'order_alert') => {
   try {
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContext) return;
@@ -9,7 +9,19 @@ export const playSound = (type: 'coin' | 'powerup' | 'error' | 'jump' | 'laser')
     osc.connect(gainNode);
     gainNode.connect(ctx.destination);
 
-    if (type === 'coin') {
+    if (type === 'bell' || type === 'order_alert') {
+      // Som clássico de campainha de balcão de lanchonete (ding-dong alegre e nítido)
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
+      osc.frequency.setValueAtTime(1174.66, ctx.currentTime + 0.15); // D6
+      
+      gainNode.gain.setValueAtTime(0, ctx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.02);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+      
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.8);
+    } else if (type === 'coin') {
       osc.type = 'square';
       osc.frequency.setValueAtTime(987.77, ctx.currentTime); // B5
       osc.frequency.setValueAtTime(1318.51, ctx.currentTime + 0.1); // E6

@@ -28,6 +28,10 @@ export interface Order {
   receiptNotes?: string;
   receiptFileName?: string;
   receiptSummary?: string;
+  deliveryFee?: number;
+  changeFor?: string;
+  region?: string;
+  adminNotes?: string;
 }
 
 export const createUserProfile = async (user: FirebaseUser) => {
@@ -425,14 +429,13 @@ export interface PaymentSettings {
     instructions: string;
     customNote?: string;
   };
-  // Compatibilidade com cadastros legados
-  bankAccount?: {
-    enabled?: boolean;
-    bankName?: string;
-    agency?: string;
-    accountNumber?: string;
-    accountType?: 'corrente' | 'poupanca';
-    holderName?: string;
+  bankAccount: {
+    enabled: boolean;
+    bankName: string;
+    agency: string;
+    accountNumber: string;
+    accountType: 'corrente' | 'poupanca' | 'pagamento';
+    holderName: string;
     holderDocument?: string;
     instructions?: string;
   };
@@ -452,7 +455,7 @@ export const DEFAULT_PAYMENT_SETTINGS: PaymentSettings = {
     key: '54999598389',
     merchantName: 'NICKEL LANCHES',
     merchantCity: 'PASSO FUNDO',
-    instructions: 'Faça o PIX no valor exato do seu pedido. O valor cai na hora na conta do proprietário!'
+    instructions: 'A chave PIX é o próprio número de WhatsApp da lanchonete: (54) 99959-8389. Faça o PIX no valor exato e anexe o comprovante na conversa para agilizar a preparação!'
   },
   cardOnline: {
     enabled: true,
@@ -461,6 +464,16 @@ export const DEFAULT_PAYMENT_SETTINGS: PaymentSettings = {
     acceptDebit: true,
     instructions: 'Pague online com Cartão de Crédito ou Débito com segurança. O valor cai direto na conta da lanchonete.',
     customNote: 'Aceitamos as principais bandeiras: Visa, Mastercard, Elo e Hipercard.'
+  },
+  bankAccount: {
+    enabled: true,
+    bankName: 'Nubank (260)',
+    agency: '0001',
+    accountNumber: '99106460-4',
+    accountType: 'corrente',
+    holderName: 'Braian Kleber Camargo',
+    holderDocument: '',
+    instructions: 'Faça a transferência (TED/DOC ou entre contas) com o valor exato do seu pedido e anexe o comprovante com agência e conta.'
   },
   generalNotes: 'Após realizar o pagamento online, envie seu pedido pelo WhatsApp com a confirmação.'
 };
@@ -499,6 +512,109 @@ export const subscribeToPaymentSettings = (callback: (settings: PaymentSettings)
   }, (err) => {
     console.warn("Erro ao escutar configurações de pagamento:", err);
     callback(DEFAULT_PAYMENT_SETTINGS);
+  });
+};
+
+export interface PrinterSettings {
+  autoPrint: boolean;
+  printerType: 'thermal_80' | 'thermal_58' | 'normal';
+  printerModel: 'ps80' | 'generic_80' | 'generic_58' | 'a4';
+  connectionMode: 'spooler' | 'webusb';
+  cutPaper: boolean;
+  beepOnPrint: boolean;
+  charsPerLine: number;
+  fontSize: 'small' | 'medium' | 'large';
+  printCopies: number; // 1 ou 2
+  printHeader: string;
+  printSubHeader: string;
+  printPhone: string;
+  printAddress: string;
+  printFooter: string;
+  showOrderNumber: boolean;
+  showPassword: boolean;
+  showCustomerPhone: boolean;
+  showDeliveryAddress: boolean;
+  showItemObservations: boolean;
+  showPaymentDetails: boolean;
+  feedLines: number;
+}
+
+export const DEFAULT_PRINTER_SETTINGS: PrinterSettings = {
+  autoPrint: true,
+  printerType: 'thermal_80',
+  printerModel: 'ps80',
+  connectionMode: 'spooler',
+  cutPaper: true,
+  beepOnPrint: false,
+  charsPerLine: 48,
+  fontSize: 'medium',
+  printCopies: 1,
+  printHeader: 'NICKEL LANCHES',
+  printSubHeader: 'Delivery de Verdade!',
+  printPhone: '(54) 99959-8389',
+  printAddress: 'R. Uruguai, 919 - Petrópolis - Passo Fundo - RS',
+  printFooter: 'Agradecemos a preferência! Bom apetite!',
+  showOrderNumber: true,
+  showPassword: true,
+  showCustomerPhone: true,
+  showDeliveryAddress: true,
+  showItemObservations: true,
+  showPaymentDetails: true,
+  feedLines: 4
+};
+
+export const getPrinterSettings = async (): Promise<PrinterSettings> => {
+  try {
+    const docRef = doc(db, 'settings', 'printer');
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return { ...DEFAULT_PRINTER_SETTINGS, ...snap.data() } as PrinterSettings;
+    }
+  } catch (e) {
+    console.error("Erro ao buscar configurações de impressora:", e);
+  }
+  return DEFAULT_PRINTER_SETTINGS;
+};
+
+export const savePrinterSettings = async (settings: PrinterSettings) => {
+  try {
+    const docRef = doc(db, 'settings', 'printer');
+    await setDoc(docRef, settings, { merge: true });
+    // Keep local cache in sync
+    localStorage.setItem('nickel_printer_settings', JSON.stringify(settings));
+  } catch (e) {
+    console.error("Erro ao salvar configurações de impressora:", e);
+    throw e;
+  }
+};
+
+export const subscribeToPrinterSettings = (callback: (settings: PrinterSettings) => void) => {
+  const docRef = doc(db, 'settings', 'printer');
+  return onSnapshot(docRef, (snap) => {
+    if (snap.exists()) {
+      const data = { ...DEFAULT_PRINTER_SETTINGS, ...snap.data() } as PrinterSettings;
+      localStorage.setItem('nickel_printer_settings', JSON.stringify(data));
+      callback(data);
+    } else {
+      const cached = localStorage.getItem('nickel_printer_settings');
+      if (cached) {
+        try {
+          callback({ ...DEFAULT_PRINTER_SETTINGS, ...JSON.parse(cached) });
+          return;
+        } catch (_) {}
+      }
+      callback(DEFAULT_PRINTER_SETTINGS);
+    }
+  }, (err) => {
+    console.warn("Erro ao escutar configurações de impressora, usando cache local:", err);
+    const cached = localStorage.getItem('nickel_printer_settings');
+    if (cached) {
+      try {
+        callback({ ...DEFAULT_PRINTER_SETTINGS, ...JSON.parse(cached) });
+        return;
+      } catch (_) {}
+    }
+    callback(DEFAULT_PRINTER_SETTINGS);
   });
 };
 
