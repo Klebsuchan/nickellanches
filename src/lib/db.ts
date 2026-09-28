@@ -23,6 +23,11 @@ export interface Order {
   whatsapp?: string;
   address?: string;
   orderNumber?: number;
+  receiptAuthCode?: string;
+  receiptTimestamp?: string;
+  receiptNotes?: string;
+  receiptFileName?: string;
+  receiptSummary?: string;
 }
 
 export const createUserProfile = async (user: FirebaseUser) => {
@@ -121,7 +126,7 @@ export const addFeedback = async (feedbackData: Omit<Feedback, 'createdAt' | 'id
 
 export const getFeedbacks = async (): Promise<Feedback[]> => {
   const feedbacksRef = collection(db, "feedbacks");
-  const q = query(feedbacksRef, orderBy("createdAt", "desc"), limit(20));
+  const q = query(feedbacksRef, orderBy("createdAt", "desc"), limit(100));
   const snap = await getDocs(q);
   
   return snap.docs.map(doc => ({
@@ -400,3 +405,100 @@ export const saveOrderAdmin = async (orderId: string, updates: Partial<Order>) =
     throw e;
   }
 };
+
+export interface PaymentSettings {
+  id?: string;
+  onlinePaymentsEnabled: boolean;
+  pix: {
+    enabled: boolean;
+    keyType: 'telefone' | 'cpf' | 'cnpj' | 'email' | 'aleatoria';
+    key: string;
+    merchantName: string;
+    merchantCity: string;
+    instructions: string;
+  };
+  cardOnline: {
+    enabled: boolean;
+    paymentLinkUrl: string;
+    acceptCredit: boolean;
+    acceptDebit: boolean;
+    instructions: string;
+    customNote?: string;
+  };
+  // Compatibilidade com cadastros legados
+  bankAccount?: {
+    enabled?: boolean;
+    bankName?: string;
+    agency?: string;
+    accountNumber?: string;
+    accountType?: 'corrente' | 'poupanca';
+    holderName?: string;
+    holderDocument?: string;
+    instructions?: string;
+  };
+  creditCardOnline?: {
+    enabled?: boolean;
+    paymentLinkUrl?: string;
+    instructions?: string;
+  };
+  generalNotes?: string;
+}
+
+export const DEFAULT_PAYMENT_SETTINGS: PaymentSettings = {
+  onlinePaymentsEnabled: true,
+  pix: {
+    enabled: true,
+    keyType: 'telefone',
+    key: '54999598389',
+    merchantName: 'NICKEL LANCHES',
+    merchantCity: 'PASSO FUNDO',
+    instructions: 'Faça o PIX no valor exato do seu pedido. O valor cai na hora na conta do proprietário!'
+  },
+  cardOnline: {
+    enabled: true,
+    paymentLinkUrl: '',
+    acceptCredit: true,
+    acceptDebit: true,
+    instructions: 'Pague online com Cartão de Crédito ou Débito com segurança. O valor cai direto na conta da lanchonete.',
+    customNote: 'Aceitamos as principais bandeiras: Visa, Mastercard, Elo e Hipercard.'
+  },
+  generalNotes: 'Após realizar o pagamento online, envie seu pedido pelo WhatsApp com a confirmação.'
+};
+
+export const getPaymentSettings = async (): Promise<PaymentSettings> => {
+  try {
+    const docRef = doc(db, 'settings', 'payments');
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return { ...DEFAULT_PAYMENT_SETTINGS, ...snap.data() } as PaymentSettings;
+    }
+  } catch (e) {
+    console.error("Error getting payment settings: ", e);
+  }
+  return DEFAULT_PAYMENT_SETTINGS;
+};
+
+export const savePaymentSettings = async (settings: PaymentSettings) => {
+  try {
+    const docRef = doc(db, 'settings', 'payments');
+    await setDoc(docRef, settings, { merge: true });
+  } catch (e) {
+    console.error("Error saving payment settings: ", e);
+    throw e;
+  }
+};
+
+export const subscribeToPaymentSettings = (callback: (settings: PaymentSettings) => void) => {
+  const docRef = doc(db, 'settings', 'payments');
+  return onSnapshot(docRef, (snap) => {
+    if (snap.exists()) {
+      callback({ ...DEFAULT_PAYMENT_SETTINGS, ...snap.data() } as PaymentSettings);
+    } else {
+      callback(DEFAULT_PAYMENT_SETTINGS);
+    }
+  }, (err) => {
+    console.warn("Erro ao escutar configurações de pagamento:", err);
+    callback(DEFAULT_PAYMENT_SETTINGS);
+  });
+};
+

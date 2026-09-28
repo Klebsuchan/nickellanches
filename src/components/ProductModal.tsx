@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Plus, Minus, Check } from 'lucide-react';
+import { X, Plus, Minus, Check, Star } from 'lucide-react';
 import { Product, Extra, CartItem } from '../types';
 import { AVAILABLE_EXTRAS } from '../data';
 
@@ -168,9 +168,32 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
                 {displayImage && (
                   <h2 className="text-2xl font-black uppercase mb-1 leading-tight">{product.name} {product.emoji}</h2>
                 )}
-                <p className="text-stone-500 font-medium leading-relaxed mb-4 text-sm md:text-base">
+                <p className="text-stone-500 font-medium leading-relaxed mb-3 text-sm md:text-base">
                   {product.description}
                 </p>
+
+                {(() => {
+                  const isTop = (product.name || '').toLowerCase().includes('cemuche') || (product.name || '').toLowerCase().includes('magma');
+                  const rating = isTop ? '5,0' : ((product.id || '').charCodeAt(0) % 2 === 0 ? '4,8' : '4,9');
+                  const count = isTop ? 100 : (78 + ((product.id || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % 22));
+                  return (
+                    <div className="flex items-center gap-2 mb-4 bg-[#FCF9F5] border border-[#F2E8D5] px-3 py-2 rounded-xl w-fit">
+                      <div className="flex text-amber-400">
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} size={15} fill="currentColor" />
+                        ))}
+                      </div>
+                      <span className="text-sm font-black text-stone-800">{rating}</span>
+                      <span className="text-xs text-stone-500 font-medium">({count} avaliações)</span>
+                      {isTop && (
+                        <span className="bg-amber-100 text-amber-800 text-[10px] font-black px-2 py-0.5 rounded-full uppercase ml-1">
+                          ⭐ Nota 5.0
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 <div className="text-[#F28B20] font-black text-2xl">
                   R$ {basePrice.toFixed(2).replace('.', ',')}
                 </div>

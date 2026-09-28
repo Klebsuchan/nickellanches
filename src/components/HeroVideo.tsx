@@ -17,7 +17,7 @@ export default function HeroVideo({ onGoToStore, onOpenProduct }: HeroVideoProps
     {
       id: 1,
       productId: "32",
-      image: "/images/magma-destaque.jpeg",
+      image: "/images/destaques-magma-ok.jpg",
       title: "Xis Magma",
       description: "Carne, queijo muçarela, provolone, cheddar, calabresa, milho, tomate, maionese caseira."
     },
@@ -55,7 +55,7 @@ export default function HeroVideo({ onGoToStore, onOpenProduct }: HeroVideoProps
   }, []);
 
   return (
-    <div className="w-full relative rounded-[24px] md:rounded-[32px] overflow-hidden shadow-xl min-h-[350px] md:min-h-[500px] flex items-center justify-center bg-stone-900">
+    <div className="w-full relative rounded-[20px] md:rounded-[32px] overflow-hidden shadow-xl min-h-[280px] sm:min-h-[350px] md:min-h-[500px] flex items-center justify-center bg-stone-900">
       {/* Video Background */}
       <video preload="auto" 
         autoPlay loop muted playsInline 
@@ -65,11 +65,11 @@ export default function HeroVideo({ onGoToStore, onOpenProduct }: HeroVideoProps
         Seu navegador não suporta vídeos.
       </video>
       
-      <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-6xl mx-auto py-6 sm:py-10 md:py-16 px-4">
+      <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-6xl mx-auto py-4 sm:py-8 md:py-16 px-3 sm:px-4">
         
         {/* Banner Carousel */}
         {promos.length > 0 && (
-        <div className="relative w-full aspect-[4/3] md:aspect-[21/9] rounded-2xl md:rounded-[32px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.5)] mb-6 md:mb-8 border border-white/10 group">
+        <div className="relative w-full aspect-[16/9] sm:aspect-[18/9] md:aspect-[21/9] rounded-xl sm:rounded-2xl md:rounded-[32px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.5)] mb-4 md:mb-8 border border-white/10 group">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentPromo}
@@ -85,14 +85,14 @@ export default function HeroVideo({ onGoToStore, onOpenProduct }: HeroVideoProps
               }}
             >
               <img loading="lazy" decoding="async"  src={promos[currentPromo].image} alt={promos[currentPromo].title} className="w-full h-full object-cover object-[center_center] md:object-[center_60%] transition-transform duration-700 hover:scale-105" referrerPolicy="no-referrer" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end items-start p-4 sm:p-6 md:p-12 text-left pointer-events-none h-full pt-[30%]">
-                <span className="bg-[#F28B20] text-white font-black px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[10px] md:text-sm uppercase tracking-widest shadow-lg mb-2 md:mb-3">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent flex flex-col justify-end items-start p-3 sm:p-6 md:p-12 text-left pointer-events-none h-full">
+                <span className="bg-[#F28B20] text-white font-black px-2.5 py-0.5 md:px-4 md:py-1.5 rounded-full text-[9px] sm:text-xs md:text-sm uppercase tracking-widest shadow-lg mb-1 md:mb-3">
                   🔥 Peça Agora
                 </span>
-                <h3 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-black uppercase tracking-tight text-white mb-1 md:mb-2 leading-none drop-shadow-xl">
+                <h3 className="text-lg sm:text-3xl md:text-5xl lg:text-6xl font-black uppercase tracking-tight text-white mb-0.5 md:mb-2 leading-none drop-shadow-xl">
                   {promos[currentPromo].title}
                 </h3>
-                <p className="text-stone-200 font-bold text-xs sm:text-sm md:text-xl drop-shadow-md max-w-3xl line-clamp-2 md:line-clamp-none">
+                <p className="text-stone-200 font-bold text-[11px] sm:text-sm md:text-xl drop-shadow-md max-w-3xl line-clamp-1 sm:line-clamp-2 md:line-clamp-none">
                   {promos[currentPromo].description}
                 </p>
               </div>
@@ -100,21 +100,21 @@ export default function HeroVideo({ onGoToStore, onOpenProduct }: HeroVideoProps
           </AnimatePresence>
 
           {/* Controls */}
-          <button onClick={(e) => { e.stopPropagation(); prevPromo(); }} className="absolute left-2 md:left-6 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center backdrop-blur-md opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity border border-white/20 z-20">
-            <ChevronLeft size={24} />
+          <button onClick={(e) => { e.stopPropagation(); prevPromo(); }} className="absolute left-1.5 sm:left-3 md:left-6 top-1/2 -translate-y-1/2 w-7 h-7 sm:w-9 sm:h-9 md:w-12 md:h-12 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center backdrop-blur-md opacity-90 md:opacity-0 md:group-hover:opacity-100 transition-opacity border border-white/20 z-20">
+            <ChevronLeft size={16} className="sm:w-5 sm:h-5 md:w-6 md:h-6" />
           </button>
-          <button onClick={(e) => { e.stopPropagation(); nextPromo(); }} className="absolute right-2 md:right-6 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center backdrop-blur-md opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity border border-white/20 z-20">
-            <ChevronRight size={24} />
+          <button onClick={(e) => { e.stopPropagation(); nextPromo(); }} className="absolute right-1.5 sm:right-3 md:right-6 top-1/2 -translate-y-1/2 w-7 h-7 sm:w-9 sm:h-9 md:w-12 md:h-12 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center backdrop-blur-md opacity-90 md:opacity-0 md:group-hover:opacity-100 transition-opacity border border-white/20 z-20">
+            <ChevronRight size={16} className="sm:w-5 sm:h-5 md:w-6 md:h-6" />
           </button>
 
           {/* Dots */}
           {promos.length > 1 && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+            <div className="absolute bottom-2 md:bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 md:gap-2">
               {promos.map((_, idx) => (
                 <button
                   key={idx}
                   onClick={() => setCurrentPromo(idx)}
-                  className={`h-2 rounded-full transition-all duration-300 ${idx === currentPromo ? 'w-8 bg-[#F28B20]' : 'w-2 bg-white/50 hover:bg-white/80'}`}
+                  className={`h-1.5 md:h-2 rounded-full transition-all duration-300 ${idx === currentPromo ? 'w-5 md:w-8 bg-[#F28B20]' : 'w-1.5 md:w-2 bg-white/50 hover:bg-white/80'}`}
                 />
               ))}
             </div>

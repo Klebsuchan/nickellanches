@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Printer, CheckSquare, Lock, X, Plus, Trash2, Edit2, Package, Tag, Clock, Save, Eye, EyeOff, Settings, List, Check, ArrowRight, ImagePlus, ChevronLeft, ChevronRight, RefreshCw, XCircle, Grid, Image as ImageIcon, Send } from 'lucide-react';
-import { Order, getProducts, saveProduct, deleteProduct, getPromos, savePromo, deletePromo, getAllOrders, updateOrderStatus, PromoCode, subscribeToAllOrders, Banner, getBanners, saveBanner, deleteBanner, subscribeToProducts, subscribeToPromos, subscribeToBanners, deleteOrder, saveOrderAdmin } from '../lib/db';
+import { Printer, CheckSquare, Lock, X, Plus, Trash2, Edit2, Package, Tag, Clock, Save, Eye, EyeOff, Settings, List, Check, ArrowRight, ImagePlus, ChevronLeft, ChevronRight, RefreshCw, XCircle, Grid, Image as ImageIcon, Send, CreditCard, QrCode } from 'lucide-react';
+import { Order, getProducts, saveProduct, deleteProduct, getPromos, savePromo, deletePromo, getAllOrders, updateOrderStatus, PromoCode, subscribeToAllOrders, Banner, getBanners, saveBanner, deleteBanner, subscribeToProducts, subscribeToPromos, subscribeToBanners, deleteOrder, saveOrderAdmin, subscribeToPaymentSettings, PaymentSettings } from '../lib/db';
 import { Product, Extra } from '../types';
 import { useToast } from './Toast';
 import { playSound } from '../lib/audio';
 import NickelText from './NickelText';
+import PaymentSettingsEditor from './PaymentSettingsEditor';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -39,12 +40,13 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'promos' | 'banners' | 'settings'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'promos' | 'banners' | 'payments' | 'settings'>('orders');
   
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [promos, setPromos] = useState<PromoCode[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSettings | undefined>(undefined);
   
   const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
   const [printSettings, setPrintSettings] = useState({
@@ -100,12 +102,14 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
       const unsubProducts = subscribeToProducts(setProducts);
       const unsubPromos = subscribeToPromos(setPromos);
       const unsubBanners = subscribeToBanners(setBanners);
+      const unsubPaymentSettings = subscribeToPaymentSettings(setPaymentSettings);
 
       return () => {
         unsubOrders();
         unsubProducts();
         unsubPromos();
         unsubBanners();
+        unsubPaymentSettings();
       };
     }
   }, [isAuthenticated]);
@@ -165,6 +169,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
           <TabButton icon={<Package size={20}/>} label="Produtos" active={activeTab === 'products'} onClick={() => setActiveTab('products')} />
           <TabButton icon={<Tag size={20}/>} label="Cupons" active={activeTab === 'promos'} onClick={() => setActiveTab('promos')} />
           <TabButton icon={<ImageIcon size={20}/>} label="Banners" active={activeTab === 'banners'} onClick={() => setActiveTab('banners')} />
+          <TabButton icon={<CreditCard size={20}/>} label="Pagamentos" active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} />
           <div className="my-4 border-t border-stone-800"></div>
           <TabButton icon={<Settings size={20}/>} label="Impressão" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
         </nav>
@@ -180,6 +185,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
         {activeTab === 'products' && <ProductEditor products={products} />}
         {activeTab === 'promos' && <PromoEditor promos={promos} />}
         {activeTab === 'banners' && <BannerEditor banners={banners} />}
+        {activeTab === 'payments' && <PaymentSettingsEditor initialSettings={paymentSettings} />}
         {activeTab === 'settings' && <PrintSettingsEditor settings={printSettings} setSettings={setPrintSettings} onTestPrint={() => { setOrderToPrint({ id: 'TESTE-123', createdAt: { toDate: () => new Date() }, items: [{ name: 'Lanche Teste de Impressão', price: 0, quantity: 1, extras: [] }], totalPrice: 0, userName: 'Teste', address: 'Teste', paymentMethod: 'Teste', status: 'recebido' }); triggerSafePrint(addToast); }} />}
       </div>
 
@@ -198,6 +204,14 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
               <p>Data: {orderToPrint.createdAt?.toDate ? orderToPrint.createdAt.toDate().toLocaleString() : new Date().toLocaleString()}</p>
               <p className="mt-2 border-t border-dashed border-black pt-2 text-lg">Cliente: {orderToPrint.userName || 'Anônimo'}</p>
               <p>Pagamento: {orderToPrint.paymentMethod || 'A Confirmar'}</p>
+              {orderToPrint.receiptAuthCode && (
+                <div className="my-1 border border-black p-1 text-[10px] bg-stone-50">
+                  <p className="font-bold">COMPROVANTE: {orderToPrint.receiptAuthCode}</p>
+                  {orderToPrint.receiptTimestamp && <p>Horário: {orderToPrint.receiptTimestamp}</p>}
+                  {orderToPrint.receiptNotes && <p>Obs: {orderToPrint.receiptNotes}</p>}
+                  {orderToPrint.receiptFileName && <p>Anexo: {orderToPrint.receiptFileName}</p>}
+                </div>
+              )}
               <p>Entrega: {orderToPrint.address || 'Retirada no Balcão'}</p>
             </div>
             
@@ -442,6 +456,25 @@ function OrderEditModal({ order, onClose, onSave, onPrint }: any) {
               <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Método de Pagamento</label>
               <input value={formData.paymentMethod} onChange={e => setFormData({...formData, paymentMethod: e.target.value})} className="w-full border-2 border-stone-200 rounded-lg p-2 font-bold" />
             </div>
+
+            {order.receiptAuthCode && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-1 text-xs">
+                <div className="font-bold text-amber-900 flex items-center justify-between">
+                  <span>Comprovante de Pagamento</span>
+                  <span className="font-mono bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-[11px]">{order.receiptAuthCode}</span>
+                </div>
+                {order.receiptTimestamp && (
+                  <p className="text-stone-600"><span className="font-semibold">Horário:</span> {order.receiptTimestamp}</p>
+                )}
+                {order.receiptNotes && (
+                  <p className="text-stone-600"><span className="font-semibold">Obs:</span> {order.receiptNotes}</p>
+                )}
+                {order.receiptFileName && (
+                  <p className="text-stone-600"><span className="font-semibold">Comprovante Anexo:</span> {order.receiptFileName}</p>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Status</label>
               <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full border-2 border-stone-200 rounded-lg p-2 font-bold bg-white">

@@ -92,9 +92,22 @@ export default function ProfileView({ onClose, orderHistory = [], user, userProf
                     <h4 className="font-black text-xl text-stone-900">Pedido #{order.id.substring(0,6)}</h4>
                     <p className="text-stone-500 font-medium text-sm">Total: R$ {order.total.toFixed(2).replace('.', ',')}</p>
                   </div>
-                  <div className="bg-[#25D366] text-white px-4 py-2 rounded-xl font-bold text-sm uppercase tracking-wide flex items-center gap-2">
-                    <MessageCircle size={16} /> Via WhatsApp
-                  </div>
+                  {order.whatsappMessage ? (
+                    <button
+                      onClick={() => {
+                        const phone = '5554999598389';
+                        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(order.whatsappMessage!)}`, '_blank');
+                      }}
+                      className="bg-[#25D366] hover:bg-[#20ba5a] text-white px-4 py-2 rounded-xl font-bold text-sm uppercase tracking-wide flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+                      title="Abrir no WhatsApp"
+                    >
+                      <MessageCircle size={16} /> Abrir no WhatsApp
+                    </button>
+                  ) : (
+                    <div className="bg-[#25D366] text-white px-4 py-2 rounded-xl font-bold text-sm uppercase tracking-wide flex items-center gap-2">
+                      <MessageCircle size={16} /> Via WhatsApp
+                    </div>
+                  )}
                 </div>
 
                 <div className="bg-stone-50 rounded-2xl p-4 border border-stone-200 mb-6 relative z-10 text-center">

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { OrderInfo } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle, Truck, Utensils, Rocket, Flame, Clock } from 'lucide-react';
+import { CheckCircle, Truck, Utensils, Rocket, Flame, Clock, MessageCircle, FileText, ArrowRight } from 'lucide-react';
 import { useToast } from './Toast';
 import { subscribeToOrder } from '../lib/db';
 
@@ -23,6 +23,27 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
   const [progress, setProgress] = useState(0);
 
   const [gameId, setGameId] = useState(0);
+
+  // Helper to trigger WhatsApp dispatch
+  const handleSendToWhatsApp = () => {
+    if (order?.whatsappMessage) {
+      const phone = '5554999598389';
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(order.whatsappMessage)}`, '_blank');
+      addToast({
+        title: 'Abrindo WhatsApp...',
+        message: 'Pedido e comprovante oficial encaminhados com sucesso!',
+        type: 'success'
+      });
+    }
+  };
+
+  // Exit handler that sends order to WhatsApp if not already sent
+  const handleExitGame = () => {
+    handleSendToWhatsApp();
+    if (onClose) {
+      onClose();
+    }
+  };
 
   // Status subscription
   useEffect(() => {
@@ -113,6 +134,7 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
     frame: 0,
     active: true,
     status: 'countdown' as 'countdown' | 'playing',
+    barkTimer: 0,
   });
 
   useEffect(() => {
@@ -132,6 +154,7 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
     state.vy = 0;
     state.speed = 5;
     state.frame = 0;
+    state.barkTimer = 0;
     setScore(0);
     setGameOver(false);
     
@@ -232,6 +255,34 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
         ctx.fillText('🐶', 50, state.dogY + 35);
       }
 
+      // Efeito visual quando o cachorrinho acoa / late
+      if (state.barkTimer > 0) {
+        state.barkTimer--;
+        ctx.save();
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        ctx.font = 'bold 14px Arial';
+        const barkText = 'Au au! 🐾';
+        const tw = ctx.measureText(barkText).width;
+        const bubbleX = 75;
+        const bubbleY = state.dogY - 50;
+        
+        ctx.beginPath();
+        // Fallback-friendly rounded bubble
+        if (ctx.roundRect) {
+          ctx.roundRect(bubbleX, bubbleY - 18, tw + 16, 26, 8);
+        } else {
+          ctx.rect(bubbleX, bubbleY - 18, tw + 16, 26);
+        }
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#4E2A84';
+        ctx.fillText(barkText, bubbleX + 8, bubbleY);
+        ctx.restore();
+      }
+
       // Restaura a opacidade e a cor antes de desenhar os obstáculos
       ctx.fillStyle = '#000000';
       ctx.globalAlpha = 1.0;
@@ -282,8 +333,10 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
           state.obstacles.shift();
           state.internalScore += 1;
           
-          if (state.internalScore % 2 === 0) {
+          // O cachorrinho acoa de 50 em 50 pontos (cada obstáculo vale 10 pontos, logo a cada 5 obstáculos superados)
+          if (state.internalScore > 0 && state.internalScore % 5 === 0) {
              playBark();
+             state.barkTimer = 35;
           }
           
           setScore(state.internalScore * 10);
@@ -322,15 +375,35 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
         <motion.div 
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="w-full bg-white border border-stone-200 rounded-3xl p-8 mb-8 shadow-sm relative overflow-hidden text-black flex flex-col items-center justify-center text-center"
+          className="w-full bg-white border-2 border-stone-200 rounded-3xl p-6 md:p-8 mb-8 shadow-sm relative overflow-hidden text-black flex flex-col items-center justify-center text-center"
         >
           <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
             <CheckCircle size={32} />
           </div>
-          <h3 className="font-display font-bold uppercase text-2xl mb-2 text-stone-800">Pedido em Andamento</h3>
-          <p className="text-stone-500 font-medium max-w-md mx-auto text-sm md:text-base">
-            Seu pedido foi enviado e está em andamento via WhatsApp.<br/>Acompanhe a entrega e o pagamento por lá.
+          <h3 className="font-display font-black uppercase text-2xl mb-1 text-stone-900">
+            Pedido Confirmado!
+          </h3>
+          <p className="text-stone-600 font-medium max-w-lg mx-auto text-sm md:text-base leading-relaxed mb-4">
+            Divirta-se com o minigame do cachorrinho enquanto seu lanche é preparado! Ao sair do jogo, o <strong>comprovante oficial de pagamento</strong> e todos os dados do pedido serão encaminhados automaticamente para o WhatsApp.
           </p>
+
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={handleSendToWhatsApp}
+              className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
+            >
+              <MessageCircle size={16} /> Encaminhar p/ WhatsApp Agora
+            </button>
+            {onClose && (
+              <button
+                onClick={handleExitGame}
+                className="bg-stone-100 hover:bg-stone-200 text-stone-800 px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer"
+              >
+                <span>Sair do Jogo & Enviar Pedido</span>
+                <ArrowRight size={14} />
+              </button>
+            )}
+          </div>
         </motion.div>
       )}
 
@@ -400,14 +473,20 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
         <>
           {/* Ações Pós Jogo */}
           <div className="w-full max-w-2xl mt-4 flex flex-col sm:flex-row gap-4 mb-12">
-            <button onClick={() => {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }} className="flex-1 bg-[#F28B20] text-white font-black uppercase tracking-widest py-4 rounded-2xl hover:bg-orange-500 transition-colors shadow-lg">
-              Acompanhar Pedido
+            <button 
+              onClick={handleSendToWhatsApp}
+              className="flex-1 bg-green-500 hover:bg-green-600 text-white font-black uppercase tracking-wider py-4 rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2 text-sm cursor-pointer"
+            >
+              <MessageCircle size={20} />
+              <span>Encaminhar Pedido & Comprovante ao WhatsApp</span>
             </button>
             {onClose && (
-              <button onClick={onClose} className="flex-1 bg-white border border-stone-200 text-stone-900 font-black uppercase tracking-widest py-4 rounded-2xl hover:bg-stone-50 transition-colors shadow-sm">
-                Voltar ao Início
+              <button 
+                onClick={handleExitGame} 
+                className="flex-1 bg-white border border-stone-200 text-stone-900 font-black uppercase tracking-widest py-4 rounded-2xl hover:bg-stone-50 transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>Sair e Voltar ao Início</span>
+                <ArrowRight size={16} />
               </button>
             )}
           </div>

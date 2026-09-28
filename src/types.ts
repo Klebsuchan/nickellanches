@@ -43,4 +43,10 @@ export interface OrderInfo {
   pointsEarned: number;
   status: 'recebido' | 'preparando' | 'a_caminho' | 'entregue';
   timestamp: Date;
+  receiptAuthCode?: string;
+  receiptTimestamp?: string;
+  receiptNotes?: string;
+  receiptFileName?: string;
+  receiptSummary?: string;
+  whatsappMessage?: string;
 }

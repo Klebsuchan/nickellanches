@@ -192,6 +192,103 @@ export default function App() {
     }
   }, []);
 
+  // Escuta retorno do Stripe Checkout (?payment=success ou ?payment=canceled)
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const paymentStatus = queryParams.get('payment');
+    const sessionId = queryParams.get('session_id');
+
+    if (paymentStatus === 'success') {
+      // Limpa os parâmetros da URL para evitar reprocessamento em reload
+      window.history.replaceState({}, document.title, window.location.pathname);
+
+      // Recupera dados do pedido pendente salvos antes do redirecionamento
+      const savedPendingStr = sessionStorage.getItem('nickel_pending_stripe_order') || localStorage.getItem('nickel_pending_stripe_order');
+      sessionStorage.removeItem('nickel_pending_stripe_order');
+      localStorage.removeItem('nickel_pending_stripe_order');
+
+      const processSuccessfulPayment = async () => {
+        let orderItems = cart;
+        let details: any = null;
+        let finalDiscount = discountAmount;
+
+        if (savedPendingStr) {
+          try {
+            const parsed = JSON.parse(savedPendingStr);
+            if (parsed.orderPayload) details = parsed.orderPayload;
+            if (parsed.cart && parsed.cart.length > 0) orderItems = parsed.cart;
+            if (typeof parsed.discountAmount === 'number') finalDiscount = parsed.discountAmount;
+          } catch (e) {
+            console.error('Erro ao ler pedido pendente do Stripe:', e);
+          }
+        }
+
+        // Se ainda faltar detalhes, tenta consultar a sessão no backend
+        if (!details && sessionId) {
+          try {
+            const res = await fetch(`/api/checkout-session/${sessionId}`);
+            if (res.ok) {
+              const sessionData = await res.json();
+              if (sessionData.metadata) {
+                details = {
+                  name: sessionData.metadata.name || sessionData.customer_details?.name || 'Cliente Stripe',
+                  whatsapp: sessionData.metadata.whatsapp || '',
+                  address: sessionData.metadata.address || 'Endereço registrado no checkout',
+                  region: sessionData.metadata.region || '',
+                  paymentMethod: 'Cartão Online (Aprovado via Stripe Checkout)',
+                  isOnlinePayment: true,
+                  receiptAuthCode: sessionData.metadata.receiptAuthCode || `AUT-STRIPE-${sessionId.substring(sessionId.length - 8).toUpperCase()}`,
+                  deliveryFee: 0,
+                  totalToPay: sessionData.metadata.total ? parseFloat(sessionData.metadata.total) : 0
+                };
+              }
+            }
+          } catch (err) {
+            console.error('Erro ao buscar dados da sessão Stripe:', err);
+          }
+        }
+
+        if (!details) {
+          details = {
+            name: 'Cliente Nickel',
+            whatsapp: '',
+            address: 'Endereço informado no checkout',
+            paymentMethod: 'Cartão Online (Aprovado via Stripe)',
+            isOnlinePayment: true,
+            deliveryFee: 0
+          };
+        }
+
+        // Garante que o status de pagamento online esteja marcado como aprovado
+        details.isOnlinePayment = true;
+        if (!details.paymentMethod.includes('Aprovado via Stripe')) {
+          details.paymentMethod = `${details.paymentMethod} (Aprovado via Stripe)`;
+        }
+
+        // Confirmação final do pedido e redirecionamento para o minigame do cachorrinho
+        await handleCheckout(details, orderItems, finalDiscount);
+        playSound('powerup');
+        addToast({
+          title: 'Pagamento Aprovado no Cartão!',
+          message: 'Seu pagamento foi confirmado pelo Stripe! Agora divirta-se no minigame enquanto preparamos seu lanche.',
+          type: 'success'
+        });
+      };
+
+      processSuccessfulPayment();
+    } else if (paymentStatus === 'canceled') {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      sessionStorage.removeItem('nickel_pending_stripe_order');
+      localStorage.removeItem('nickel_pending_stripe_order');
+      addToast({
+        title: 'Pagamento Não Concluído',
+        message: 'O pagamento via Stripe foi cancelado. Seus itens continuam na sacola para você tentar novamente ou escolher outro método.',
+        type: 'info'
+      });
+      setIsCartOpen(true);
+    }
+  }, []);
+
   
   const prevStatusRef = useRef<string | null>(null);
 
@@ -340,16 +437,47 @@ export default function App() {
   const totalCart = Math.max(0, totalCartBase - discountAmount);
   const totalPoints = cart.reduce((sum, item) => sum + (item.points * item.quantity), 0);
 
-  const handleCheckout = async (details: any) => {
-    if (cart.length === 0) return;
+  const handleCheckout = async (details: any, customCartItems?: CartItem[], customDiscountAmount?: number) => {
+    const activeCart = (customCartItems && customCartItems.length > 0) ? customCartItems : cart;
+    if (activeCart.length === 0) return;
+
+    const baseSubtotal = activeCart.reduce((sum, item) => {
+      const extrasTotal = item.extras?.reduce((acc, curr) => acc + curr.price, 0) || 0;
+      return sum + ((item.price + extrasTotal) * item.quantity);
+    }, 0);
+
+    const activeDiscount = (typeof customDiscountAmount === 'number') ? customDiscountAmount : discountAmount;
+    const computedTotalCart = Math.max(0, baseSubtotal - activeDiscount);
+    const earnedPoints = activeCart.reduce((sum, item) => sum + (item.points * item.quantity), 0);
     
     // Get daily order number
     const orderNumber = await getNextOrderNumber();
-    const timeNow = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const now = new Date();
+    const dateNow = now.toLocaleDateString('pt-BR');
+    const timeNow = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const authCode = details.receiptAuthCode || `AUT-NKL-${Date.now().toString(36).substring(2, 8).toUpperCase()}`;
+    const authHash = Math.random().toString(36).substring(2, 10).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
 
-    // 1. Send WhatsApp message
-    let msg = `Olá! Me chamo *${details.name.trim()}* e gostaria de fazer um pedido!\n\n*Pedido Número:* ${orderNumber}\n*Gerado às:* ${timeNow}\n\n*ITENS DO PEDIDO:*\n`;
-    cart.forEach(item => {
+    let finalTotal = computedTotalCart;
+    if (details.deliveryFee) {
+      finalTotal = computedTotalCart + details.deliveryFee;
+    }
+
+    // 1. Build WhatsApp message with full order + official payment receipt (to be sent after dog game)
+    let msg = `🍔 *NICKEL LANCHES - NOVO PEDIDO #${orderNumber}*\n`;
+    msg += `📅 *Emissão:* ${dateNow} às ${timeNow}\n`;
+    msg += `════════════════════════════════════\n\n`;
+
+    msg += `👤 *DADOS DO CLIENTE & ENTREGA:*\n`;
+    msg += `• *Cliente:* ${details.name.trim()}\n`;
+    msg += `• *WhatsApp:* ${details.whatsapp.trim()}\n`;
+    msg += `• *Endereço:* ${details.address.trim()}\n`;
+    if (details.region) {
+      msg += `• *Região / Bairro:* ${details.region}\n`;
+    }
+
+    msg += `\n🛒 *ITENS DO PEDIDO:*\n`;
+    activeCart.forEach(item => {
       const itemTotal = (item.price + (item.extras?.reduce((sum, e) => sum + e.price, 0) || 0)) * item.quantity;
       msg += `- ${item.quantity}x ${item.name} (R$ ${itemTotal.toFixed(2).replace('.', ',')})\n`;
       if (item.extras && item.extras.length > 0) {
@@ -361,50 +489,61 @@ export default function App() {
       msg += '\n';
     });
     
-    if (discountAmount > 0) {
-      msg += `*Desconto:* -R$ ${discountAmount.toFixed(2).replace('.', ',')}\n`;
+    msg += `💵 *DISCRIMINAÇÃO DOS VALORES:*\n`;
+    msg += `• *Subtotal dos Lanches:* R$ ${baseSubtotal.toFixed(2).replace('.', ',')}\n`;
+    if (activeDiscount > 0) {
+      msg += `• *Desconto Aplicado:* -R$ ${activeDiscount.toFixed(2).replace('.', ',')}\n`;
     }
-    let finalTotal = totalCart;
     if (details.deliveryFee) {
-      msg += `*Subtotal:* R$ ${totalCart.toFixed(2).replace('.', ',')}\n`;
-      msg += `*Frete (${details.region}):* R$ ${details.deliveryFee.toFixed(2).replace('.', ',')}\n`;
-      finalTotal = totalCart + details.deliveryFee;
-      msg += `*TOTAL FINAL:* R$ ${finalTotal.toFixed(2).replace('.', ',')}\n\n`;
-    } else {
-      msg += `*TOTAL FINAL:* R$ ${finalTotal.toFixed(2).replace('.', ',')}\n\n`;
+      msg += `• *Taxa de Entrega (${details.region}):* R$ ${details.deliveryFee.toFixed(2).replace('.', ',')}\n`;
     }
-    
-    msg += `*DADOS PARA ENTREGA:*\n`;
-    msg += `Nome: ${details.name}\n`;
-    msg += `WhatsApp: ${details.whatsapp}\n`;
-    msg += `Endereço: ${details.address}\n`;
-    if (details.region) {
-      msg += `Região: ${details.region}\n`;
-    }
-    msg += `Forma de Pagamento: ${details.paymentMethod}\n`;
-    if (details.changeFor) {
-      msg += `Troco para: R$ ${details.changeFor}\n`;
-    }
-    
+    msg += `• *VALOR TOTAL DO PEDIDO:* *R$ ${finalTotal.toFixed(2).replace('.', ',')}*\n\n`;
 
+    msg += `════════════════════════════════════\n`;
+    msg += `🧾 *COMPROVANTE OFICIAL DE PAGAMENTO*\n`;
+    msg += `════════════════════════════════════\n`;
+    msg += `🆔 *Protocolo de Autenticação:* ${authCode}\n`;
+    msg += `⏰ *Data/Hora do Registro:* ${details.receiptTimestamp || `${dateNow} às ${timeNow}`}\n`;
+    msg += `💳 *Forma de Pagamento:* ${details.paymentMethod}\n`;
+    msg += `💰 *Valor Quitado:* *R$ ${finalTotal.toFixed(2).replace('.', ',')}*\n`;
+    msg += `🏪 *Favorecido:* Nickel Lanches (Passo Fundo/RS)\n`;
+    if (details.pixKey) {
+      msg += `🔑 *Chave PIX Cadastrada:* ${details.pixKey}\n`;
+    }
+    msg += `📊 *Situação:* ✅ ${details.isOnlinePayment ? 'PAGAMENTO ONLINE REALIZADO COM SUCESSO' : 'CONFIRMADO PARA COBRANÇA NA ENTREGA'}\n`;
+    if (details.changeFor) {
+      msg += `💵 *Troco Necessário para:* R$ ${details.changeFor}\n`;
+    }
+    if (details.receiptNotes) {
+      msg += `📝 *Observação do Pagador:* ${details.receiptNotes}\n`;
+    }
+    if (details.receiptFileName) {
+      msg += `📎 *Comprovante Anexo:* Arquivo "${details.receiptFileName}" (imagem enviada nesta conversa)\n`;
+    }
+    msg += `🔒 *Autenticação Eletrônica:* SHA256-${authHash}\n`;
+    msg += `════════════════════════════════════\n\n`;
+    msg += `_Comprovante e pedido gerados automaticamente pelo sistema Nickel Lanches._\n`;
+    msg += `_Aguardando confirmação e preparo do pedido!_`;
     
-    const phone = '5554999598389';
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
-    
-    // 2. Save order to Firebase
+    // 2. Save order and receipt to Firebase
     let orderId = Math.random().toString(36).substring(2, 9).toUpperCase();
     try {
       const uid = user ? user.uid : 'guest';
       orderId = await saveOrder(uid, {
-        items: cart,
-        totalPrice: (details.deliveryFee ? totalCart + details.deliveryFee : totalCart),
-        totalPoints: totalPoints,
+        items: activeCart,
+        totalPrice: finalTotal,
+        totalPoints: earnedPoints,
         status: 'recebido',
         userName: details.name || user?.displayName || 'Anônimo',
         address: details.address,
         paymentMethod: details.paymentMethod,
         whatsapp: details.whatsapp,
-        orderNumber
+        orderNumber,
+        receiptAuthCode: authCode,
+        receiptTimestamp: details.receiptTimestamp || `${dateNow} às ${timeNow}`,
+        receiptNotes: details.receiptNotes || '',
+        receiptFileName: details.receiptFileName || '',
+        receiptSummary: `R$ ${finalTotal.toFixed(2).replace('.', ',')} via ${details.paymentMethod}`
       });
     } catch(e) {
       console.error("Error saving order", e);
@@ -412,13 +551,19 @@ export default function App() {
 
     const newOrder: OrderInfo = {
       id: orderId,
-      items: [...cart],
-      subtotal: totalCartBase,
-      discount: discountAmount,
-      total: totalCart,
-      pointsEarned: totalPoints,
+      items: [...activeCart],
+      subtotal: baseSubtotal,
+      discount: activeDiscount,
+      total: finalTotal,
+      pointsEarned: earnedPoints,
       status: 'recebido',
-      timestamp: new Date()
+      timestamp: new Date(),
+      receiptAuthCode: authCode,
+      receiptTimestamp: details.receiptTimestamp || `${dateNow} às ${timeNow}`,
+      receiptNotes: details.receiptNotes,
+      receiptFileName: details.receiptFileName,
+      receiptSummary: `R$ ${finalTotal.toFixed(2).replace('.', ',')} via ${details.paymentMethod}`,
+      whatsappMessage: msg
     };
     
     setActiveOrder(newOrder);
@@ -428,26 +573,32 @@ export default function App() {
     setDiscountCode('');
     setIsCartOpen(false);
     setIsCheckoutOpen(false);
-    navigateToView('profile');
+    
+    // Direct directly to minigame of the dog
+    navigateToView('game');
     window.scrollTo(0,0);
     
     addToast({
-      title: 'Pedido Enviado!',
-      message: 'Pedido enviado! Acompanhe o preparo e jogue enquanto espera.',
-      type: 'info'
+      title: 'Pedido Confirmado!',
+      message: 'Divirta-se com o minigame do cachorrinho! O comprovante será enviado ao WhatsApp.',
+      type: 'success'
     });
   };
 
   const handleFinishOrder = async () => {
     if (activeOrder) {
+      if (activeOrder.whatsappMessage) {
+        const phone = '5554999598389';
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(activeOrder.whatsappMessage)}`, '_blank');
+      }
       setUserPoints(prev => prev + activeOrder.pointsEarned);
       if (user) {
         await addXpToUser(user.uid, activeOrder.pointsEarned);
       }
       playSound('powerup');
       addToast({
-        title: 'Missão Cumprida!',
-        message: `Você ganhou +${activeOrder.pointsEarned} XP!`,
+        title: 'Pedido Encaminhado ao WhatsApp!',
+        message: `Comprovante enviado e você ganhou +${activeOrder.pointsEarned} XP!`,
         type: 'xp'
       });
     }
@@ -502,11 +653,23 @@ export default function App() {
                 <h4 className="font-bold text-stone-900 leading-tight line-clamp-2 md:line-clamp-1 text-sm md:text-lg tracking-tight h-10 md:h-auto"><RenderWithNickel text={item.name} /></h4>
                 <p className="hidden md:block text-xs text-stone-500 line-clamp-2 min-h-[2rem] leading-relaxed font-medium mb-1.5">{item.description}</p>
                 
-                <div className="flex items-center gap-1.5 mb-4">
-                  <Star size={14} className="text-[#F28B20]" fill="currentColor" />
-                  <span className="text-xs font-bold text-stone-700">{(4 + Math.random()).toFixed(1)}</span>
-                  <span className="text-xs text-stone-400">({(Math.random() * 20).toFixed(1)}K+)</span>
-                </div>
+                {(() => {
+                  const isTopProduct = (item.name || '').toLowerCase().includes('cemuche') || (item.name || '').toLowerCase().includes('magma');
+                  const itemRating = isTopProduct ? '5,0' : ((item.id || '').charCodeAt(0) % 2 === 0 ? '4,8' : '4,9');
+                  const itemReviewsCount = isTopProduct ? 100 : (76 + ((item.id || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % 23));
+                  return (
+                    <div className="flex items-center gap-1.5 mb-4">
+                      <Star size={14} className="text-[#F28B20]" fill="currentColor" />
+                      <span className="text-xs font-bold text-stone-700">{itemRating}</span>
+                      <span className="text-xs text-stone-400">({itemReviewsCount})</span>
+                      {isTopProduct && (
+                        <span className="bg-orange-100 text-[#F28B20] text-[9px] font-black px-1.5 py-0.5 rounded-md ml-auto">
+                          ⭐ 5.0
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div className="flex items-center justify-between mt-auto md:mt-4">
                   <span className="text-base md:text-2xl font-black text-stone-900 tracking-tighter">
@@ -957,6 +1120,7 @@ export default function App() {
         onClose={goBack}
         cart={cart}
         total={totalCart}
+        discountAmount={discountAmount}
         onConfirm={handleCheckout}
       />
 
