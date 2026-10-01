@@ -36,8 +36,7 @@ export const AFASTADO_KEYWORDS = [
 
 // Base com as principais ruas e avenidas de Passo Fundo para sugestão instantânea sem delay
 export const PASSO_FUNDO_STREETS: PassoFundoStreet[] = [
-  // Bairro Petrópolis (Sede Nickel Lanches - R$ 10,00 apenas quando no bairro Petrópolis)
-  { name: 'Rua Uruguai (Petrópolis)', bairro: 'Petrópolis', region: 'petropolis', fee: 10 },
+  // Bairro Petrópolis (Sede Nickel Lanches - R$ 10,00 quando no bairro Petrópolis)
   { name: 'Rua Lava Pés', bairro: 'Petrópolis', region: 'petropolis', fee: 10, popular: true },
   { name: 'Rua Bahia', bairro: 'Petrópolis', region: 'petropolis', fee: 10 },
   { name: 'Rua Minas Gerais', bairro: 'Petrópolis', region: 'petropolis', fee: 10 },
@@ -52,8 +51,8 @@ export const PASSO_FUNDO_STREETS: PassoFundoStreet[] = [
   { name: 'Rua Almirante Tamandaré', bairro: 'Petrópolis', region: 'petropolis', fee: 10 },
   { name: 'Rua Rio de Janeiro', bairro: 'Petrópolis', region: 'petropolis', fee: 10 },
 
-  // Centro e Bairros Urbanos (R$ 15,00) - Rua Uruguai geral/centro é R$ 15,00 conforme solicitado
-  { name: 'Rua Uruguai', bairro: 'Centro', region: 'cidade', fee: 15, popular: true },
+  // Centro e Bairros Urbanos (R$ 15,00) - Rua Uruguai única na lista de ruas
+  { name: 'Rua Uruguai', bairro: 'Passo Fundo', region: 'cidade', fee: 15, popular: true },
   { name: 'Avenida Brasil Leste', bairro: 'Centro', region: 'cidade', fee: 15, popular: true },
   { name: 'Avenida Brasil Oeste', bairro: 'Boqueirão', region: 'cidade', fee: 15, popular: true },
   { name: 'Avenida Presidente Vargas', bairro: 'São Cristóvão', region: 'cidade', fee: 15, popular: true },
@@ -213,11 +212,11 @@ export async function searchPassoFundoAddresses(query: string): Promise<AddressS
     const bNorm = normalizeStr(s.bairro);
 
     if (sNorm.includes(normQuery) || bNorm.includes(normQuery)) {
-      const key = `${s.name} - ${s.bairro}`;
+      const key = sNorm;
       if (!seen.has(key)) {
         seen.add(key);
         results.push({
-          displayName: `${s.name}, ${s.bairro} - Passo Fundo, RS`,
+          displayName: `${s.name} - Passo Fundo, RS`,
           street: s.name,
           bairro: s.bairro,
           city: 'Passo Fundo - RS',
@@ -258,12 +257,12 @@ export async function searchPassoFundoAddresses(query: string): Promise<AddressS
 
         // Garante que é em Passo Fundo
         if (road && (normalizeStr(city).includes('passo fundo') || normalizeStr(item.display_name).includes('passo fundo'))) {
-          const key = `${road} - ${suburb}`;
+          const key = normalizeStr(road);
           if (!seen.has(key)) {
             seen.add(key);
             const classified = determineRegionFromAddress(`${road} ${suburb} ${item.display_name}`);
             results.push({
-              displayName: `${road}${suburb ? ` - ${suburb}` : ''} - Passo Fundo, RS`,
+              displayName: `${road} - Passo Fundo, RS`,
               street: road,
               bairro: suburb || classified.detectedBairro,
               city: 'Passo Fundo - RS',

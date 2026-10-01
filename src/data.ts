@@ -330,7 +330,7 @@ export const MENU_ITEMS: Product[] = [
     "price": 36,
     "points": 54,
     "emoji": "🥘",
-    "image": "/images/xisestrogonofefrango-1.jpg",
+    "image": "/estrogonofe-carne.jpg",
     "category": "lanches"
   },
   {

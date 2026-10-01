@@ -265,14 +265,10 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
   };
 
   const handleSelectSuggestion = (sug: AddressSuggestion) => {
-    setAddress(`${sug.street}, , ${sug.bairro} - Passo Fundo`);
+    setAddress(`${sug.street}, `);
     setAddressSuggestions([]);
     setShowSuggestions(false);
     playSound('coin');
-    addToast({
-      message: `Rua selecionada! Frete automático calculado: R$ ${sug.fee.toFixed(2).replace('.', ',')}`,
-      type: 'info'
-    });
   };
 
   // Fecha sugestões ao clicar fora
@@ -674,27 +670,12 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                     })}
                   </div>
 
-                  {/* Detalhamento Financeiro */}
-                  <div className="border-t border-stone-100 pt-3 space-y-1.5 text-xs">
-                    <div className="flex justify-between text-stone-600 font-semibold">
-                      <span>Subtotal dos Lanches:</span>
-                      <span>R$ {total.toFixed(2).replace('.', ',')}</span>
-                    </div>
-
-                    <div className="flex justify-between text-stone-600 font-semibold">
-                      <span>Taxa de Entrega ({regionLabel}):</span>
-                      <span className="text-[#F28B20] font-bold">+ R$ {deliveryFee.toFixed(2).replace('.', ',')}</span>
-                    </div>
-
-                    <div className="flex justify-between items-center pt-2.5 border-t border-stone-200">
-                      <div>
-                        <span className="font-black text-stone-900 uppercase text-sm block">Total:</span>
-                        <span className="text-[11px] text-stone-400 font-medium">Lanches + Taxa de Entrega</span>
-                      </div>
-                      <span className="font-black text-2xl text-[#F28B20]">
-                        R$ {currentFinalTotal.toFixed(2).replace('.', ',')}
-                      </span>
-                    </div>
+                  {/* Subtotal dos Lanches */}
+                  <div className="border-t border-stone-100 pt-3 flex justify-between items-center text-xs">
+                    <span className="font-bold text-stone-600 text-sm">Subtotal dos Itens:</span>
+                    <span className="font-black text-lg text-stone-900">
+                      R$ {total.toFixed(2).replace('.', ',')}
+                    </span>
                   </div>
                 </div>
 
@@ -747,8 +728,8 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                       <label className="flex items-center gap-2">
                         <MapPin size={15} className="text-[#F28B20]" /> Endereço de Entrega Completo *
                       </label>
-                      <span className="text-[11px] font-semibold text-[#F28B20] bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200">
-                        Cálculo Automático de Frete
+                      <span className="text-[11px] font-semibold text-stone-600 bg-stone-100 px-2 py-0.5 rounded-full border border-stone-200">
+                        Passo Fundo - RS
                       </span>
                     </div>
 
@@ -784,7 +765,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                         >
                           <div className="px-3 py-1.5 bg-stone-50 text-[10px] font-bold text-stone-500 uppercase tracking-wider flex items-center justify-between">
                             <span>Ruas encontradas em Passo Fundo</span>
-                            <span className="text-stone-400 font-normal">Toque para preencher</span>
+                            <span className="text-stone-400 font-normal">Toque para selecionar</span>
                           </div>
                           {addressSuggestions.map((sug, idx) => (
                             <button
@@ -800,43 +781,23 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                                     {sug.street}
                                   </span>
                                   <span className="text-xs text-stone-500 block truncate">
-                                    Bairro {sug.bairro} • Passo Fundo, RS
+                                    Passo Fundo, RS
                                   </span>
                                 </div>
                               </div>
-                              <span className="shrink-0 text-xs font-black px-2 py-0.5 rounded-md bg-stone-100 group-hover:bg-[#F28B20] group-hover:text-white transition-colors text-stone-700">
-                                R$ {sug.fee.toFixed(2).replace('.', ',')}
-                              </span>
                             </button>
                           ))}
                         </motion.div>
                       )}
                     </AnimatePresence>
 
-                    {/* Card de Região e Frete Calculado Automaticamente */}
-                    <div className="mt-2.5 p-3.5 rounded-xl border border-orange-200 bg-gradient-to-r from-orange-50/90 to-amber-50/50 flex items-center justify-between gap-3 shadow-xs">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-[#F28B20] text-white flex items-center justify-center shrink-0 shadow-xs">
-                          <CheckCircle2 size={17} />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="text-[10px] font-black uppercase text-stone-500 block tracking-wide">
-                            Região Identificada Automaticamente
-                          </span>
-                          <span className="font-bold text-xs text-stone-900 block truncate">
-                            {address.trim() 
-                              ? `${regionLabel} ${detectedBairro ? `• ${detectedBairro}` : ''}`
-                              : 'Passo Fundo (Digite a rua acima)'}
-                          </span>
-                        </div>
+                    {/* Confirmação simples do endereço */}
+                    {address.trim() && (
+                      <div className="mt-2.5 px-3 py-2 rounded-xl bg-stone-50 border border-stone-200/80 flex items-center gap-2 text-xs text-stone-600 font-medium">
+                        <CheckCircle2 size={15} className="text-green-600 shrink-0" />
+                        <span>Endereço de entrega confirmado em Passo Fundo</span>
                       </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-[10px] text-stone-500 block font-medium">Taxa de Frete:</span>
-                        <span className="text-sm font-black text-[#F28B20]">
-                          + R$ {deliveryFee.toFixed(2).replace('.', ',')}
-                        </span>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
 
@@ -1550,6 +1511,24 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
 
             {/* Rodapé com botão de confirmação */}
             <div className="p-4 md:p-6 border-t border-stone-200 bg-white shrink-0">
+              {/* Resumo Financeiro Final (Frete calculado automaticamente pelo endereço) */}
+              <div className="bg-stone-50 border border-stone-200/90 rounded-2xl p-3.5 space-y-1.5 text-xs mb-3 shadow-2xs">
+                <div className="flex justify-between text-stone-600 font-semibold">
+                  <span>Subtotal dos itens:</span>
+                  <span>R$ {total.toFixed(2).replace('.', ',')}</span>
+                </div>
+                <div className="flex justify-between text-stone-600 font-semibold">
+                  <span>Taxa de Entrega:</span>
+                  <span className="text-[#F28B20] font-bold">+ R$ {deliveryFee.toFixed(2).replace('.', ',')}</span>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t border-stone-200">
+                  <span className="text-stone-900 font-black text-sm uppercase">Total Final:</span>
+                  <span className="text-2xl font-black text-[#F28B20]">
+                    R$ {currentFinalTotal.toFixed(2).replace('.', ',')}
+                  </span>
+                </div>
+              </div>
+
               <button 
                 type="button"
                 onClick={(e) => {
