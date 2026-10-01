@@ -198,14 +198,42 @@ export const updateOrderStatus = async (orderId: string, status: string) => {
 };
 
 import { onSnapshot } from "firebase/firestore";
+import { MENU_ITEMS } from "../data";
 
 export const subscribeToProducts = (callback: (products: Product[]) => void) => {
   const productsRef = collection(db, "products");
   return onSnapshot(productsRef, (snap) => {
-    callback(snap.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Product[]);
+    if (snap.empty) {
+      callback(MENU_ITEMS);
+      return;
+    }
+    const firestoreMap = new Map(snap.docs.map(d => [d.id, { ...d.data(), id: d.id } as Product]));
+    
+    // Combine MENU_ITEMS preserving canonical order, updating with Firestore data
+    const merged = MENU_ITEMS.map(item => {
+      const fromDb = firestoreMap.get(item.id!);
+      if (!fromDb) return item;
+      return {
+        ...fromDb,
+        ...item,
+        // Canonical images and prices from MENU_ITEMS take priority
+        image: item.image || fromDb.image,
+        price: item.price ?? fromDb.price
+      };
+    });
+
+    // Also include any dynamically added products from Firestore
+    const menuItemIds = new Set(MENU_ITEMS.map(i => i.id));
+    for (const doc of snap.docs) {
+      if (!menuItemIds.has(doc.id)) {
+        merged.push({ ...doc.data(), id: doc.id } as Product);
+      }
+    }
+
+    callback(merged);
   }, (error) => {
     console.error("Error subscribing to products (offline or missing rules):", error);
-    // Don't crash
+    callback(MENU_ITEMS);
   });
 };
 
@@ -245,7 +273,7 @@ export const seedDatabase = async (initialProducts: Product[], initialPromos: { 
     
     const metaSnap = await getDoc(metaRef);
     const currentVersion = metaSnap.exists() ? metaSnap.data().seedVersion : 0;
-    const TARGET_VERSION = 16; // Increment this to force re-seed
+    const TARGET_VERSION = 22; // Increment this to force re-seed
   
     const productsSnap = await getDocs(productsRef);
     
@@ -253,7 +281,7 @@ export const seedDatabase = async (initialProducts: Product[], initialPromos: { 
     if (true) {
       for (const p of initialProducts) {
         try {
-          await setDoc(doc(db, "products", p.id!), p, { merge: true });
+          await setDoc(doc(db, "products", p.id!), p);
         } catch (e) {
           console.error("Failed to seed product:", p.id, p, e);
         }
@@ -553,7 +581,7 @@ export const DEFAULT_PRINTER_SETTINGS: PrinterSettings = {
   printSubHeader: 'Delivery de Verdade!',
   printPhone: '(54) 99959-8389',
   printAddress: 'R. Uruguai, 919 - Petrópolis - Passo Fundo - RS',
-  printFooter: 'Agradecemos a preferência! Bom apetite!',
+  printFooter: 'Até a próxima!',
   showOrderNumber: true,
   showPassword: true,
   showCustomerPhone: true,

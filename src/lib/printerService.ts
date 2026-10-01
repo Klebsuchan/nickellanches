@@ -93,7 +93,7 @@ export function generateReceiptText(
 
   out.push(line);
   if (settings.printFooter) out.push(settings.printFooter.toUpperCase());
-  out.push('Obrigado pela preferencia!');
+  out.push('ATE A PROXIMA!');
   out.push(dline);
 
   return out.join('\n');
@@ -240,7 +240,7 @@ export function generateReceiptHtml(
       <!-- RODAPÉ -->
       <div style="text-align: center; border-top: 1px dashed #000; padding-top: 6px; margin-top: 6px;">
         ${settings.printFooter ? `<div style="font-weight: bold; font-size: 0.85em; text-transform: uppercase;">${settings.printFooter}</div>` : ''}
-        <div style="font-size: 0.85em; margin-top: 3px;">*** OBRIGADO PELA PREFERÊNCIA! ***</div>
+        <div style="font-size: 0.85em; margin-top: 3px; font-weight: bold;">*** ATÉ A PRÓXIMA! ***</div>
       </div>
 
       <!-- AVANÇO DE LINHAS PARA A GUILHOTINA / SERRILHA -->

@@ -123,9 +123,9 @@ export default function ProfileView({ onClose, orderHistory = [], user, userProf
                   </div>
                   <button 
                     onClick={() => { if(onPlayGame) onPlayGame(); }}
-                    className="w-full md:w-auto bg-[#4E2A84] text-white px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-sm flex items-center justify-center gap-2 hover:bg-[#3a1f63] transition-colors shadow-md"
+                    className="w-full md:w-auto bg-[#4E2A84] text-white px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-sm flex items-center justify-center gap-2.5 hover:bg-[#3a1f63] transition-colors shadow-md"
                   >
-                    <Gamepad2 size={18} /> Jogar Agora
+                    <img src="/game-icon.svg" alt="Game" className="w-5 h-5 object-contain" /> Jogar Agora
                   </button>
                 </div>
               </div>

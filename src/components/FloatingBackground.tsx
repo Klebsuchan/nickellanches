@@ -40,8 +40,8 @@ export default function FloatingBackground() {
             </div>
           )}
           {item.type === 'napkin' && (
-            <div className={`comic-panel-alt ${item.size} p-1 transform -rotate-12`}>
-              <div className="w-full h-full checkered-red"></div>
+            <div className={`comic-panel-alt ${item.size} p-1 transform -rotate-12 rounded-2xl overflow-hidden border-2 border-stone-900 shadow-md`}>
+              <div className="w-full h-full checkered-black-yellow rounded-xl"></div>
             </div>
           )}
           {item.type === 'boom' && (

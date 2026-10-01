@@ -17,6 +17,9 @@ export default function Footer({ onOpenModal }: FooterProps) {
             <div className="flex flex-col justify-center -ml-2">
               <h1 className="text-4xl md:text-5xl tracking-tighter leading-none"><NickelText /></h1>
               <h2 className="text-xl md:text-2xl tracking-tighter leading-none" style={{ fontFamily: '"Russo One", sans-serif', fontStyle: 'italic', color: '#FFFFFF', WebkitTextStroke: '1px black', textShadow: '3px 3px 0px #000' }}>LANCHES</h2>
+              <p className="text-[11px] font-black uppercase text-[#F28B20] mt-1 tracking-tight">
+                “MUITO AMOR ENVOLVIDO, E O PRAZER DE COMER BEM É GARANTIDO PRA VOCÊ!”
+              </p>
             </div>
           </div>
           <p className="text-stone-400 font-medium mb-6 text-sm leading-relaxed">

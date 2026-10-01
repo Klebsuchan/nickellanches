@@ -180,7 +180,7 @@ export const MENU_ITEMS: Product[] = [
     "price": 20,
     "points": 30,
     "emoji": "🍔",
-    "image": "/images/xissimples-1.avif",
+    "image": "/simples.jpeg",
     "category": "lanches"
   },
   {
@@ -260,7 +260,7 @@ export const MENU_ITEMS: Product[] = [
     "price": 39,
     "points": 59,
     "emoji": "🍔",
-    "image": "/images/filéprime.jpeg",
+    "image": "/filé.jpeg",
     "category": "lanches"
   },
   {
@@ -270,7 +270,7 @@ export const MENU_ITEMS: Product[] = [
     "price": 34,
     "points": 51,
     "emoji": "🍔",
-    "image": "/images/olympus-1.png",
+    "image": "/olympus.jpg",
     "category": "lanches"
   },
   {
@@ -280,7 +280,7 @@ export const MENU_ITEMS: Product[] = [
     "price": 34,
     "points": 51,
     "emoji": "🍔",
-    "image": "/images/magma-1.png",
+    "image": "/magma.jpg",
     "category": "lanches"
   },
   {
@@ -290,7 +290,7 @@ export const MENU_ITEMS: Product[] = [
     "price": 40,
     "points": 60,
     "emoji": "🍔",
-    "image": "/images/xiscemuche-1.jpg",
+    "image": "/cemuche.jpg",
     "category": "lanches"
   },
   {
@@ -310,15 +310,35 @@ export const MENU_ITEMS: Product[] = [
     "price": 34,
     "points": 51,
     "emoji": "🍔",
-    "image": "/images/bomba-1.png",
+    "image": "/bomba.jpg",
+    "category": "lanches"
+  },
+  {
+    "id": "36",
+    "name": "Filé Prime",
+    "description": "Cortes nobres de filé mignon grelhados, queijo muçarela derretido, presunto, ovo, milho, ervilha, alface, tomate, maionese artesanal e tempero especial da casa.",
+    "price": 42,
+    "points": 63,
+    "emoji": "🥩",
+    "image": "/images/filéprime.jpeg",
+    "category": "lanches"
+  },
+  {
+    "id": "37",
+    "name": "Strogonoff de Carne",
+    "description": "Suculento strogonoff de carne bovina em tiras macias com molho cremoso especial, queijo muçarela, batata palha crocante, milho e maionese.",
+    "price": 36,
+    "points": 54,
+    "emoji": "🥘",
+    "image": "/images/xisestrogonofefrango-1.jpg",
     "category": "lanches"
   },
   {
   "id": "c1",
   "name": "Combo Família",
   "description": "4 Xis Especiais + GANHA 1 refri 2 litros CHARRA",
-  "price": 90,
-  "points": 135,
+  "price": 99,
+  "points": 149,
   "emoji": "👨‍👩‍👧‍👦",
   "image": "/images/combofamilia.jpg",
   "category": "combos"
@@ -327,8 +347,8 @@ export const MENU_ITEMS: Product[] = [
   "id": "c2",
   "name": "Combo Kids",
   "description": "Xis Pão+Carne+Queijo + Fritas Sorriso (6 unidades) + Refri 200ml",
-  "price": 25,
-  "points": 37,
+  "price": 28,
+  "points": 42,
   "emoji": "👦",
   "image": "/images/combokids.jpeg",
   "category": "combos"
@@ -337,18 +357,18 @@ export const MENU_ITEMS: Product[] = [
   "id": "c3",
   "name": "Nickel Trio",
   "description": "1 xis especial + 1 batatinha + 1 refri lata",
-  "price": 35,
-  "points": 52,
+  "price": 38,
+  "points": 57,
   "emoji": "🏆",
   "image": "/images/nickeltrio.jpeg",
   "category": "combos"
 },
   {
   "id": "c4",
-  "name": "Combinho Casal",
+  "name": "Combo Casal",
   "description": "2 Xis Especiais + Batata Frita M + Refri 600ml",
-  "price": 70,
-  "points": 105,
+  "price": 74,
+  "points": 111,
   "emoji": "💑",
   "image": "/images/combocasal.avif",
   "category": "combos"

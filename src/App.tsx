@@ -58,7 +58,7 @@ export default function App() {
   const [activeModal, setActiveModal] = useState<'privacy' | 'contact' | 'terms' | 'cookies' | null>(null);
   const [showCookies, setShowCookies] = useState(true);
   const [showLastOrdersState, setShowLastOrdersState] = useState(false);
-  const [menuItems, setMenuItems] = useState<Product[]>([]);
+  const [menuItems, setMenuItems] = useState<Product[]>(MENU_ITEMS);
   const [discountCodes, setDiscountCodes] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -677,7 +677,7 @@ export default function App() {
     setShowReview(true);
   };
 
-  const xisItems = menuItems.filter(i => i.name.toLowerCase().includes('xis') && !i.name.toLowerCase().includes('combo') && !i.name.toLowerCase().includes('trio'));
+  const xisItems = menuItems.filter(i => (i.category === 'lanches' || i.name.toLowerCase().includes('xis')) && !i.name.toLowerCase().includes('cachorro') && !i.name.toLowerCase().includes('combo') && !i.name.toLowerCase().includes('trio'));
   const hotDogItems = menuItems.filter(i => i.name.toLowerCase().includes('cachorro quente') && !i.name.toLowerCase().includes('combo') && !i.name.toLowerCase().includes('trio'));
   const portionItems = menuItems.filter(i => i.name.toLowerCase().includes('batata frita') && !i.name.toLowerCase().includes('combo') && !i.name.toLowerCase().includes('trio'));
   const extraItems = menuItems.filter(i => !i.name.toLowerCase().includes('xis') && !i.name.toLowerCase().includes('cachorro quente') && !i.name.toLowerCase().includes('batata frita') && !i.id.startsWith('c') && !i.name.toLowerCase().includes('combo') && !i.name.toLowerCase().includes('trio'));
@@ -723,24 +723,6 @@ export default function App() {
                 <h4 className="font-bold text-stone-900 leading-tight line-clamp-2 md:line-clamp-1 text-sm md:text-lg tracking-tight h-10 md:h-auto"><RenderWithNickel text={item.name} /></h4>
                 <p className="hidden md:block text-xs text-stone-500 line-clamp-2 min-h-[2rem] leading-relaxed font-medium mb-1.5">{item.description}</p>
                 
-                {(() => {
-                  const isTopProduct = (item.name || '').toLowerCase().includes('cemuche') || (item.name || '').toLowerCase().includes('magma');
-                  const itemRating = isTopProduct ? '5,0' : ((item.id || '').charCodeAt(0) % 2 === 0 ? '4,8' : '4,9');
-                  const itemReviewsCount = isTopProduct ? 100 : (76 + ((item.id || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % 23));
-                  return (
-                    <div className="flex items-center gap-1.5 mb-4">
-                      <Star size={14} className="text-[#F28B20]" fill="currentColor" />
-                      <span className="text-xs font-bold text-stone-700">{itemRating}</span>
-                      <span className="text-xs text-stone-400">({itemReviewsCount})</span>
-                      {isTopProduct && (
-                        <span className="bg-orange-100 text-[#F28B20] text-[9px] font-black px-1.5 py-0.5 rounded-md ml-auto">
-                          ⭐ 5.0
-                        </span>
-                      )}
-                    </div>
-                  );
-                })()}
-
                 <div className="flex items-center justify-between mt-auto md:mt-4">
                   <span className="text-base md:text-2xl font-black text-stone-900 tracking-tighter">
                     R$ {item.price.toFixed(2).replace('.', ',')}
@@ -864,11 +846,18 @@ export default function App() {
 
   const renderMenu = () => (
     <div className="w-full pb-0 bg-transparent">
+      {/* Top Banner com Slogan Oficial */}
+      <div className="bg-gradient-to-r from-[#4E2A84] via-[#F28B20] to-[#4E2A84] text-white py-1.5 px-4 text-center text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs">
+        <span className="text-orange-300">❤️</span>
+        <span>MUITO AMOR ENVOLVIDO, E O PRAZER DE COMER BEM É GARANTIDO PRA VOCÊ!</span>
+        <span className="text-orange-300">✨</span>
+      </div>
+
       {/* Header com Navegação */}
       <header className="sticky top-0 z-50 bg-white border-b border-stone-100 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
-            <img loading="eager" fetchPriority="high" src="/logo.png" alt="Nickel Lanches" className="h-16 sm:h-20 md:h-24 w-auto object-contain drop-shadow-md" />
+        <div className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 py-3.5 flex justify-between items-center">
+          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
+            <img loading="eager" fetchPriority="high" src="/logo.png" alt="Nickel Lanches" className="h-16 sm:h-20 md:h-24 w-auto object-contain drop-shadow-md group-hover:scale-105 transition-transform" />
             <div className="flex flex-col justify-center -ml-2 sm:-ml-3">
               <h1 className="text-2xl sm:text-3xl md:text-4xl tracking-tighter leading-none"><NickelText /></h1>
               <h2 className="text-sm sm:text-lg md:text-xl tracking-tighter leading-none -mt-0.5 sm:-mt-1" style={{ fontFamily: '"Russo One", sans-serif', fontStyle: 'italic', color: '#FFFFFF', WebkitTextStroke: '1px black', textShadow: '1px 1px 0px #000' }}>LANCHES</h2>
@@ -879,13 +868,16 @@ export default function App() {
             <button onClick={() => { navigateToView('store'); setShowLastOrdersState(false); window.scrollTo(0,0); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Cardápio</button>
             <button onClick={() => { document.getElementById('quem-somos')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Quem Somos</button>
             <button onClick={() => { document.getElementById('contato')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Contato</button>
-            <button onClick={() => navigateToView('game')} className="text-sm font-bold uppercase tracking-wider text-[#4E2A84] hover:text-[#F28B20] transition-colors flex items-center gap-2"><Gamepad2 size={16}/> Jogue nosso jogo</button>
+            <button onClick={() => navigateToView('game')} className="text-sm font-black uppercase tracking-wider text-[#4E2A84] hover:text-[#F28B20] transition-all flex items-center gap-2 group">
+              <img src="/game-icon.svg" alt="Game" className="w-7 h-7 object-contain drop-shadow-sm group-hover:scale-125 group-hover:rotate-12 transition-transform duration-200" />
+              <span className="bg-gradient-to-r from-[#4E2A84] to-[#F28B20] bg-clip-text text-transparent group-hover:text-[#F28B20]">Jogue nosso jogo</span>
+            </button>
             <button onClick={() => { navigateToView('store'); setShowLastOrdersState(true); window.scrollTo(0,0); }} className="bg-[#F28B20] text-white px-6 py-2.5 rounded-full text-sm font-bold uppercase tracking-wider hover:bg-orange-500 transition-colors shadow-sm">Faça seu Pedido</button>
           </nav>
 
           <div className="flex items-center gap-2 md:gap-3 lg:hidden relative">
-            <button onClick={() => navigateToView('game')} className="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center text-[#4E2A84] hover:bg-stone-200 transition-colors">
-              <Gamepad2 size={24} />
+            <button onClick={() => navigateToView('game')} className="w-12 h-12 bg-gradient-to-tr from-amber-100 via-purple-100 to-pink-100 rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-xs border border-purple-200/80 active:scale-95" title="Jogue nosso jogo">
+              <img src="/game-icon.svg" alt="Game" className="w-8 h-8 object-contain drop-shadow-sm" />
             </button>
             <button onClick={() => openCart()} className="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center text-stone-900 relative">
               <ShoppingBag size={24} />
@@ -916,8 +908,8 @@ export default function App() {
                   <button onClick={() => { setIsMobileMenuOpen(false); document.getElementById('contato')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-left px-4 py-3 font-bold text-sm text-stone-700 uppercase tracking-wide hover:bg-stone-50 transition-colors">
                     Contato
                   </button>
-                  <button onClick={() => { setIsMobileMenuOpen(false); navigateToView('game'); }} className="text-left px-4 py-3 font-bold text-sm text-[#4E2A84] uppercase tracking-wide hover:bg-stone-50 transition-colors flex items-center gap-2 border-t border-stone-100">
-                    <Gamepad2 size={16} /> Jogue nosso jogo
+                  <button onClick={() => { setIsMobileMenuOpen(false); navigateToView('game'); }} className="text-left px-4 py-3 font-bold text-sm text-[#4E2A84] uppercase tracking-wide hover:bg-stone-50 transition-colors flex items-center gap-2.5 border-t border-stone-100">
+                    <img src="/game-icon.svg" alt="Game" className="w-6 h-6 object-contain" /> Jogue nosso jogo
                   </button>
                 </motion.div>
               )}
@@ -926,8 +918,8 @@ export default function App() {
           
           {/* Desktop User/Cart icons */}
           <div className="hidden lg:flex items-center gap-3">
-            <button onClick={() => navigateToView('game')} className="w-12 h-12 bg-stone-50 rounded-full flex items-center justify-center text-[#4E2A84] border border-stone-200 hover:bg-stone-100 transition-colors">
-              <Gamepad2 size={20} />
+            <button onClick={() => navigateToView('game')} className="w-12 h-12 bg-gradient-to-tr from-amber-50 via-purple-50 to-pink-50 rounded-full flex items-center justify-center border border-purple-200 hover:bg-purple-100 transition-all hover:scale-105 shadow-2xs" title="Jogue nosso jogo">
+              <img src="/game-icon.svg" alt="Game" className="w-7 h-7 object-contain drop-shadow-sm" />
             </button>
              <button onClick={() => navigateToView('profile')} className="w-12 h-12 bg-stone-50 rounded-full flex items-center justify-center text-[#F28B20] border border-stone-200 hover:bg-stone-100 transition-colors">
               <User size={20} />

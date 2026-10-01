@@ -120,8 +120,8 @@ export default function WaiterPanel({ orders, onClose }: WaiterPanelProps) {
               <span>R$ {orders[0].total.toFixed(2)}</span>
             </div>
             
-            <div className="text-center mt-8 text-sm">
-              <p>Obrigado pela preferência!</p>
+            <div className="text-center mt-8 text-sm font-bold">
+              <p>Até a próxima!</p>
               <p>*** VOLTE SEMPRE ***</p>
             </div>
           </div>

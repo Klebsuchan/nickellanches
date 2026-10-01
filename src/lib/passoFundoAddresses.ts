@@ -21,7 +21,7 @@ export interface AddressSuggestion {
 
 // Bairros de Passo Fundo categorizados por taxa de frete da Nickel Lanches (Rua Uruguai, 919 - Petrópolis)
 export const PETROPOLIS_KEYWORDS = [
-  'petropolis', 'petrópolis', 'vila petropolis', 'vila petrópolis', 'uruguai', 'lava pes', 'lava-pés', 
+  'petropolis', 'petrópolis', 'vila petropolis', 'vila petrópolis', 'lava pes', 'lava-pés', 
   'bahia', 'minas gerais', 'parana', 'paraná', 'sao paulo', 'são paulo', 'santa catarina',
   'goias', 'goiás', 'espirito santo', 'espírito santo', 'almirante tamandare', 'almirante tamandaré',
   'placido de castro', 'plácido de castro', 'cruz alta', 'condomínio petrópolis', 'parque da gare'
@@ -36,8 +36,8 @@ export const AFASTADO_KEYWORDS = [
 
 // Base com as principais ruas e avenidas de Passo Fundo para sugestão instantânea sem delay
 export const PASSO_FUNDO_STREETS: PassoFundoStreet[] = [
-  // Bairro Petrópolis (Sede Nickel Lanches - R$ 10,00)
-  { name: 'Rua Uruguai', bairro: 'Petrópolis', region: 'petropolis', fee: 10, popular: true },
+  // Bairro Petrópolis (Sede Nickel Lanches - R$ 10,00 apenas quando no bairro Petrópolis)
+  { name: 'Rua Uruguai (Petrópolis)', bairro: 'Petrópolis', region: 'petropolis', fee: 10 },
   { name: 'Rua Lava Pés', bairro: 'Petrópolis', region: 'petropolis', fee: 10, popular: true },
   { name: 'Rua Bahia', bairro: 'Petrópolis', region: 'petropolis', fee: 10 },
   { name: 'Rua Minas Gerais', bairro: 'Petrópolis', region: 'petropolis', fee: 10 },
@@ -52,9 +52,10 @@ export const PASSO_FUNDO_STREETS: PassoFundoStreet[] = [
   { name: 'Rua Almirante Tamandaré', bairro: 'Petrópolis', region: 'petropolis', fee: 10 },
   { name: 'Rua Rio de Janeiro', bairro: 'Petrópolis', region: 'petropolis', fee: 10 },
 
-  // Centro e Bairros Urbanos (R$ 15,00)
-  { name: 'Avenida Brasil Leste', bairro: 'Centro / Petrópolis', region: 'cidade', fee: 15, popular: true },
-  { name: 'Avenida Brasil Oeste', bairro: 'Centro / Boqueirão', region: 'cidade', fee: 15, popular: true },
+  // Centro e Bairros Urbanos (R$ 15,00) - Rua Uruguai geral/centro é R$ 15,00 conforme solicitado
+  { name: 'Rua Uruguai', bairro: 'Centro', region: 'cidade', fee: 15, popular: true },
+  { name: 'Avenida Brasil Leste', bairro: 'Centro', region: 'cidade', fee: 15, popular: true },
+  { name: 'Avenida Brasil Oeste', bairro: 'Boqueirão', region: 'cidade', fee: 15, popular: true },
   { name: 'Avenida Presidente Vargas', bairro: 'São Cristóvão', region: 'cidade', fee: 15, popular: true },
   { name: 'Avenida Sete de Setembro', bairro: 'Vera Cruz', region: 'cidade', fee: 15, popular: true },
   { name: 'Avenida General Netto', bairro: 'Centro', region: 'cidade', fee: 15, popular: true },
@@ -77,7 +78,6 @@ export const PASSO_FUNDO_STREETS: PassoFundoStreet[] = [
   { name: 'Rua General Canabarro', bairro: 'Centro', region: 'cidade', fee: 15 },
   { name: 'Rua Guaporé', bairro: 'Boqueirão', region: 'cidade', fee: 15 },
   { name: 'Rua São Borja', bairro: 'Boqueirão', region: 'cidade', fee: 15 },
-  { name: 'Rua Uruguai (Centro)', bairro: 'Centro', region: 'cidade', fee: 15 },
   { name: 'Rua Eduardo de Brito', bairro: 'Vila Rodrigues', region: 'cidade', fee: 15 },
   { name: 'Rua Santo Antônio', bairro: 'Vila Luiza', region: 'cidade', fee: 15 },
   { name: 'Rua Princesa Isabel', bairro: 'Vila Luiza', region: 'cidade', fee: 15 },
@@ -103,7 +103,7 @@ export const PASSO_FUNDO_STREETS: PassoFundoStreet[] = [
   { name: 'Rua Dr. Vergueiro', bairro: 'Vila Vergueiro', region: 'cidade', fee: 15 },
   { name: 'Rua Doutor Bozano', bairro: 'Vila Luiza', region: 'cidade', fee: 15 },
   { name: 'Rua Mascarenhas', bairro: 'Vila Luiza', region: 'cidade', fee: 15 },
-  { name: 'Rua Nereu Ramos', bairro: 'Petrópolis / Fátima', region: 'cidade', fee: 15 },
+  { name: 'Rua Nereu Ramos', bairro: 'Fátima', region: 'cidade', fee: 15 },
   { name: 'Rua São Sebastião', bairro: 'Vila Luiza', region: 'cidade', fee: 15 },
   { name: 'Rua Coronel Camisão', bairro: 'Vila Luiza', region: 'cidade', fee: 15 },
 

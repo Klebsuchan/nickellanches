@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, 
@@ -19,13 +19,17 @@ import {
   Lock,
   Clock,
   Landmark,
-  Building2
+  Building2,
+  Navigation,
+  Search,
+  CheckCircle2
 } from 'lucide-react';
 import { CartItem } from '../types';
 import { PaymentSettings, subscribeToPaymentSettings, DEFAULT_PAYMENT_SETTINGS } from '../lib/db';
 import { generatePixPayload, generatePixQRCode } from '../lib/pix';
 import { useToast } from './Toast';
 import { playSound } from '../lib/audio';
+import { determineRegionFromAddress, searchPassoFundoAddresses, AddressSuggestion } from '../lib/passoFundoAddresses';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -40,7 +44,11 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
   const [name, setName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [address, setAddress] = useState('');
-  const [region, setRegion] = useState<'petropolis' | 'cidade' | 'afastado' | 'a_calcular' | ''>('');
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+  const addressContainerRef = useRef<HTMLDivElement>(null);
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   
   // Métodos de pagamento: PIX online, Cartão de Crédito Online, Cartão de Débito Online, Maquininha na entrega (crédito ou débito), PIX na entrega, Dinheiro
   const [paymentMethod, setPaymentMethod] = useState<
@@ -180,12 +188,11 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
   const handleFillTestData = () => {
     setName('Cliente Teste Nickel');
     setWhatsapp('(54) 99876-5432');
-    setAddress('Av. Brasil, 500 - Centro, Flores da Cunha');
-    setRegion('cidade');
+    setAddress('Av. Brasil, 500 - Centro, Passo Fundo');
     playSound('coin');
     addToast({
       title: 'Dados Preenchidos para Teste!',
-      message: 'Nome, WhatsApp, endereço e região preenchidos com sucesso!',
+      message: 'Nome, WhatsApp e endereço preenchidos com sucesso!',
       type: 'success'
     });
   };
@@ -224,23 +231,60 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
     return () => unsub();
   }, []);
 
-  // Cálculo da taxa de frete e valor total exato
-  let deliveryFee = 0;
-  let regionLabel = '';
-  if (region === 'petropolis') {
-    deliveryFee = 10;
-    regionLabel = 'Petrópolis';
-  } else if (region === 'cidade') {
-    deliveryFee = 15;
-    regionLabel = 'Outros bairros (Cidade)';
-  } else if (region === 'afastado') {
-    deliveryFee = 20;
-    regionLabel = 'Fora do trevo (Afastado)';
-  } else if (region === 'a_calcular') {
-    deliveryFee = 0;
-    regionLabel = 'Frete a calcular';
-  }
+  // Análise e cálculo automático do frete através da rua/bairro digitado
+  const detectedRegion = useMemo(() => {
+    return determineRegionFromAddress(address);
+  }, [address]);
+
+  const deliveryFee = address.trim() ? detectedRegion.fee : 15;
+  const regionLabel = address.trim() ? detectedRegion.label : 'Passo Fundo';
+  const detectedBairro = detectedRegion.detectedBairro;
   const currentFinalTotal = total + deliveryFee;
+
+  // Busca inteligente de ruas em Passo Fundo
+  const handleAddressChange = (val: string) => {
+    setAddress(val);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (val.trim().length >= 2) {
+      searchDebounceRef.current = setTimeout(async () => {
+        setIsSearchingAddress(true);
+        try {
+          const results = await searchPassoFundoAddresses(val);
+          setAddressSuggestions(results);
+          setShowSuggestions(results.length > 0);
+        } catch (_) {
+          // ignore
+        } finally {
+          setIsSearchingAddress(false);
+        }
+      }, 150);
+    } else {
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleSelectSuggestion = (sug: AddressSuggestion) => {
+    setAddress(`${sug.street}, , ${sug.bairro} - Passo Fundo`);
+    setAddressSuggestions([]);
+    setShowSuggestions(false);
+    playSound('coin');
+    addToast({
+      message: `Rua selecionada! Frete automático calculado: R$ ${sug.fee.toFixed(2).replace('.', ',')}`,
+      type: 'info'
+    });
+  };
+
+  // Fecha sugestões ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (addressContainerRef.current && !addressContainerRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Atualiza o QR Code e Payload PIX oficial sempre que o total ou as configurações mudarem
   useEffect(() => {
@@ -279,9 +323,6 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
     }
     if (!address.trim()) {
       setAddress('Rua Principal, 100 - Centro');
-    }
-    if (!region) {
-      setRegion('cidade');
     }
     if (!paymentMethod) {
       setPaymentMethod('credit_online');
@@ -641,23 +682,17 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                     </div>
 
                     <div className="flex justify-between text-stone-600 font-semibold">
-                      <span>Taxa de Entrega {regionLabel ? `(${regionLabel})` : ''}:</span>
-                      {region === 'a_calcular' ? (
-                        <span className="text-[#F28B20] font-bold">A calcular</span>
-                      ) : region ? (
-                        <span className="text-[#F28B20] font-bold">+ R$ {deliveryFee.toFixed(2).replace('.', ',')}</span>
-                      ) : (
-                        <span className="text-amber-600 font-bold italic">Selecione a opção abaixo</span>
-                      )}
+                      <span>Taxa de Entrega ({regionLabel}):</span>
+                      <span className="text-[#F28B20] font-bold">+ R$ {deliveryFee.toFixed(2).replace('.', ',')}</span>
                     </div>
 
                     <div className="flex justify-between items-center pt-2.5 border-t border-stone-200">
                       <div>
                         <span className="font-black text-stone-900 uppercase text-sm block">Total:</span>
-                        <span className="text-[11px] text-stone-400 font-medium">{region === 'a_calcular' ? 'Lanches + Frete a calcular' : 'Lanches + Taxa de Entrega'}</span>
+                        <span className="text-[11px] text-stone-400 font-medium">Lanches + Taxa de Entrega</span>
                       </div>
                       <span className="font-black text-2xl text-[#F28B20]">
-                        R$ {currentFinalTotal.toFixed(2).replace('.', ',')}{region === 'a_calcular' ? ' + Frete' : ''}
+                        R$ {currentFinalTotal.toFixed(2).replace('.', ',')}
                       </span>
                     </div>
                   </div>
@@ -707,53 +742,100 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                     />
                   </div>
                   
-                  <div>
-                    <label className="flex items-center gap-2 text-xs font-bold text-stone-700 mb-1.5 uppercase">
-                      <MapPin size={15} className="text-[#F28B20]" /> Endereço de Entrega Completo *
-                    </label>
-                    <input 
-                      id="input-address"
-                      type="text" 
-                      value={address} 
-                      onChange={e => setAddress(e.target.value)} 
-                      placeholder="Rua, Número, Bairro, Ponto de Referência" 
-                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-medium outline-none focus:border-[#F28B20] focus:ring-4 focus:ring-orange-100 transition-all text-stone-900 text-sm"
-                    />
-                  </div>
+                  <div ref={addressContainerRef} className="relative pt-1">
+                    <div className="flex items-center justify-between text-xs font-bold text-stone-700 mb-1.5 uppercase">
+                      <label className="flex items-center gap-2">
+                        <MapPin size={15} className="text-[#F28B20]" /> Endereço de Entrega Completo *
+                      </label>
+                      <span className="text-[11px] font-semibold text-[#F28B20] bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200">
+                        Cálculo Automático de Frete
+                      </span>
+                    </div>
 
-                  <div id="section-region" className="pt-2">
-                    <label className="flex items-center gap-2 text-xs font-bold text-stone-700 mb-1.5 uppercase">
-                      <MapPin size={15} className="text-[#F28B20]" /> Região de Entrega (Cálculo de Frete) *
-                    </label>
-                    <div className="space-y-2">
-                      <label className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all ${region === 'a_calcular' ? 'border-[#F28B20] bg-orange-50/70 shadow-sm' : 'border-stone-200 hover:border-stone-300 bg-stone-50/50'}`}>
-                        <div className="flex items-center gap-3">
-                          <input type="radio" name="region" checked={region === 'a_calcular'} onChange={() => setRegion('a_calcular')} className="hidden" />
-                          <span className="font-bold text-sm text-stone-900">Frete a calcular no WhatsApp</span>
+                    <div className="relative">
+                      <input 
+                        id="input-address"
+                        type="text" 
+                        value={address} 
+                        onChange={e => handleAddressChange(e.target.value)} 
+                        onFocus={() => {
+                          if (addressSuggestions.length > 0) setShowSuggestions(true);
+                        }}
+                        placeholder="Digite o nome da rua (Ex: Rua Uruguai, Brasil, Lava Pés...)" 
+                        className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 pl-10 font-medium outline-none focus:border-[#F28B20] focus:ring-4 focus:ring-orange-100 transition-all text-stone-900 text-sm"
+                        autoComplete="off"
+                      />
+                      <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                      {isSearchingAddress && (
+                        <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
+                          <div className="w-4 h-4 border-2 border-[#F28B20] border-t-transparent rounded-full animate-spin"></div>
                         </div>
-                        <span className="font-bold text-sm text-[#F28B20]">A calcular</span>
-                      </label>
-                      <label className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all ${region === 'petropolis' ? 'border-[#F28B20] bg-orange-50/70 shadow-sm' : 'border-stone-200 hover:border-stone-300 bg-stone-50/50'}`}>
-                        <div className="flex items-center gap-3">
-                          <input type="radio" name="region" checked={region === 'petropolis'} onChange={() => setRegion('petropolis')} className="hidden" />
-                          <span className="font-bold text-sm text-stone-900">Petrópolis</span>
+                      )}
+                    </div>
+
+                    {/* Sugestões inteligentes ao digitar a rua */}
+                    <AnimatePresence>
+                      {showSuggestions && addressSuggestions.length > 0 && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: -4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -4 }}
+                          className="absolute z-30 left-0 right-0 mt-1 bg-white border border-stone-200 rounded-xl shadow-xl overflow-hidden max-h-56 overflow-y-auto divide-y divide-stone-100"
+                        >
+                          <div className="px-3 py-1.5 bg-stone-50 text-[10px] font-bold text-stone-500 uppercase tracking-wider flex items-center justify-between">
+                            <span>Ruas encontradas em Passo Fundo</span>
+                            <span className="text-stone-400 font-normal">Toque para preencher</span>
+                          </div>
+                          {addressSuggestions.map((sug, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => handleSelectSuggestion(sug)}
+                              className="w-full px-3.5 py-2.5 text-left hover:bg-orange-50/80 flex items-center justify-between gap-3 transition-colors group cursor-pointer"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <Navigation size={15} className="text-[#F28B20] shrink-0 group-hover:scale-110 transition-transform" />
+                                <div className="truncate">
+                                  <span className="font-bold text-sm text-stone-900 block truncate">
+                                    {sug.street}
+                                  </span>
+                                  <span className="text-xs text-stone-500 block truncate">
+                                    Bairro {sug.bairro} • Passo Fundo, RS
+                                  </span>
+                                </div>
+                              </div>
+                              <span className="shrink-0 text-xs font-black px-2 py-0.5 rounded-md bg-stone-100 group-hover:bg-[#F28B20] group-hover:text-white transition-colors text-stone-700">
+                                R$ {sug.fee.toFixed(2).replace('.', ',')}
+                              </span>
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Card de Região e Frete Calculado Automaticamente */}
+                    <div className="mt-2.5 p-3.5 rounded-xl border border-orange-200 bg-gradient-to-r from-orange-50/90 to-amber-50/50 flex items-center justify-between gap-3 shadow-xs">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-[#F28B20] text-white flex items-center justify-center shrink-0 shadow-xs">
+                          <CheckCircle2 size={17} />
                         </div>
-                        <span className="font-bold text-sm text-[#F28B20]">+ R$ 10,00</span>
-                      </label>
-                      <label className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all ${region === 'cidade' ? 'border-[#F28B20] bg-orange-50/70 shadow-sm' : 'border-stone-200 hover:border-stone-300 bg-stone-50/50'}`}>
-                        <div className="flex items-center gap-3">
-                          <input type="radio" name="region" checked={region === 'cidade'} onChange={() => setRegion('cidade')} className="hidden" />
-                          <span className="font-bold text-sm text-stone-900">Outros bairros (Cidade)</span>
+                        <div className="min-w-0">
+                          <span className="text-[10px] font-black uppercase text-stone-500 block tracking-wide">
+                            Região Identificada Automaticamente
+                          </span>
+                          <span className="font-bold text-xs text-stone-900 block truncate">
+                            {address.trim() 
+                              ? `${regionLabel} ${detectedBairro ? `• ${detectedBairro}` : ''}`
+                              : 'Passo Fundo (Digite a rua acima)'}
+                          </span>
                         </div>
-                        <span className="font-bold text-sm text-[#F28B20]">+ R$ 15,00</span>
-                      </label>
-                      <label className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all ${region === 'afastado' ? 'border-[#F28B20] bg-orange-50/70 shadow-sm' : 'border-stone-200 hover:border-stone-300 bg-stone-50/50'}`}>
-                        <div className="flex items-center gap-3">
-                          <input type="radio" name="region" checked={region === 'afastado'} onChange={() => setRegion('afastado')} className="hidden" />
-                          <span className="font-bold text-sm text-stone-900">Fora do trevo (Afastado)</span>
-                        </div>
-                        <span className="font-bold text-sm text-[#F28B20]">+ R$ 20,00</span>
-                      </label>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-[10px] text-stone-500 block font-medium">Taxa de Frete:</span>
+                        <span className="text-sm font-black text-[#F28B20]">
+                          + R$ {deliveryFee.toFixed(2).replace('.', ',')}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
