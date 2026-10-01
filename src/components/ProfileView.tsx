@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
-import { ArrowRight, MapPin, Plus, Trash2, Clock, ChevronDown, ShoppingBag, CreditCard, MessageCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowRight, MapPin, Plus, Trash2, Clock, ChevronDown, ShoppingBag, CreditCard, MessageCircle, Trophy, Star, Gamepad2, Bike, LogIn, LogOut, ChefHat } from 'lucide-react';
 import { OrderInfo } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { User as FirebaseUser } from 'firebase/auth';
+import { UserProfile, getTopUsers } from '../lib/db';
+import { RANKING_DATA } from '../data';
 
 interface Address {
   id: string;
@@ -11,10 +14,6 @@ interface Address {
   city: string;
   reference?: string;
 }
-
-import { User as FirebaseUser } from 'firebase/auth';
-import { UserProfile } from '../lib/db';
-import { LogIn, LogOut, Star, Gamepad2, CheckCircle2, ChefHat, Bike, PackageCheck } from 'lucide-react';
 
 interface ProfileViewProps {
   orderHistory?: OrderInfo[];
@@ -38,6 +37,26 @@ export default function ProfileView({ onClose, orderHistory = [], user, userProf
   });
   const [showForm, setShowForm] = useState(false);
   const [newAddress, setNewAddress] = useState({ street: '', number: '', neighborhood: '', city: 'Passo Fundo', reference: '' });
+
+  // Estatísticas do Joguinho
+  const [highScore, setHighScore] = useState<number>(() => {
+    return parseInt(localStorage.getItem('nickel_dog_highscore') || '0', 10);
+  });
+  const [totalPoints, setTotalPoints] = useState<number>(() => {
+    return parseInt(localStorage.getItem('nickel_dog_total_points') || '0', 10);
+  });
+  const [gamesPlayed, setGamesPlayed] = useState<number>(() => {
+    return parseInt(localStorage.getItem('nickel_dog_games_played') || '0', 10);
+  });
+  const [topUsers, setTopUsers] = useState<(UserProfile & { id: string })[]>([]);
+
+  useEffect(() => {
+    getTopUsers().then(users => {
+      if (users && users.length > 0) {
+        setTopUsers(users);
+      }
+    }).catch(() => {});
+  }, []);
 
   const handleAddAddress = (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,13 +85,172 @@ export default function ProfileView({ onClose, orderHistory = [], user, userProf
       </header>
       
       <div className="max-w-3xl mx-auto px-6 py-10 pb-32">
-        <div className="mb-10 bg-white p-6 rounded-3xl border border-stone-100 shadow-sm flex items-center gap-4">
-          <div className="w-16 h-16 bg-[#4E2A84] text-white rounded-full flex items-center justify-center text-2xl font-black">
-            L
+        <div className="mb-8 bg-white p-6 rounded-3xl border border-stone-100 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-4">
+            {user?.photoURL ? (
+              <img 
+                src={user.photoURL} 
+                alt={user.displayName || 'Perfil'} 
+                className="w-16 h-16 rounded-full object-cover border-2 border-[#4E2A84]"
+              />
+            ) : (
+              <div className="w-16 h-16 bg-[#4E2A84] text-white rounded-full flex items-center justify-center text-2xl font-black">
+                {user?.displayName ? user.displayName.charAt(0).toUpperCase() : 'N'}
+              </div>
+            )}
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-xl font-black uppercase tracking-tight text-stone-900">
+                  {user?.displayName || 'Jogador Nickel'}
+                </h2>
+                <span className="text-[11px] font-black uppercase bg-purple-100 text-purple-900 border border-purple-300 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                  <Gamepad2 size={13} className="text-purple-700" />
+                  {highScore > 0 ? `${highScore} pts no Joguinho` : 'Minigame Nickel'}
+                </span>
+              </div>
+              <p className="text-stone-500 font-medium text-sm">
+                {user?.email || 'Minha Conta & Histórico de Pedidos'}
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-black uppercase tracking-tight text-stone-900">Lancheiro VIP</h2>
-            <p className="text-stone-500 font-medium text-sm">braian.kleber.camargo@gmail.com</p>
+          {onLogout && user && (
+            <button 
+              onClick={onLogout}
+              className="self-start sm:self-center text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3.5 py-2 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <LogOut size={14} /> Sair da Conta
+            </button>
+          )}
+        </div>
+
+        {/* SEÇÃO DA PONTUAÇÃO GERAL DO JOGUINHO DO CACHORRINHO */}
+        <div className="mb-10 bg-white p-6 md:p-7 rounded-3xl border-2 border-stone-900 shadow-[6px_6px_0px_#4E2A84] relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-44 h-44 bg-yellow-400 rounded-full blur-3xl opacity-15 pointer-events-none" />
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-100 pb-5 mb-5 relative z-10">
+            <div className="flex items-center gap-3.5">
+              <div className="w-14 h-14 bg-amber-100 border-2 border-black rounded-2xl flex items-center justify-center p-1.5 shadow-[2px_2px_0px_#000] relative shrink-0">
+                <img 
+                  src="/cochirrinho16bit.png" 
+                  alt="Cachorrinho do Jogo" 
+                  className="w-full h-full object-contain"
+                  style={{ imageRendering: 'pixelated' }}
+                />
+                <span className="absolute -bottom-1 -right-1 text-sm">🍟</span>
+              </div>
+              <div>
+                <h3 className="text-lg md:text-xl font-black uppercase tracking-tight text-stone-900 flex items-center gap-2">
+                  <span>Pontuação do Joguinho</span>
+                  <span className="text-[10px] bg-yellow-400 text-black px-2 py-0.5 rounded-md border border-black font-black">
+                    16-Bit
+                  </span>
+                </h3>
+                <p className="text-xs text-stone-500 font-medium">
+                  Corra com o cachorrinho entregador e conquiste os melhores recordes!
+                </p>
+              </div>
+            </div>
+
+            {onPlayGame && (
+              <button
+                type="button"
+                onClick={onPlayGame}
+                className="bg-[#4E2A84] hover:bg-[#3D1F6B] text-white px-5 py-2.5 rounded-xl font-black uppercase text-xs tracking-wider shadow-[3px_3px_0px_#000] hover:translate-y-[-1px] active:translate-y-[1px] transition-all flex items-center justify-center gap-2 cursor-pointer self-start sm:self-auto shrink-0"
+              >
+                <Gamepad2 size={16} className="text-yellow-300" />
+                <span>Jogar Agora</span>
+              </button>
+            )}
+          </div>
+
+          {/* Cards de Métricas de Pontuação */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 relative z-10">
+            {/* Recorde */}
+            <div className="p-4 rounded-2xl bg-amber-50/80 border-2 border-amber-300 shadow-2xs">
+              <div className="flex items-center justify-between text-amber-800 mb-1">
+                <span className="text-[11px] font-black uppercase tracking-wider">Seu Recorde</span>
+                <Trophy size={18} className="text-amber-500" />
+              </div>
+              <div className="text-2xl font-black text-stone-900">
+                {highScore} <span className="text-xs font-bold text-stone-500">pts</span>
+              </div>
+              <span className="text-[10px] text-amber-700 font-medium mt-0.5 block">
+                {highScore > 0 ? 'Maior pontuação atingida' : 'Jogue para bater seu 1º recorde'}
+              </span>
+            </div>
+
+            {/* XP Total */}
+            <div className="p-4 rounded-2xl bg-purple-50/80 border-2 border-purple-200 shadow-2xs">
+              <div className="flex items-center justify-between text-purple-900 mb-1">
+                <span className="text-[11px] font-black uppercase tracking-wider">XP Acumulado</span>
+                <Star size={18} className="text-yellow-500 fill-yellow-400" />
+              </div>
+              <div className="text-2xl font-black text-stone-900">
+                {userProfile?.xp ?? (totalPoints || highScore)} <span className="text-xs font-bold text-stone-500">XP</span>
+              </div>
+              <span className="text-[10px] text-purple-700 font-medium mt-0.5 block">
+                Pontos de fidelidade e jogo
+              </span>
+            </div>
+
+            {/* Partidas Jogadas */}
+            <div className="p-4 rounded-2xl bg-orange-50/80 border-2 border-orange-200 shadow-2xs">
+              <div className="flex items-center justify-between text-orange-800 mb-1">
+                <span className="text-[11px] font-black uppercase tracking-wider">Partidas</span>
+                <Bike size={18} className="text-[#F28B20]" />
+              </div>
+              <div className="text-2xl font-black text-stone-900">
+                {gamesPlayed} <span className="text-xs font-bold text-stone-500">corridas</span>
+              </div>
+              <span className="text-[10px] text-orange-700 font-medium mt-0.5 block">
+                Entregas no minigame
+              </span>
+            </div>
+          </div>
+
+          {/* Ranking Geral da Galera */}
+          <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 relative z-10">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-black uppercase tracking-wider text-stone-800 flex items-center gap-1.5">
+                <Trophy size={14} className="text-amber-500" /> Ranking Geral da Galera
+              </span>
+              <span className="text-[10px] font-bold text-stone-500 uppercase">Top Jogadores</span>
+            </div>
+
+            <div className="space-y-2">
+              {(topUsers.length > 0 ? topUsers : RANKING_DATA).slice(0, 5).map((u, index) => {
+                const name = (u as any).name || 'Jogador';
+                const xp = (u as UserProfile).xp !== undefined ? (u as UserProfile).xp : (u as any).points;
+                const isCurrentUser = user && (u as UserProfile).email === user.email;
+
+                return (
+                  <div 
+                    key={u.id || index}
+                    className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                      index === 0 
+                        ? 'bg-yellow-100/80 border-yellow-300 font-bold'
+                        : index === 1
+                        ? 'bg-slate-100 border-slate-200'
+                        : index === 2
+                        ? 'bg-amber-100/40 border-amber-200'
+                        : 'bg-white border-stone-200/80'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="w-5 text-center font-black text-xs">
+                        {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}º`}
+                      </span>
+                      <span className="text-xs font-bold text-stone-900 truncate">
+                        {name} {isCurrentUser && <span className="text-[#F28B20] font-black">(Você)</span>}
+                      </span>
+                    </div>
+                    <span className="text-xs font-black bg-white border border-stone-200 px-2.5 py-0.5 rounded-lg shadow-2xs text-[#4E2A84]">
+                      {xp} pts
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 

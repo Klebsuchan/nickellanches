@@ -3,7 +3,8 @@ import { OrderInfo } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { CheckCircle, Truck, Utensils, Rocket, Flame, Clock, MessageCircle, FileText, ArrowRight } from 'lucide-react';
 import { useToast } from './Toast';
-import { subscribeToOrder } from '../lib/db';
+import { subscribeToOrder, addXpToUser } from '../lib/db';
+import { auth } from '../lib/firebase';
 
 interface DogGameProps {
   order: OrderInfo | null;
@@ -324,6 +325,24 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
             obsHitY + obsHitH > dogHitY
           ) {
             state.active = false;
+            const finalScore = state.internalScore * 10;
+            try {
+              const prevRecord = parseInt(localStorage.getItem('nickel_dog_highscore') || '0', 10);
+              if (finalScore > prevRecord) {
+                localStorage.setItem('nickel_dog_highscore', finalScore.toString());
+              }
+              localStorage.setItem('nickel_dog_lastscore', finalScore.toString());
+              const prevTotal = parseInt(localStorage.getItem('nickel_dog_total_points') || '0', 10);
+              localStorage.setItem('nickel_dog_total_points', (prevTotal + finalScore).toString());
+              const prevGames = parseInt(localStorage.getItem('nickel_dog_games_played') || '0', 10);
+              localStorage.setItem('nickel_dog_games_played', (prevGames + 1).toString());
+
+              if (auth.currentUser && finalScore > 0) {
+                addXpToUser(auth.currentUser.uid, finalScore).catch(() => {});
+              }
+            } catch (err) {
+              console.error("Error saving game score:", err);
+            }
             setGameOver(true);
           }
         }
