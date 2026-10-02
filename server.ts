@@ -166,6 +166,14 @@ async function startServer() {
         discounts: discounts,
         mode: 'payment',
         locale: 'pt-BR',
+        payment_intent_data: {
+          description: `Pedido #${orderDetails?.orderNumber || ''} - Nickel Lanches Passo Fundo`,
+        },
+        custom_text: {
+          submit: {
+            message: 'Obrigado por pedir na Nickel Lanches! Seu pedido entrará em preparo logo após a confirmação.'
+          }
+        },
         success_url: `${origin}/?payment=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}/?payment=canceled`,
         customer_email: orderDetails?.email || undefined,
