@@ -1,6 +1,6 @@
 import React from 'react';
 import NickelText from './NickelText';
-import { MapPin, Phone, MessageCircle, Mail, Clock } from 'lucide-react';
+import { MapPin, Phone, MessageCircle, Mail, Clock, Share2 } from 'lucide-react';
 
 interface FooterProps {
   onOpenModal: (modalId: 'privacy' | 'contact' | 'terms' | 'cookies') => void;
@@ -76,6 +76,22 @@ export default function Footer({ onOpenModal }: FooterProps) {
             <li className="flex items-start gap-3 text-stone-400">
               <MapPin size={18} className="shrink-0 mt-0.5" />
               <span className="font-medium text-sm leading-relaxed">R. Uruguai, 919 - Petrópolis<br/>Passo Fundo - RS, 99050-030</span>
+            </li>
+
+            <li className="pt-2">
+              <button 
+                type="button"
+                onClick={() => {
+                  const destaques = ['magma', 'cemuche', 'bomba', 'olympus'];
+                  const randomDestaque = destaques[Math.floor(Math.random() * destaques.length)];
+                  const url = `${window.location.origin}/?destaque=${randomDestaque}`;
+                  const text = `Dá uma olhada no cardápio da Nickel Lanches em Passo Fundo! 🍔🔥\n${url}`;
+                  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                }}
+                className="bg-[#25D366] hover:bg-[#20ba5a] text-white px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all shadow-sm cursor-pointer"
+              >
+                <Share2 size={16} /> Compartilhar no WhatsApp
+              </button>
             </li>
           </ul>
         </div>

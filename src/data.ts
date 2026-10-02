@@ -4,7 +4,8 @@ export const AVAILABLE_EXTRAS: Extra[] = [
   { id: "e1", name: "Uma carne a mais", price: 11 },
   { id: "e2", name: "Calabresa", price: 8 },
   { id: "e3", name: "Coração de frango", price: 10 },
-  { id: "e4", name: "Cebola", price: 5 },
+  { id: "e4_caramelizada", name: "Cebola caramelizada", price: 5 },
+  { id: "e4_normal", name: "Cebola normal", price: 5 },
   { id: "e5", name: "Mussarela", price: 5 },
   { id: "e6", name: "Bacon", price: 10 },
   { id: "e7", name: "Presunto", price: 5 },
@@ -13,6 +14,8 @@ export const AVAILABLE_EXTRAS: Extra[] = [
 ];
 
 export const DISCOUNT_CODES: Record<string, number> = {
+  'PRIMEIRA10': 0.10, // 10% DE DESCONTO PARA A PRIMEIRA COMPRA
+  'PRIMEIRACOMPRA': 0.10, // 10% DE DESCONTO PARA A PRIMEIRA COMPRA
   'NICKEL10': 0.10, // 10% discount
   'PRIMEIRAVIAGEM': 0.15, // 15% discount
   'DIADOBACON': 5.00, // R$ 5,00 discount

@@ -1,8 +1,74 @@
 import express from 'express';
 import http from 'http';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import Stripe from 'stripe';
+
+const DESTAQUES_PREVIEWS = [
+  {
+    key: 'magma',
+    name: 'Xis Magma',
+    image: '/images/destaques-magma-ok.jpg',
+    description: 'Xis Magma com muito queijo, calabresa e chapa quente no Nickel Lanches. Peça já!'
+  },
+  {
+    key: 'cemuche',
+    name: 'Xis Cemuche',
+    image: '/images/destaquecemuche.jpg',
+    description: 'Xis Cemuche com 2 carnes e cebola caramelizada artesanal no Nickel Lanches. Peça já!'
+  },
+  {
+    key: 'bomba',
+    name: 'Xis Bomba',
+    image: '/images/destaquebomba.jpg',
+    description: 'Xis Bomba gigante recheado com batata frita, bacon e barbecue no Nickel Lanches. Peça já!'
+  },
+  {
+    key: 'olympus',
+    name: 'Xis Olympus',
+    image: '/images/olympus-destaque.jpeg',
+    description: 'Xis Olympus com catupiry original e bacon crocante no Nickel Lanches. Peça já!'
+  }
+];
+
+let globalDestaqueCounter = 0;
+
+function injectDestaqueIntoHtml(html: string, req: express.Request): string {
+  let host = req.get('x-forwarded-host') || req.get('host') || 'nickellanches.com.br';
+  let proto = req.get('x-forwarded-proto') || (req.secure ? 'https' : 'http');
+  if (host.includes('localhost') || host.includes('127.0.0.1')) {
+    host = 'nickellanches.com.br';
+    proto = 'https';
+  }
+  const baseUrl = `${proto}://${host}`;
+
+  const queryDestaque = (req.query.destaque || req.query.d || req.query.banner || '') as string;
+  let destaque = DESTAQUES_PREVIEWS.find(d => 
+    d.key.toLowerCase() === queryDestaque.toLowerCase() ||
+    d.name.toLowerCase().includes(queryDestaque.toLowerCase())
+  );
+
+  if (!destaque) {
+    const idx = globalDestaqueCounter % DESTAQUES_PREVIEWS.length;
+    globalDestaqueCounter++;
+    destaque = DESTAQUES_PREVIEWS[idx];
+  }
+
+  const fullImageUrl = `${baseUrl}${destaque.image}`;
+  const title = `Nickel Lanches | ${destaque.name} - O Melhor Lanche de Passo Fundo`;
+
+  let updated = html;
+  updated = updated.replace(/<meta property="og:image" content="[^"]*"/i, `<meta property="og:image" content="${fullImageUrl}"`);
+  updated = updated.replace(/<meta property="og:image:secure_url" content="[^"]*"/i, `<meta property="og:image:secure_url" content="${fullImageUrl}"`);
+  updated = updated.replace(/<meta name="twitter:image" content="[^"]*"/i, `<meta name="twitter:image" content="${fullImageUrl}"`);
+  updated = updated.replace(/<meta property="og:title" content="[^"]*"/i, `<meta property="og:title" content="${title}"`);
+  updated = updated.replace(/<meta name="twitter:title" content="[^"]*"/i, `<meta name="twitter:title" content="${title}"`);
+  updated = updated.replace(/<meta property="og:description" content="[^"]*"/i, `<meta property="og:description" content="${destaque.description}"`);
+  updated = updated.replace(/<meta name="twitter:description" content="[^"]*"/i, `<meta name="twitter:description" content="${destaque.description}"`);
+
+  return updated;
+}
 
 async function startServer() {
   const app = express();
@@ -150,11 +216,48 @@ async function startServer() {
       },
       appType: 'spa',
     });
+
+    // Intercepta requisições HTML e crawlers (WhatsApp, Facebook, etc.) para alternar as imagens dos destaques
+    app.use(async (req, res, next) => {
+      const url = req.originalUrl;
+      const userAgent = (req.headers['user-agent'] || '').toLowerCase();
+      const isSocialCrawler = userAgent.includes('whatsapp') || 
+                              userAgent.includes('facebookexternalhit') || 
+                              userAgent.includes('twitterbot') || 
+                              userAgent.includes('telegrambot') ||
+                              userAgent.includes('slackbot') ||
+                              userAgent.includes('discordbot');
+      const isHtmlRequest = isSocialCrawler || (req.headers.accept && req.headers.accept.includes('text/html'));
+      
+      if (req.method === 'GET' && isHtmlRequest && !url.startsWith('/api') && !url.startsWith('/@') && !url.includes('.')) {
+        try {
+          const indexPath = path.resolve(process.cwd(), 'index.html');
+          let template = fs.readFileSync(indexPath, 'utf-8');
+          template = await vite.transformIndexHtml(url, template);
+          const customized = injectDestaqueIntoHtml(template, req);
+          return res.status(200).set({ 'Content-Type': 'text/html' }).end(customized);
+        } catch (e) {
+          return next(e);
+        }
+      }
+      next();
+    });
+
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
+      try {
+        const indexPath = path.join(distPath, 'index.html');
+        if (fs.existsSync(indexPath)) {
+          const template = fs.readFileSync(indexPath, 'utf-8');
+          const customized = injectDestaqueIntoHtml(template, req);
+          return res.status(200).set({ 'Content-Type': 'text/html' }).send(customized);
+        }
+      } catch (err) {
+        console.error('Error serving index.html:', err);
+      }
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

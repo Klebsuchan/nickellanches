@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import NickelText from './components/NickelText';
 import RenderWithNickel from './components/RenderWithNickel';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, MessageCircle, Plus, Menu, Search, SlidersHorizontal, Bell, ShoppingCart, Star, ChefHat, LogOut, ArrowRight, Gamepad2, Tag, Heart, Utensils, BookOpen, Flame, Info, Home, ShoppingBag, User, LayoutGrid, MoreVertical } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Plus, Menu, Search, SlidersHorizontal, Bell, ShoppingCart, Star, ChefHat, LogOut, ArrowRight, Gamepad2, Tag, Heart, Utensils, BookOpen, Flame, Info, Home, ShoppingBag, User, LayoutGrid, MoreVertical, Share2 } from 'lucide-react';
 import { MENU_ITEMS, DISCOUNT_CODES } from './data';
 import { CartItem, Product, OrderInfo } from './types';
 import AutoMarquee from './components/AutoMarquee';
@@ -26,6 +26,7 @@ import HeroVideo from './components/HeroVideo';
 import ProductModal from './components/ProductModal';
 import CartDrawer from './components/CartDrawer';
 import CheckoutModal from './components/CheckoutModal';
+import TrafficSignDiscount from './components/TrafficSignDiscount';
 import { useToast } from './components/Toast';
 import { auth, signInWithGoogle, signOut, getNextOrderNumber } from './lib/firebase';
 import { User as FirebaseUser } from 'firebase/auth';
@@ -451,13 +452,14 @@ export default function App() {
     setDiscountCode('');
   };
 
-  const applyDiscount = () => {
-    const code = discountCode.toUpperCase();
-    if (discountCodes[code]) {
-      setAppliedDiscount(discountCodes[code]);
-      setDiscountCode('');
+  const applyDiscount = (overrideCode?: string) => {
+    const code = (overrideCode || discountCode).trim().toUpperCase();
+    if (discountCodes[code] || DISCOUNT_CODES[code]) {
+      const disc = discountCodes[code] || DISCOUNT_CODES[code];
+      setAppliedDiscount(disc);
+      setDiscountCode(code);
       playSound('laser');
-      addToast({ message: 'Cupom aplicado com sucesso!', type: 'success', title: 'Desconto' });
+      addToast({ message: `Cupom ${code} aplicado com sucesso! (10% OFF)`, type: 'success', title: 'Desconto' });
     } else {
       playSound('error');
       addToast({ message: 'Cupom inválido!', type: 'warning' });
@@ -480,6 +482,22 @@ export default function App() {
 
   const totalCart = Math.max(0, totalCartBase - discountAmount);
   const totalPoints = cart.reduce((sum, item) => sum + (item.points * item.quantity), 0);
+
+  const handleShareWhatsApp = () => {
+    const destaques = ['magma', 'cemuche', 'bomba', 'olympus'];
+    const randomDestaque = destaques[Math.floor(Math.random() * destaques.length)];
+    const shareUrl = `${window.location.origin}/?destaque=${randomDestaque}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(shareUrl).catch(() => {});
+    }
+    addToast({
+      title: 'Link Copiado!',
+      message: 'Link copiado! Ao encaminhar no WhatsApp, o banner dos destaques será exibido.',
+      type: 'success'
+    });
+    const msg = `Dá uma olhada no cardápio da Nickel Lanches em Passo Fundo! 🍔🔥\n${shareUrl}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  };
 
   const handleCheckout = async (details: any, customCartItems?: CartItem[], customDiscountAmount?: number) => {
     const activeCart = (customCartItems && customCartItems.length > 0) ? customCartItems : cart;
@@ -788,6 +806,8 @@ export default function App() {
         )}
 
         <div id="cardapio" className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 py-12">
+          {/* Plaquinha Amarela de Trânsito - 10% DE DESCONTO */}
+          <TrafficSignDiscount variant="banner" onApplyCoupon={(c) => applyDiscount(c)} />
           <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
             <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-stone-900">Nosso Cardápio</h2>
             <div className="bg-white rounded-full px-4 py-2 shadow-sm border border-stone-200 flex items-center w-full md:w-auto">
@@ -911,6 +931,9 @@ export default function App() {
                   <button onClick={() => { setIsMobileMenuOpen(false); navigateToView('game'); }} className="text-left px-4 py-3 font-bold text-sm text-[#4E2A84] uppercase tracking-wide hover:bg-stone-50 transition-colors flex items-center gap-2.5 border-t border-stone-100">
                     <img src="/game-icon.svg" alt="Game" className="w-6 h-6 object-contain" /> Jogue nosso jogo
                   </button>
+                  <button onClick={() => { setIsMobileMenuOpen(false); handleShareWhatsApp(); }} className="text-left px-4 py-3 font-bold text-sm text-[#25D366] uppercase tracking-wide hover:bg-stone-50 transition-colors flex items-center gap-2.5 border-t border-stone-100">
+                    <Share2 size={16} /> Compartilhar no WhatsApp
+                  </button>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -918,6 +941,9 @@ export default function App() {
           
           {/* Desktop User/Cart icons */}
           <div className="hidden lg:flex items-center gap-3">
+            <button onClick={handleShareWhatsApp} className="w-12 h-12 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366] hover:text-white rounded-full flex items-center justify-center border border-[#25D366]/30 transition-all hover:scale-105 shadow-2xs cursor-pointer" title="Compartilhar no WhatsApp">
+              <Share2 size={18} />
+            </button>
             <button onClick={() => navigateToView('game')} className="w-12 h-12 bg-gradient-to-tr from-amber-50 via-purple-50 to-pink-50 rounded-full flex items-center justify-center border border-purple-200 hover:bg-purple-100 transition-all hover:scale-105 shadow-2xs" title="Jogue nosso jogo">
               <img src="/game-icon.svg" alt="Game" className="w-7 h-7 object-contain drop-shadow-sm" />
             </button>
@@ -945,6 +971,11 @@ export default function App() {
             if (p) openProduct(p); 
           }}
         />
+      </div>
+
+      {/* Plaquinha Amarela de Trânsito - 10% DE DESCONTO PARA A PRIMEIRA COMPRA */}
+      <div className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0">
+        <TrafficSignDiscount variant="banner" onApplyCoupon={(c) => applyDiscount(c)} />
       </div>
 
       {/* Quem Somos Section */}
@@ -1207,6 +1238,9 @@ export default function App() {
         onClose={goBack}
         onAddToCart={handleAddToCart}
       />
+
+      {/* Plaquinha de Trânsito Amarela Flutuante */}
+      <TrafficSignDiscount variant="floating" onApplyCoupon={(c) => applyDiscount(c)} />
       </div>
     </div>
   );

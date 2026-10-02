@@ -115,7 +115,18 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
   };
 
   const isBeverage = product.category?.toLowerCase() === "bebidas" || (product.name || '').toLowerCase().includes('água') || (product.name || '').toLowerCase().includes('refri');
-  const displayExtras = (product.productExtras && product.productExtras.length > 0) ? product.productExtras : AVAILABLE_EXTRAS;
+  const rawExtras = (product.productExtras && product.productExtras.length > 0) ? product.productExtras : AVAILABLE_EXTRAS;
+  
+  // Garante que a cebola seja apresentada nos 2 modelos: caramelizada e normal
+  const displayExtras: Extra[] = [];
+  rawExtras.forEach(ex => {
+    if (ex.name.trim().toLowerCase() === 'cebola') {
+      displayExtras.push({ id: `${ex.id}_caramelizada`, name: 'Cebola caramelizada', price: ex.price || 5 });
+      displayExtras.push({ id: `${ex.id}_normal`, name: 'Cebola normal', price: ex.price || 5 });
+    } else {
+      displayExtras.push(ex);
+    }
+  });
 
   const displayImage = selectedChoice?.image || product.image || (product.images && product.images.length > 0 ? product.images[0] : null);
 

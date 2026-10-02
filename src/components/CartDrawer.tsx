@@ -11,7 +11,7 @@ interface CartDrawerProps {
   onRemoveItem: (cartItemId: string) => void;
   discountCode: string;
   setDiscountCode: (code: string) => void;
-  onApplyDiscount: () => void;
+  onApplyDiscount: (code?: string) => void;
   onRemoveDiscount: () => void;
   appliedDiscount: number | null;
   totalCartBase: number;
@@ -92,7 +92,34 @@ export default function CartDrawer({
 
             {cart.length > 0 && (
               <div className="p-6 bg-white border-t-4 border-black">
-                                <div className="flex gap-2 mb-4">
+                {/* Lembrete: 10% DE DESCONTO PARA A PRIMEIRA COMPRA */}
+                <div className="mb-4 p-3.5 rounded-2xl bg-gradient-to-r from-orange-50 via-amber-50 to-purple-50 border-2 border-dashed border-[#F28B20] flex items-center justify-between gap-2.5 shadow-2xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="text-2xl shrink-0 animate-bounce">🎁</span>
+                    <div className="min-w-0">
+                      <span className="font-black text-[11px] sm:text-xs text-stone-900 uppercase block tracking-tight">
+                        10% DE DESCONTO PARA A PRIMEIRA COMPRA
+                      </span>
+                      <span className="text-[10px] sm:text-[11px] text-stone-600 font-medium block">
+                        Use o cupom <span className="font-mono font-black text-[#4E2A84] bg-white px-1.5 py-0.5 rounded border border-purple-200">PRIMEIRA10</span>
+                      </span>
+                    </div>
+                  </div>
+                  {appliedDiscount === null && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDiscountCode('PRIMEIRA10');
+                        onApplyDiscount('PRIMEIRA10');
+                      }}
+                      className="shrink-0 bg-[#F28B20] hover:bg-orange-600 active:scale-95 text-white text-[11px] font-black px-3 py-1.5 rounded-xl uppercase tracking-wider transition-all shadow-xs cursor-pointer"
+                    >
+                      Aplicar
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex gap-2 mb-4">
                   <input 
                     type="text" 
                     placeholder="Cupom de Desconto" 

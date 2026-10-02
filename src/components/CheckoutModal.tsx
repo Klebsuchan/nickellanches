@@ -671,11 +671,19 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                   </div>
 
                   {/* Subtotal dos Lanches */}
-                  <div className="border-t border-stone-100 pt-3 flex justify-between items-center text-xs">
-                    <span className="font-bold text-stone-600 text-sm">Subtotal dos Itens:</span>
-                    <span className="font-black text-lg text-stone-900">
-                      R$ {total.toFixed(2).replace('.', ',')}
-                    </span>
+                  <div className="border-t border-stone-100 pt-3 space-y-1 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-stone-600 text-sm">Subtotal dos Itens:</span>
+                      <span className="font-black text-lg text-stone-900">
+                        R$ {(total + discountAmount).toFixed(2).replace('.', ',')}
+                      </span>
+                    </div>
+                    {discountAmount > 0 && (
+                      <div className="flex justify-between items-center text-green-600 font-bold">
+                        <span>Desconto (10% Primeira Compra):</span>
+                        <span>- R$ {discountAmount.toFixed(2).replace('.', ',')}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1515,8 +1523,19 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
               <div className="bg-stone-50 border border-stone-200/90 rounded-2xl p-3.5 space-y-1.5 text-xs mb-3 shadow-2xs">
                 <div className="flex justify-between text-stone-600 font-semibold">
                   <span>Subtotal dos itens:</span>
-                  <span>R$ {total.toFixed(2).replace('.', ',')}</span>
+                  <span>R$ {(total + discountAmount).toFixed(2).replace('.', ',')}</span>
                 </div>
+                {discountAmount > 0 ? (
+                  <div className="flex justify-between text-green-600 font-bold">
+                    <span>Desconto Aplicado (10% Primeira Compra):</span>
+                    <span>- R$ {discountAmount.toFixed(2).replace('.', ',')}</span>
+                  </div>
+                ) : (
+                  <div className="flex justify-between text-stone-400 font-medium text-[11px]">
+                    <span>Primeira compra? Use o cupom:</span>
+                    <span className="font-mono font-bold text-stone-700">PRIMEIRA10</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-stone-600 font-semibold">
                   <span>Taxa de Entrega:</span>
                   <span className="text-[#F28B20] font-bold">+ R$ {deliveryFee.toFixed(2).replace('.', ',')}</span>

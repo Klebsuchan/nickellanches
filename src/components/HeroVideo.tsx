@@ -24,14 +24,14 @@ export default function HeroVideo({ onGoToStore, onOpenProduct }: HeroVideoProps
     {
       id: 2,
       productId: "33",
-      image: "/images/cemuche-destaque.jpeg",
+      image: "/images/destaquecemuche.jpg",
       title: "Xis Cemuche",
       description: "2 carnes, cebola caramelizada, 2 queijos muçarela, dupla cheddar, molho especial apimentado..."
     },
     {
       id: 3,
       productId: "35",
-      image: "/images/bomba-destaque.jpeg",
+      image: "/images/destaquebomba.jpg",
       title: "Xis Bomba",
       description: "Carne, queijo muçarela, cheddar, milho, ervilha, bacon, batata frita, barbecue, maionese caseira."
     },
