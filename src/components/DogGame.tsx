@@ -11,7 +11,8 @@ import {
   Zap,
   Shield,
   Magnet,
-  Keyboard
+  Keyboard,
+  Heart
 } from 'lucide-react';
 import { useToast } from './Toast';
 import { subscribeToOrder, addXpToUser } from '../lib/db';
@@ -30,7 +31,7 @@ interface FoodItem {
   id: number;
   x: number;
   y: number;
-  type: 'burger' | 'hotdog' | 'fries' | 'soda' | 'coin';
+  type: 'burger' | 'hotdog' | 'fries' | 'soda' | 'coin' | 'heart';
   points: number;
   emoji: string;
 }
@@ -84,6 +85,9 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
     }
   });
   const [foodsEaten, setFoodsEaten] = useState(0);
+  const [lives, setLives] = useState(3);
+  const [isGameOver, setIsGameOver] = useState(false);
+  const [gameOverTimer, setGameOverTimer] = useState(3);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [isMuted, setIsMuted] = useState(() => {
     try {
@@ -273,6 +277,10 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
     isJumping: false,
     groundY: 180,
 
+    // Sistema de Vidas do Cãozinho
+    lives: 3,
+    maxLives: 3,
+
     // Invulnerabilidade temporária pós-tropeço
     invulnerableTimer: 0,
 
@@ -305,7 +313,7 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
     frame: 0,
     barkTimer: 0,
     active: true,
-    status: 'countdown' as 'countdown' | 'playing',
+    status: 'countdown' as 'countdown' | 'playing' | 'gameover',
     nextId: 1
   });
 
@@ -352,6 +360,8 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
     state.dogY = state.groundY;
     state.vy = 0;
     state.isJumping = false;
+    state.lives = 3;
+    state.maxLives = 3;
     state.obstacles = [];
     state.foods = [];
     state.powerUps = [];
@@ -367,6 +377,8 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
     state.frame = 0;
     state.barkTimer = 0;
 
+    setLives(3);
+    setIsGameOver(false);
     setScore(0);
     setFoodsEaten(0);
     setActivePowerUp(null);
@@ -540,13 +552,17 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
       ctx.setLineDash([]);
 
       // 6. FÍSICA DO CACHORRINHO
-      state.vy += state.gravity;
-      state.dogY += state.vy;
+      if (state.status === 'gameover') {
+        state.dogY = Math.max(60, state.dogY - 0.7);
+      } else {
+        state.vy += state.gravity;
+        state.dogY += state.vy;
 
-      if (state.dogY >= state.groundY) {
-        state.dogY = state.groundY;
-        state.isJumping = false;
-        state.vy = 0;
+        if (state.dogY >= state.groundY) {
+          state.dogY = state.groundY;
+          state.isJumping = false;
+          state.vy = 0;
+        }
       }
 
       // 7. PARTÍCULAS DE FUMAÇA & FOGO
@@ -584,22 +600,31 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
         }
       }
 
-      // 8. DESENHA O CACHORRINHO (com efeito de piscar se invulnerável)
-      const isBlinking = state.invulnerableTimer > 0 && Math.floor(state.invulnerableTimer / 6) % 2 === 1;
-      if (!isBlinking) {
+      // 8. DESENHA O CACHORRINHO (com efeito de morte se gameover, ou piscar se invulnerável)
+      if (state.status === 'gameover') {
         ctx.save();
-        ctx.globalAlpha = 1.0;
-        ctx.translate(75, state.dogY + 30);
-        ctx.scale(-1, 1);
-
-        if (dogImageRef.current) {
-          const shakeX = isTurbo ? (Math.random() * 3 - 1.5) : 0;
-          const shakeY = isTurbo ? (Math.random() * 3 - 1.5) : 0;
-          ctx.drawImage(dogImageRef.current, -35 + shakeX, -70 + shakeY, 70, 70);
-        } else {
-          drawSolidEmoji('🐶', 0, -35, 40);
-        }
+        ctx.globalAlpha = 0.9;
+        ctx.translate(75, state.dogY + 15);
+        drawSolidEmoji('👻', 0, -10, 42);
+        drawSolidEmoji('😇', 0, -42, 24);
         ctx.restore();
+      } else {
+        const isBlinking = state.invulnerableTimer > 0 && Math.floor(state.invulnerableTimer / 6) % 2 === 1;
+        if (!isBlinking) {
+          ctx.save();
+          ctx.globalAlpha = 1.0;
+          ctx.translate(75, state.dogY + 30);
+          ctx.scale(-1, 1);
+
+          if (dogImageRef.current) {
+            const shakeX = isTurbo ? (Math.random() * 3 - 1.5) : 0;
+            const shakeY = isTurbo ? (Math.random() * 3 - 1.5) : 0;
+            ctx.drawImage(dogImageRef.current, -35 + shakeX, -70 + shakeY, 70, 70);
+          } else {
+            drawSolidEmoji('🐶', 0, -35, 40);
+          }
+          ctx.restore();
+        }
       }
 
       // Aura do ÍMÃ DE LANCHES
@@ -669,25 +694,41 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
           state.invulnerableTimer--;
         }
 
-        // A. SPAWN DE COMIDAS DO CARDÁPIO (A cada 50 frames)
-        if (state.frame % 50 === 0) {
-          const foodOptions = [
-            { type: 'burger', emoji: '🍔', points: 25 },
-            { type: 'hotdog', emoji: '🌭', points: 20 },
-            { type: 'fries', emoji: '🍟', points: 15 },
-            { type: 'soda', emoji: '🥤', points: 10 },
-            { type: 'coin', emoji: '⭐', points: 10 },
-          ] as const;
-          const chosen = foodOptions[Math.floor(Math.random() * foodOptions.length)];
-          const isHigh = Math.random() > 0.45;
-          state.foods.push({
-            id: state.nextId++,
-            x: W + 20,
-            y: isHigh ? 120 : 185,
-            type: chosen.type,
-            points: chosen.points,
-            emoji: chosen.emoji
-          });
+        // A. SPAWN DE COMIDAS & CORAÇÕES DE VIDA (A cada 45 frames)
+        if (state.frame % 45 === 0) {
+          // Chance de vir coração de vida (maior se estiver ferido)
+          const heartChance = state.lives < state.maxLives ? 0.28 : 0.12;
+          const spawnHeart = Math.random() < heartChance;
+
+          if (spawnHeart) {
+            const isHigh = Math.random() > 0.45;
+            state.foods.push({
+              id: state.nextId++,
+              x: W + 20,
+              y: isHigh ? 120 : 185,
+              type: 'heart',
+              points: 20,
+              emoji: '❤️'
+            });
+          } else {
+            const foodOptions = [
+              { type: 'burger', emoji: '🍔', points: 25 },
+              { type: 'hotdog', emoji: '🌭', points: 20 },
+              { type: 'fries', emoji: '🍟', points: 15 },
+              { type: 'soda', emoji: '🥤', points: 10 },
+              { type: 'coin', emoji: '⭐', points: 10 },
+            ] as const;
+            const chosen = foodOptions[Math.floor(Math.random() * foodOptions.length)];
+            const isHigh = Math.random() > 0.45;
+            state.foods.push({
+              id: state.nextId++,
+              x: W + 20,
+              y: isHigh ? 120 : 185,
+              type: chosen.type,
+              points: chosen.points,
+              emoji: chosen.emoji
+            });
+          }
         }
 
         // B. SPAWN DE POWER-UPS RAROS (A cada 320 frames)
@@ -741,9 +782,60 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
           const bob = Math.sin(state.frame * 0.15 + food.id) * 3;
           drawSolidEmoji(food.emoji, food.x + 14, food.y + bob + 14, 30);
 
-          // Coleta comida
+          // Coleta comida ou coração de vida
           const distToDog = Math.hypot(food.x - dogCenter.x, food.y - dogCenter.y);
           if (distToDog < 42) {
+            if (food.type === 'heart') {
+              // Coleta de coração de vida
+              if (state.lives < state.maxLives) {
+                state.lives = Math.min(state.maxLives, state.lives + 1);
+                setLives(state.lives);
+                safePlaySound('powerup');
+                state.floatingTexts.push({
+                  id: state.nextId++,
+                  x: food.x,
+                  y: food.y - 12,
+                  text: '+1 VIDA! ❤️',
+                  color: '#FF1493',
+                  life: 0,
+                  maxLife: 35
+                });
+              } else {
+                state.score += 50;
+                setScore(state.score);
+                safePlaySound('coin');
+                state.floatingTexts.push({
+                  id: state.nextId++,
+                  x: food.x,
+                  y: food.y - 12,
+                  text: 'VIDA CHEIA! +50 ⭐',
+                  color: '#FF69B4',
+                  life: 0,
+                  maxLife: 35
+                });
+              }
+
+              if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+                try { navigator.vibrate([20, 30, 20]); } catch {}
+              }
+
+              for (let p = 0; p < 10; p++) {
+                state.particles.push({
+                  x: food.x + 10,
+                  y: food.y,
+                  vx: (Math.random() - 0.5) * 6,
+                  vy: (Math.random() - 0.5) * 6,
+                  color: '#FF1493',
+                  life: 0,
+                  maxLife: 22,
+                  size: Math.random() * 4 + 2
+                });
+              }
+
+              state.foods.splice(i, 1);
+              continue;
+            }
+
             state.score += food.points;
             state.foodsEaten++;
             setScore(state.score);
@@ -946,42 +1038,83 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
               continue;
             }
 
-            // JOGO INFINITO: Tropeça, perde uma pequena penalidade de pontos e SEGUE CORRENDO!
-            state.invulnerableTimer = 90; // 1.5s invulnerável
-            state.score = Math.max(0, state.score - 15);
-            setScore(state.score);
-            safePlaySound('crash');
+            // Colisão com obstáculo: consome 1 vida!
+            state.lives = Math.max(0, state.lives - 1);
+            setLives(state.lives);
 
-            if (typeof window !== 'undefined' && 'vibrate' in navigator) {
-              try { navigator.vibrate(60); } catch {}
-            }
+            if (state.lives <= 0) {
+              // O cãozinho "morre" e o jogo vai para Game Over com reinício
+              state.status = 'gameover';
+              setIsGameOver(true);
+              safePlaySound('error');
 
-            state.floatingTexts.push({
-              id: state.nextId++,
-              x: 75,
-              y: state.dogY - 20,
-              text: 'TROPEÇOU! -15 pts 💥',
-              color: '#FF4500',
-              life: 0,
-              maxLife: 35
-            });
+              if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+                try { navigator.vibrate([150, 80, 150]); } catch {}
+              }
 
-            for (let p = 0; p < 8; p++) {
-              state.particles.push({
+              state.floatingTexts.push({
+                id: state.nextId++,
                 x: 75,
-                y: state.dogY,
-                vx: (Math.random() - 0.5) * 6,
-                vy: (Math.random() - 0.5) * 6,
-                color: '#FFD700',
+                y: state.dogY - 25,
+                text: 'SEM VIDAS! 💀',
+                color: '#DC2626',
                 life: 0,
-                maxLife: 20,
-                size: Math.random() * 3 + 2
+                maxLife: 50
               });
-            }
 
-            // Remove obstáculo para seguir viagem sem travar
-            state.obstacles.splice(i, 1);
-            continue;
+              for (let p = 0; p < 16; p++) {
+                state.particles.push({
+                  x: 75,
+                  y: state.dogY,
+                  vx: (Math.random() - 0.5) * 8,
+                  vy: (Math.random() - 0.5) * 8,
+                  color: '#EF4444',
+                  life: 0,
+                  maxLife: 30,
+                  size: Math.random() * 5 + 3
+                });
+              }
+
+              state.obstacles.splice(i, 1);
+              break;
+            } else {
+              // Ainda tem vidas: perde vida, ganha 1.5s invulnerável e segue correndo
+              state.invulnerableTimer = 90; // 1.5s invulnerável
+              state.score = Math.max(0, state.score - 15);
+              setScore(state.score);
+              safePlaySound('crash');
+
+              if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+                try { navigator.vibrate([60, 40, 60]); } catch {}
+              }
+
+              state.floatingTexts.push({
+                id: state.nextId++,
+                x: 75,
+                y: state.dogY - 20,
+                text: `PERDEU 1 VIDA! 💔 (${state.lives} restam)`,
+                color: '#EF4444',
+                life: 0,
+                maxLife: 40
+              });
+
+              for (let p = 0; p < 10; p++) {
+                state.particles.push({
+                  x: 75,
+                  y: state.dogY,
+                  vx: (Math.random() - 0.5) * 6,
+                  vy: (Math.random() - 0.5) * 6,
+                  color: '#EF4444',
+                  life: 0,
+                  maxLife: 20,
+                  size: Math.random() * 4 + 2
+                });
+              }
+
+              // Remove obstáculo para seguir viagem
+              state.obstacles.splice(i, 1);
+              continue;
+            }
           }
 
           // Pontuação por desviar
@@ -1049,14 +1182,35 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
   }, [gameId]);
 
   // Reiniciar a corrida do zero
-  const handleRestart = () => {
+  const handleRestart = useCallback(() => {
     gameState.current.active = false;
     setScore(0);
     setFoodsEaten(0);
     setActivePowerUp(null);
     setHasShield(false);
+    setLives(3);
+    setIsGameOver(false);
+    setGameOverTimer(3);
     setGameId(id => id + 1);
-  };
+  }, []);
+
+  // Reinício automático em 3 segundos após o personagem morrer
+  useEffect(() => {
+    if (!isGameOver) return;
+    setGameOverTimer(3);
+    const timer = setInterval(() => {
+      setGameOverTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          handleRestart();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isGameOver, handleRestart]);
 
   return (
     <div className={`flex flex-col items-center justify-center px-2 sm:px-4 animate-fade-in relative z-10 w-full mx-auto ${order ? "min-h-[80vh] max-w-4xl" : "min-h-[calc(100vh-120px)] max-w-lg pb-10"}`}>
@@ -1114,6 +1268,21 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Vidas no Cabeçalho */}
+            <div className="bg-red-50 border border-red-200 rounded-xl px-2.5 py-1 text-center flex flex-col justify-center">
+              <span className="text-[9px] sm:text-[10px] text-red-700 font-bold uppercase block leading-none">Vidas</span>
+              <div className="flex items-center justify-center gap-0.5 mt-0.5">
+                {[1, 2, 3].map((heartIndex) => (
+                  <span 
+                    key={heartIndex} 
+                    className={`text-xs transition-transform ${heartIndex <= lives ? 'scale-100' : 'opacity-25 grayscale scale-90'}`}
+                  >
+                    {heartIndex <= lives ? '❤️' : '🖤'}
+                  </span>
+                ))}
+              </div>
+            </div>
+
             {/* Recorde */}
             <div className="bg-amber-50 border border-amber-200 rounded-xl px-2.5 py-1 text-right">
               <span className="text-[9px] sm:text-[10px] text-amber-700 font-bold uppercase block leading-none">Recorde</span>
@@ -1174,6 +1343,30 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
               <span>🍔</span>
               <span>{foodsEaten}</span>
             </div>
+
+            {/* Vidas / Corações do Cãozinho */}
+            <div 
+              className="bg-white border-2 border-black rounded-xl px-2 py-0.5 sm:px-2.5 sm:py-1 text-[11px] sm:text-xs font-bold text-stone-900 shadow-[2px_2px_0px_#000] flex items-center gap-1"
+              title={`Vidas restantes: ${lives} de 3`}
+            >
+              <div className="flex items-center gap-0.5">
+                {[1, 2, 3].map((heartIndex) => (
+                  <span 
+                    key={heartIndex} 
+                    className={`text-sm sm:text-base leading-none transition-all duration-300 ${
+                      heartIndex <= lives 
+                        ? 'scale-100 filter-none animate-pulse' 
+                        : 'scale-90 opacity-25 grayscale'
+                    }`}
+                  >
+                    {heartIndex <= lives ? '❤️' : '🖤'}
+                  </span>
+                ))}
+              </div>
+              <span className="font-display font-black text-[10px] sm:text-xs text-stone-700 ml-0.5">
+                {lives}/3
+              </span>
+            </div>
           </div>
 
           {/* Power-Up Ativo no Topo Central (100% Sólido) */}
@@ -1188,6 +1381,44 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
           {hasShield && !activePowerUp && (
             <div className="absolute top-2.5 left-1/2 -translate-x-1/2 bg-stone-900 text-yellow-300 border-2 border-yellow-400 rounded-full px-3 py-1 text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg pointer-events-none">
               <Shield size={14} className="text-yellow-400 fill-yellow-400/40" /> <span>ESCUDO ATIVO</span>
+            </div>
+          )}
+
+          {/* OVERLAY DE MORTE / GAME OVER COM REINÍCIO */}
+          {isGameOver && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/85 backdrop-blur-xs z-30 animate-fade-in p-4 text-center">
+              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center text-3xl mb-2 animate-bounce border-2 border-red-500/40">
+                💔
+              </div>
+              <span className="text-xl sm:text-2xl font-display font-black text-white uppercase tracking-tight drop-shadow-md">
+                AU AU! O CÃOZINHO MORREU! 🐶
+              </span>
+              <p className="text-xs sm:text-sm text-stone-300 font-bold mt-1 max-w-xs leading-snug">
+                As 3 vidas acabaram! Mas o motoboy não desiste e vai recomeçar a entrega.
+              </p>
+
+              <div className="mt-3 flex items-center gap-3 bg-stone-900/90 border border-stone-700 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold shadow-md">
+                <div className="text-yellow-400">
+                  🍔 Pontuação: <span className="font-black text-white">{score}</span>
+                </div>
+                <div className="text-stone-500">|</div>
+                <div className="text-amber-400">
+                  🏆 Recorde: <span className="font-black text-white">{highScore}</span>
+                </div>
+              </div>
+
+              <div className="mt-3.5 flex flex-col items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleRestart}
+                  className="px-6 py-2.5 bg-gradient-to-r from-red-600 via-amber-500 to-yellow-500 hover:from-red-500 hover:to-amber-400 active:scale-95 text-black font-display font-black uppercase text-xs sm:text-sm tracking-wider rounded-xl shadow-[0_4px_14px_rgba(239,68,68,0.5)] border-2 border-white transition-all cursor-pointer flex items-center gap-2"
+                >
+                  <RotateCcw size={16} /> Reiniciar Agora
+                </button>
+                <span className="text-[11px] text-stone-400 font-semibold animate-pulse">
+                  Reiniciando corrida automaticamente em {gameOverTimer}s...
+                </span>
+              </div>
             </div>
           )}
 

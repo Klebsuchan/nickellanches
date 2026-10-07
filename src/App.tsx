@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import NickelText from './components/NickelText';
 import RenderWithNickel from './components/RenderWithNickel';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, MessageCircle, Plus, Menu, Search, SlidersHorizontal, Bell, ShoppingCart, Star, ChefHat, LogOut, ArrowRight, Gamepad2, Tag, Heart, Utensils, BookOpen, Flame, Info, Home, ShoppingBag, User, LayoutGrid, MoreVertical, Share2 } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Plus, Menu, Search, SlidersHorizontal, Bell, ShoppingCart, Star, ChefHat, LogOut, ArrowRight, Gamepad2, Tag, Heart, Utensils, BookOpen, Flame, Info, Home, ShoppingBag, User, LayoutGrid, MoreVertical, Share2, Sparkles } from 'lucide-react';
 import { MENU_ITEMS, DISCOUNT_CODES } from './data';
 import { CartItem, Product, OrderInfo } from './types';
 import AutoMarquee from './components/AutoMarquee';
@@ -27,6 +27,7 @@ import ProductModal from './components/ProductModal';
 import CartDrawer from './components/CartDrawer';
 import CheckoutModal from './components/CheckoutModal';
 import TrafficSignDiscount from './components/TrafficSignDiscount';
+import IntroPresentation from './components/IntroPresentation';
 import { useToast } from './components/Toast';
 import { isStoreClosedMonday, STORE_CLOSED_MESSAGE } from './lib/storeHours';
 import { auth, signInWithGoogle, signOut, getNextOrderNumber } from './lib/firebase';
@@ -91,6 +92,12 @@ export default function App() {
   
   const [logoClicks, setLogoClicks] = useState(0);
   const [showFlyingDog, setShowFlyingDog] = useState(false);
+  const [showIntro, setShowIntro] = useState(true);
+
+  const handleCloseIntro = () => {
+    setShowIntro(false);
+  };
+
   const [favorites, setFavorites] = useState<string[]>(() => {
     const saved = localStorage.getItem('favorites');
     return saved ? JSON.parse(saved) : [];
@@ -687,21 +694,25 @@ export default function App() {
     
     addToast({
       title: 'Pedido Confirmado!',
-      message: 'Divirta-se com o minigame do cachorrinho! Seu lanche já está em preparo na cozinha.',
+      message: 'Divirta-se com o minigame do cachorrinho! Seu pedido será enviado ao WhatsApp.',
       type: 'success'
     });
   };
 
   const handleFinishOrder = async () => {
     if (activeOrder) {
+      if (activeOrder.whatsappMessage) {
+        const phone = '5554999598389';
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(activeOrder.whatsappMessage)}`, '_blank');
+      }
       setUserPoints(prev => prev + activeOrder.pointsEarned);
       if (user) {
         await addXpToUser(user.uid, activeOrder.pointsEarned);
       }
       playSound('powerup');
       addToast({
-        title: 'Pedido Concluído!',
-        message: `Pedido finalizado com sucesso e você ganhou +${activeOrder.pointsEarned} XP!`,
+        title: 'Pedido Encaminhado ao WhatsApp!',
+        message: `Pedido enviado e você ganhou +${activeOrder.pointsEarned} XP!`,
         type: 'xp'
       });
     }
@@ -920,6 +931,10 @@ export default function App() {
             <button onClick={() => { navigateToView('store'); setShowLastOrdersState(false); window.scrollTo(0,0); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Cardápio</button>
             <button onClick={() => { document.getElementById('quem-somos')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Quem Somos</button>
             <button onClick={() => { document.getElementById('contato')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Contato</button>
+            <button onClick={() => setShowIntro(true)} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors flex items-center gap-1.5">
+              <Sparkles size={14} className="text-[#F28B20]" />
+              <span>Apresentação</span>
+            </button>
             <button onClick={() => navigateToView('game')} className="text-sm font-black uppercase tracking-wider text-[#4E2A84] hover:text-[#F28B20] transition-all flex items-center gap-2 group">
               <img src="/game-icon.svg" alt="Game" className="w-7 h-7 object-contain drop-shadow-sm group-hover:scale-125 group-hover:rotate-12 transition-transform duration-200" />
               <span className="bg-gradient-to-r from-[#4E2A84] to-[#F28B20] bg-clip-text text-transparent group-hover:text-[#F28B20]">Jogue nosso jogo</span>
@@ -927,12 +942,20 @@ export default function App() {
             <button onClick={() => { navigateToView('store'); setShowLastOrdersState(true); window.scrollTo(0,0); }} className="bg-[#F28B20] text-white px-6 py-2.5 rounded-full text-sm font-bold uppercase tracking-wider hover:bg-orange-500 transition-colors shadow-sm">Faça seu Pedido</button>
           </nav>
 
-          <div className="flex items-center gap-2 md:gap-3 lg:hidden relative">
-            <button onClick={() => navigateToView('game')} className="w-12 h-12 bg-gradient-to-tr from-amber-100 via-purple-100 to-pink-100 rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-xs border border-purple-200/80 active:scale-95" title="Jogue nosso jogo">
-              <img src="/game-icon.svg" alt="Game" className="w-8 h-8 object-contain drop-shadow-sm" />
+          <div className="flex items-center gap-1.5 sm:gap-2 lg:hidden relative">
+            <button 
+              onClick={() => setShowIntro(true)} 
+              className="px-2.5 py-2 bg-gradient-to-r from-[#4E2A84] to-[#F28B20] text-white rounded-full flex items-center gap-1 text-[11px] font-black uppercase tracking-tight shadow-xs active:scale-95 hover:brightness-110" 
+              title="Ver apresentação com o cãozinho"
+            >
+              <Sparkles size={13} className="text-amber-300" />
+              <span>Intro</span>
             </button>
-            <button onClick={() => openCart()} className="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center text-stone-900 relative">
-              <ShoppingBag size={24} />
+            <button onClick={() => navigateToView('game')} className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-tr from-amber-100 via-purple-100 to-pink-100 rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-xs border border-purple-200/80 active:scale-95" title="Jogue nosso jogo">
+              <img src="/game-icon.svg" alt="Game" className="w-7 h-7 sm:w-8 sm:h-8 object-contain drop-shadow-sm" />
+            </button>
+            <button onClick={() => openCart()} className="w-10 h-10 sm:w-12 sm:h-12 bg-stone-100 rounded-full flex items-center justify-center text-stone-900 relative">
+              <ShoppingBag size={22} />
               {cart.reduce((sum, item) => sum + item.quantity, 0) > 0 && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#4E2A84] rounded-full flex items-center justify-center text-[10px] text-white font-bold border-2 border-white">
                   {cart.reduce((sum, item) => sum + item.quantity, 0)}
@@ -953,6 +976,9 @@ export default function App() {
                 >
                   <button onClick={() => { setIsMobileMenuOpen(false); navigateToView('profile'); }} className="text-left px-4 py-3 font-bold text-sm text-[#F28B20] uppercase tracking-wide hover:bg-stone-50 transition-colors flex items-center gap-2">
                     <User size={16} /> Minha Conta
+                  </button>
+                  <button onClick={() => { setIsMobileMenuOpen(false); setShowIntro(true); }} className="text-left px-4 py-3 font-bold text-sm text-stone-700 uppercase tracking-wide hover:bg-stone-50 transition-colors border-t border-stone-100 flex items-center gap-2">
+                    <Sparkles size={16} className="text-[#F28B20]" /> Apresentação
                   </button>
                   <button onClick={() => { setIsMobileMenuOpen(false); document.getElementById('quem-somos')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-left px-4 py-3 font-bold text-sm text-stone-700 uppercase tracking-wide hover:bg-stone-50 transition-colors border-t border-stone-100">
                     Quem Somos
@@ -1029,7 +1055,7 @@ export default function App() {
 
       {/* Footer / Contato */}
       <div id="contato">
-        <Footer onOpenModal={setActiveModal} />
+        <Footer onOpenModal={setActiveModal} onOpenIntro={() => setShowIntro(true)} />
       </div>
     </div>
   );
@@ -1141,6 +1167,21 @@ export default function App() {
           Sua Sacola
         </span>
       </button>
+
+      {/* WhatsApp Button */}
+      <a 
+        href="https://wa.me/5554999598389" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="fixed bottom-4 right-4 md:bottom-8 md:right-8 bg-[#25D366] text-white p-4 rounded-full border-2 border-black shadow-[4px_4px_0px_#000] hover:shadow-[6px_6px_0px_#000] hover:-translate-y-2 transition-all z-[90] flex items-center justify-center group"
+      >
+        <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
+        </svg>
+        <span className="absolute right-full mr-4 bg-white text-black font-bold font-display px-3 py-1 rounded-lg border-2 border-black opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-[2px_2px_0px_#000] pointer-events-none">
+          Peça pelo Zap!
+        </span>
+      </a>
 
       <div className="relative z-10">
         {view === 'menu' && renderMenu()}
@@ -1258,6 +1299,19 @@ export default function App() {
 
       {/* Plaquinha de Trânsito Amarela Flutuante */}
       <TrafficSignDiscount variant="floating" onApplyCoupon={(c) => applyDiscount(c)} />
+
+      {/* Apresentação Muito Breve de Abertura da Nickel Lanches */}
+      <AnimatePresence>
+        {showIntro && (
+          <IntroPresentation
+            onClose={handleCloseIntro}
+            onGoToGame={() => {
+              handleCloseIntro();
+              navigateToView('game');
+            }}
+          />
+        )}
+      </AnimatePresence>
       </div>
     </div>
   );

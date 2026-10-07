@@ -1,4 +1,4 @@
-export const playSound = (type: 'coin' | 'powerup' | 'error' | 'jump' | 'laser' | 'bell' | 'order_alert' | 'chomp' | 'turbo' | 'shield' | 'fanfare' | 'crash') => {
+export const playSound = (type: 'coin' | 'powerup' | 'error' | 'jump' | 'laser' | 'bell' | 'order_alert' | 'chomp' | 'turbo' | 'shield' | 'fanfare' | 'crash' | 'whoosh') => {
   try {
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContext) return;
@@ -9,7 +9,18 @@ export const playSound = (type: 'coin' | 'powerup' | 'error' | 'jump' | 'laser' 
     osc.connect(gainNode);
     gainNode.connect(ctx.destination);
 
-    if (type === 'chomp') {
+    if (type === 'whoosh') {
+      // Som de abertura e dissipação de cortina/portal (suave e envolvente)
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(160, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(480, ctx.currentTime + 0.15);
+      osc.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.5);
+      gainNode.gain.setValueAtTime(0, ctx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.08);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.5);
+    } else if (type === 'chomp') {
       // Som de mordida no lanche / crunch alegre
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(520, ctx.currentTime);
