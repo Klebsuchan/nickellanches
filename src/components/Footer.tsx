@@ -4,10 +4,9 @@ import { MapPin, Phone, MessageCircle, Mail, Clock, Share2 } from 'lucide-react'
 
 interface FooterProps {
   onOpenModal: (modalId: 'privacy' | 'contact' | 'terms' | 'cookies') => void;
-  onOpenIntro?: () => void;
 }
 
-export default function Footer({ onOpenModal, onOpenIntro }: FooterProps) {
+export default function Footer({ onOpenModal }: FooterProps) {
   return (
     <footer className="bg-stone-900 text-white pt-16 pb-32 md:pb-32 px-4 md:px-8 border-t-[8px] border-[#F28B20]">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
@@ -42,14 +41,6 @@ export default function Footer({ onOpenModal, onOpenIntro }: FooterProps) {
                 Nossa História
               </button>
             </li>
-            {onOpenIntro && (
-              <li>
-                <button onClick={onOpenIntro} className="text-stone-400 hover:text-[#F28B20] transition-colors text-sm font-medium flex items-center gap-1.5">
-                  <span>Apresentação Nickel</span>
-                  <span className="text-[9px] bg-[#F28B20]/20 text-[#F28B20] px-1.5 py-0.5 rounded-full font-bold">Ver</span>
-                </button>
-              </li>
-            )}
           </ul>
         </div>
 

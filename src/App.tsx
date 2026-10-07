@@ -931,10 +931,6 @@ export default function App() {
             <button onClick={() => { navigateToView('store'); setShowLastOrdersState(false); window.scrollTo(0,0); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Cardápio</button>
             <button onClick={() => { document.getElementById('quem-somos')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Quem Somos</button>
             <button onClick={() => { document.getElementById('contato')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Contato</button>
-            <button onClick={() => setShowIntro(true)} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors flex items-center gap-1.5">
-              <Sparkles size={14} className="text-[#F28B20]" />
-              <span>Apresentação</span>
-            </button>
             <button onClick={() => navigateToView('game')} className="text-sm font-black uppercase tracking-wider text-[#4E2A84] hover:text-[#F28B20] transition-all flex items-center gap-2 group">
               <img src="/game-icon.svg" alt="Game" className="w-7 h-7 object-contain drop-shadow-sm group-hover:scale-125 group-hover:rotate-12 transition-transform duration-200" />
               <span className="bg-gradient-to-r from-[#4E2A84] to-[#F28B20] bg-clip-text text-transparent group-hover:text-[#F28B20]">Jogue nosso jogo</span>
@@ -942,20 +938,12 @@ export default function App() {
             <button onClick={() => { navigateToView('store'); setShowLastOrdersState(true); window.scrollTo(0,0); }} className="bg-[#F28B20] text-white px-6 py-2.5 rounded-full text-sm font-bold uppercase tracking-wider hover:bg-orange-500 transition-colors shadow-sm">Faça seu Pedido</button>
           </nav>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 lg:hidden relative">
-            <button 
-              onClick={() => setShowIntro(true)} 
-              className="px-2.5 py-2 bg-gradient-to-r from-[#4E2A84] to-[#F28B20] text-white rounded-full flex items-center gap-1 text-[11px] font-black uppercase tracking-tight shadow-xs active:scale-95 hover:brightness-110" 
-              title="Ver apresentação com o cãozinho"
-            >
-              <Sparkles size={13} className="text-amber-300" />
-              <span>Intro</span>
+          <div className="flex items-center gap-2 md:gap-3 lg:hidden relative">
+            <button onClick={() => navigateToView('game')} className="w-12 h-12 bg-gradient-to-tr from-amber-100 via-purple-100 to-pink-100 rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-xs border border-purple-200/80 active:scale-95" title="Jogue nosso jogo">
+              <img src="/game-icon.svg" alt="Game" className="w-8 h-8 object-contain drop-shadow-sm" />
             </button>
-            <button onClick={() => navigateToView('game')} className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-tr from-amber-100 via-purple-100 to-pink-100 rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-xs border border-purple-200/80 active:scale-95" title="Jogue nosso jogo">
-              <img src="/game-icon.svg" alt="Game" className="w-7 h-7 sm:w-8 sm:h-8 object-contain drop-shadow-sm" />
-            </button>
-            <button onClick={() => openCart()} className="w-10 h-10 sm:w-12 sm:h-12 bg-stone-100 rounded-full flex items-center justify-center text-stone-900 relative">
-              <ShoppingBag size={22} />
+            <button onClick={() => openCart()} className="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center text-stone-900 relative">
+              <ShoppingBag size={24} />
               {cart.reduce((sum, item) => sum + item.quantity, 0) > 0 && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#4E2A84] rounded-full flex items-center justify-center text-[10px] text-white font-bold border-2 border-white">
                   {cart.reduce((sum, item) => sum + item.quantity, 0)}
@@ -976,9 +964,6 @@ export default function App() {
                 >
                   <button onClick={() => { setIsMobileMenuOpen(false); navigateToView('profile'); }} className="text-left px-4 py-3 font-bold text-sm text-[#F28B20] uppercase tracking-wide hover:bg-stone-50 transition-colors flex items-center gap-2">
                     <User size={16} /> Minha Conta
-                  </button>
-                  <button onClick={() => { setIsMobileMenuOpen(false); setShowIntro(true); }} className="text-left px-4 py-3 font-bold text-sm text-stone-700 uppercase tracking-wide hover:bg-stone-50 transition-colors border-t border-stone-100 flex items-center gap-2">
-                    <Sparkles size={16} className="text-[#F28B20]" /> Apresentação
                   </button>
                   <button onClick={() => { setIsMobileMenuOpen(false); document.getElementById('quem-somos')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-left px-4 py-3 font-bold text-sm text-stone-700 uppercase tracking-wide hover:bg-stone-50 transition-colors border-t border-stone-100">
                     Quem Somos
@@ -1055,7 +1040,7 @@ export default function App() {
 
       {/* Footer / Contato */}
       <div id="contato">
-        <Footer onOpenModal={setActiveModal} onOpenIntro={() => setShowIntro(true)} />
+        <Footer onOpenModal={setActiveModal} />
       </div>
     </div>
   );
