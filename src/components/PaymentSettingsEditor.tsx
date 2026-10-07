@@ -854,7 +854,7 @@ export default function PaymentSettingsEditor({ initialSettings }: PaymentSettin
           <p className="text-xs text-stone-600 leading-relaxed">
             Além dos pagamentos online acima, o checkout do cliente inclui automaticamente as opções presenciais para a entrega:
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
             <div className="bg-white p-3 rounded-xl border border-stone-200 text-xs font-bold text-stone-800 flex items-center gap-2">
               <CreditCard size={16} className="text-purple-600" />
               <span>Cartão de Crédito (Maquininha)</span>
@@ -866,10 +866,6 @@ export default function PaymentSettingsEditor({ initialSettings }: PaymentSettin
             <div className="bg-white p-3 rounded-xl border border-stone-200 text-xs font-bold text-stone-800 flex items-center gap-2">
               <QrCode size={16} className="text-green-600" />
               <span>PIX na Entrega (ao Motoboy)</span>
-            </div>
-            <div className="bg-white p-3 rounded-xl border border-stone-200 text-xs font-bold text-stone-800 flex items-center gap-2">
-              <Wallet size={16} className="text-amber-600" />
-              <span>Dinheiro (com cálculo de troco)</span>
             </div>
           </div>
         </div>

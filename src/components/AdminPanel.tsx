@@ -189,6 +189,26 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
             Abrir em Nova Aba <ExternalLink size={13} />
           </a>
           <span>Versão 2.1.0</span>
+
+          <div className="pt-2 w-full">
+            <button
+              type="button"
+              onClick={() => {
+                const current = localStorage.getItem('nickel_simular_segunda') === 'true';
+                if (current) {
+                  localStorage.removeItem('nickel_simular_segunda');
+                } else {
+                  localStorage.setItem('nickel_simular_segunda', 'true');
+                }
+                window.location.reload();
+              }}
+              className="w-full text-[10px] py-1.5 px-2 rounded bg-stone-800 hover:bg-stone-700 text-stone-300 font-bold uppercase tracking-normal transition-colors"
+            >
+              {typeof window !== 'undefined' && localStorage.getItem('nickel_simular_segunda') === 'true'
+                ? '🔴 Desativar Teste Segunda'
+                : '🟡 Testar Segunda Fechada'}
+            </button>
+          </div>
         </div>
       </div>
 

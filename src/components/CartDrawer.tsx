@@ -1,8 +1,9 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Trash2 } from 'lucide-react';
+import { X, Trash2, Lock, AlertCircle } from 'lucide-react';
 import { CartItem } from '../types';
 import RenderWithNickel from './RenderWithNickel';
+import { isStoreClosedMonday } from '../lib/storeHours';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -158,7 +159,7 @@ export default function CartDrawer({
                   )}
                   <div className="flex justify-between text-stone-500 font-bold uppercase text-xs pt-2">
                     <span>Frete</span>
-                    <span className="text-right">Calculado no WhatsApp</span>
+                    <span className="text-right">Calculado no Checkout</span>
                   </div>
                   <div className="flex justify-between text-xl text-black font-black uppercase pt-2 border-t-2 border-stone-100">
                     <span>Total</span>
@@ -166,12 +167,35 @@ export default function CartDrawer({
                   </div>
                 </div>
 
-                <button 
-                  onClick={onCheckout}
-                  className="w-full py-4 bg-yellow-400 border-2 border-black text-black font-display tracking-widest uppercase rounded-xl hover:bg-yellow-500 shadow-[4px_4px_0px_#000] hover:shadow-[6px_6px_0px_#000] hover:-translate-y-1 transition-all flex items-center justify-center gap-2 text-lg"
-                >
-                  Finalizar Pedido
-                </button>
+                {isStoreClosedMonday() ? (
+                  <div className="space-y-3">
+                    <div className="p-3.5 bg-red-50 border-2 border-red-500 rounded-xl text-center space-y-1">
+                      <div className="text-xs font-black uppercase text-red-700 flex items-center justify-center gap-1.5">
+                        <AlertCircle size={16} className="shrink-0" />
+                        <span>Loja fechada segunda-feira</span>
+                      </div>
+                      <p className="text-[11px] text-red-600 font-bold leading-tight">
+                        Nosso delivery está em manutenção hoje. Não é possível finalizar pedidos. Retornamos terça-feira às 18:30!
+                      </p>
+                    </div>
+
+                    <button 
+                      type="button"
+                      disabled
+                      className="w-full py-4 bg-stone-300 border-2 border-stone-400 text-stone-600 font-display tracking-widest uppercase rounded-xl cursor-not-allowed flex items-center justify-center gap-2 text-base opacity-90 shadow-none"
+                    >
+                      <Lock size={18} /> Loja Fechada (Segunda-feira)
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={onCheckout}
+                    className="w-full py-4 bg-yellow-400 border-2 border-black text-black font-display tracking-widest uppercase rounded-xl hover:bg-yellow-500 shadow-[4px_4px_0px_#000] hover:shadow-[6px_6px_0px_#000] hover:-translate-y-1 transition-all flex items-center justify-center gap-2 text-lg"
+                  >
+                    Finalizar Pedido
+                  </button>
+                )}
+
                 <button 
                   onClick={onClose}
                   className="w-full py-3 mt-3 bg-white border-2 border-stone-200 text-stone-600 font-bold tracking-wide uppercase rounded-xl hover:bg-stone-50 transition-colors flex items-center justify-center text-sm"

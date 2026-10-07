@@ -16,6 +16,7 @@ export const AVAILABLE_EXTRAS: Extra[] = [
 export const DISCOUNT_CODES: Record<string, number> = {
   'PRIMEIRA10': 0.10, // 10% DE DESCONTO PARA A PRIMEIRA COMPRA
   'PRIMEIRACOMPRA': 0.10, // 10% DE DESCONTO PARA A PRIMEIRA COMPRA
+  'NICKELMINI10': 0.10, // 10% de desconto desbloqueado no Minigame!
   'NICKEL10': 0.10, // 10% discount
   'PRIMEIRAVIAGEM': 0.15, // 15% discount
   'DIADOBACON': 5.00, // R$ 5,00 discount
@@ -342,7 +343,7 @@ export const MENU_ITEMS: Product[] = [
   "description": "4 Xis Especiais + GANHA 1 refri 2 litros CHARRA",
   "price": 99,
   "points": 149,
-  "emoji": "👨‍👩‍👧‍👦",
+  "emoji": "🍔",
   "image": "/images/combofamilia.jpg",
   "category": "combos"
 },
@@ -352,7 +353,7 @@ export const MENU_ITEMS: Product[] = [
   "description": "Xis Pão+Carne+Queijo + Fritas Sorriso (6 unidades) + Refri 200ml",
   "price": 28,
   "points": 42,
-  "emoji": "👦",
+  "emoji": "🍟",
   "image": "/images/combokids.jpeg",
   "category": "combos"
 },
@@ -362,7 +363,7 @@ export const MENU_ITEMS: Product[] = [
   "description": "1 xis especial + 1 batatinha + 1 refri lata",
   "price": 38,
   "points": 57,
-  "emoji": "🏆",
+  "emoji": "🥤",
   "image": "/images/nickeltrio.jpeg",
   "category": "combos"
 },
@@ -372,7 +373,7 @@ export const MENU_ITEMS: Product[] = [
   "description": "2 Xis Especiais + Batata Frita M + Refri 600ml",
   "price": 74,
   "points": 111,
-  "emoji": "💑",
+  "emoji": "❤️",
   "image": "/images/combocasal.avif",
   "category": "combos"
 },

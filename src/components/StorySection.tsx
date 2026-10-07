@@ -38,7 +38,7 @@ export default function StorySection() {
               </video>
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-6">
                 <span className="bg-[#F28B20] text-white text-[10px] font-bold px-3 py-1 rounded-full w-max mb-2 uppercase tracking-widest">Bastidores</span>
-                <h3 className="text-white font-black text-2xl drop-shadow-md leading-none">Nossa Produção 🧑‍🍳</h3>
+                <h3 className="text-white font-black text-2xl drop-shadow-md leading-none">Nossa Produção 👨‍🍳</h3>
               </div>
             </div>
             
@@ -51,7 +51,7 @@ export default function StorySection() {
               </video>
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-6">
                 <span className="bg-[#4E2A84] text-white text-[10px] font-bold px-3 py-1 rounded-full w-max mb-2 uppercase tracking-widest">Irresistível</span>
-                <h3 className="text-white font-black text-2xl drop-shadow-md leading-none">Puro Sabor 🤤</h3>
+                <h3 className="text-white font-black text-2xl drop-shadow-md leading-none">Puro Sabor ✨</h3>
               </div>
             </div>
           </div>

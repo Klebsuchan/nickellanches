@@ -30,6 +30,7 @@ import { generatePixPayload, generatePixQRCode } from '../lib/pix';
 import { useToast } from './Toast';
 import { playSound } from '../lib/audio';
 import { determineRegionFromAddress, searchPassoFundoAddresses, AddressSuggestion } from '../lib/passoFundoAddresses';
+import { isStoreClosedMonday, STORE_CLOSED_MESSAGE, STORE_CLOSED_DESCRIPTION } from '../lib/storeHours';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -323,9 +324,6 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
     if (!paymentMethod) {
       setPaymentMethod('credit_online');
     }
-    if (paymentMethod === 'dinheiro' && changeOption === 'need' && !changeFor.trim()) {
-      setChangeFor('50,00');
-    }
     return true;
   };
 
@@ -358,6 +356,15 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
 
   const handleWhatsAppCheckout = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (isStoreClosedMonday()) {
+      playSound('error');
+      addToast({
+        title: STORE_CLOSED_MESSAGE,
+        message: 'Loja fechada segunda-feira: Nosso delivery está em manutenção hoje. Não é possível finalizar pedidos!',
+        type: 'error'
+      });
+      return;
+    }
     if (!validateForm()) return;
 
     let finalPaymentLabel = '';
@@ -611,7 +618,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                       onClick={() => setStripeSession(null)}
                       className="text-xs text-stone-500 hover:text-stone-800 font-bold uppercase tracking-wider pt-2 block mx-auto transition-colors cursor-pointer"
                     >
-                      Voltar e escolher outra forma (PIX / Dinheiro / Conta Bancária)
+                      Voltar e escolher outra forma (PIX / Cartão / Maquininha)
                     </button>
                   </div>
                 </div>
@@ -632,6 +639,14 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                 <X size={20} />
               </button>
             </div>
+
+            {/* Aviso de Loja Fechada na Segunda-feira */}
+            {isStoreClosedMonday() && (
+              <div className="bg-red-600 text-white px-4 py-3 text-center text-xs md:text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 shrink-0 shadow-inner">
+                <AlertCircle size={18} className="shrink-0 animate-bounce" />
+                <span>Loja fechada segunda-feira: Nosso delivery está em manutenção hoje!</span>
+              </div>
+            )}
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
@@ -1397,84 +1412,6 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                       )}
                     </div>
 
-                    {/* Dinheiro */}
-                    <label 
-                      onClick={() => setPaymentMethod('dinheiro')}
-                      className={`flex items-center justify-between p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
-                        paymentMethod === 'dinheiro'
-                          ? 'border-[#F28B20] bg-orange-50/70 shadow-sm'
-                          : 'border-stone-200 hover:border-stone-300 bg-stone-50/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                          paymentMethod === 'dinheiro' ? 'border-[#F28B20] bg-white' : 'border-stone-300 bg-white'
-                        }`}>
-                          {paymentMethod === 'dinheiro' && <div className="w-2.5 h-2.5 rounded-full bg-[#F28B20]" />}
-                        </div>
-                        <div className={`p-2 rounded-lg ${paymentMethod === 'dinheiro' ? 'bg-[#F28B20] text-white' : 'bg-stone-100 text-stone-600'}`}>
-                          <Banknote size={18} />
-                        </div>
-                        <div>
-                          <span className="font-bold text-sm text-stone-900 block">Dinheiro em Espécie</span>
-                          <span className="text-xs text-stone-500 font-medium">Pagamento em cédulas na entrega</span>
-                        </div>
-                      </div>
-                    </label>
-
-                    {/* Troco */}
-                    {paymentMethod === 'dinheiro' && (
-                      <motion.div 
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        className="p-3 bg-stone-50 rounded-xl border border-stone-200 mt-2 space-y-2.5"
-                      >
-                        <span className="text-xs font-bold text-stone-700 uppercase block">Precisa de troco?</span>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setChangeOption('none');
-                              setChangeFor('');
-                            }}
-                            className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all border ${
-                              changeOption === 'none'
-                                ? 'bg-stone-900 text-white border-stone-900 shadow-sm'
-                                : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-100'
-                            }`}
-                          >
-                            Não preciso de troco
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setChangeOption('need')}
-                            className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all border ${
-                              changeOption === 'need'
-                                ? 'bg-[#F28B20] text-white border-[#F28B20] shadow-sm'
-                                : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-100'
-                            }`}
-                          >
-                            Preciso de troco
-                          </button>
-                        </div>
-
-                        {changeOption === 'need' && (
-                          <div className="pt-2">
-                            <label className="text-[11px] font-bold text-stone-600 uppercase block mb-1">
-                              Troco para quanto em dinheiro?
-                            </label>
-                            <input 
-                              type="text" 
-                              value={changeFor}
-                              onChange={e => setChangeFor(e.target.value)}
-                              placeholder={`Ex: ${(Math.ceil(currentFinalTotal / 10) * 10 + 10).toFixed(2).replace('.', ',')}`}
-                              className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-sm font-medium outline-none focus:border-[#F28B20]"
-                            />
-                          </div>
-                        )}
-                      </motion.div>
-                    )}
-
                     {/* Fiado Prank */}
                     <label 
                       onClick={() => setShowFiadoPrank(true)}
@@ -1548,41 +1485,61 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                 </div>
               </div>
 
-              <button 
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleWhatsAppCheckout();
-                }}
-                disabled={isProcessingStripe}
-                className={`w-full ${
-                  paymentMethod === 'credit_online' || paymentMethod === 'debit_online'
-                    ? 'bg-purple-700 hover:bg-purple-800'
-                    : 'bg-[#4E2A84] hover:bg-[#3D1F6B]'
-                } disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-2xl py-4 px-4 font-black uppercase tracking-wider shadow-lg hover:shadow-purple-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-3 text-lg cursor-pointer`}
-              >
-                {isProcessingStripe ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Conectando ao Stripe Checkout...</span>
-                  </>
-                ) : (paymentMethod === 'credit_online' || paymentMethod === 'debit_online') ? (
-                  <>
-                    <CreditCard size={22} className="shrink-0 text-amber-300" />
-                    <span>Pagar com Stripe (R$ {currentFinalTotal.toFixed(2).replace('.', ',')})</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={24} className="shrink-0 text-amber-300" />
-                    <span>Confirmar Pedido & Jogar Minigame</span>
-                  </>
-                )}
-              </button>
-              <p className="text-center text-[11px] text-stone-500 mt-2 font-medium">
-                {(paymentMethod === 'credit_online' || paymentMethod === 'debit_online')
-                  ? '🔒 Pagamento processado pela plataforma oficial do Stripe com criptografia bancária e certificação PCI-DSS. Ao aprovar, você avança para o minigame!'
-                  : 'Você confirmará seu pedido, poderá se divertir no joguinho do cachorrinho e, ao sair dele, o pedido será encaminhado para o WhatsApp!'}
-              </p>
+              {isStoreClosedMonday() ? (
+                <div className="space-y-2">
+                  <button 
+                    type="button"
+                    disabled
+                    className="w-full bg-stone-300 border-2 border-stone-400 text-stone-600 rounded-2xl py-4 px-4 font-black uppercase tracking-wider cursor-not-allowed flex items-center justify-center gap-3 text-base shadow-none opacity-90"
+                  >
+                    <Lock size={22} className="shrink-0 text-stone-500" />
+                    <span>Loja fechada segunda-feira</span>
+                  </button>
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
+                    <p className="text-xs text-red-700 font-bold">
+                      🚫 O delivery está em manutenção às segundas-feiras. Não é possível finalizar pedidos hoje. Retornamos amanhã às 18:30!
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleWhatsAppCheckout();
+                    }}
+                    disabled={isProcessingStripe}
+                    className={`w-full ${
+                      paymentMethod === 'credit_online' || paymentMethod === 'debit_online'
+                        ? 'bg-purple-700 hover:bg-purple-800'
+                        : 'bg-[#4E2A84] hover:bg-[#3D1F6B]'
+                    } disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-2xl py-4 px-4 font-black uppercase tracking-wider shadow-lg hover:shadow-purple-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-3 text-lg cursor-pointer`}
+                  >
+                    {isProcessingStripe ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Conectando ao Stripe Checkout...</span>
+                      </>
+                    ) : (paymentMethod === 'credit_online' || paymentMethod === 'debit_online') ? (
+                      <>
+                        <CreditCard size={22} className="shrink-0 text-amber-300" />
+                        <span>Pagar com Stripe (R$ {currentFinalTotal.toFixed(2).replace('.', ',')})</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={24} className="shrink-0 text-amber-300" />
+                        <span>Confirmar Pedido & Jogar Minigame</span>
+                      </>
+                    )}
+                  </button>
+                  <p className="text-center text-[11px] text-stone-500 mt-2 font-medium">
+                    {(paymentMethod === 'credit_online' || paymentMethod === 'debit_online')
+                      ? '🔒 Pagamento processado pela plataforma oficial do Stripe com criptografia bancária e certificação PCI-DSS. Ao aprovar, você avança para o minigame!'
+                      : 'Você confirmará seu pedido, poderá se divertir no joguinho do cachorrinho e, ao sair dele, o pedido será encaminhado para o WhatsApp!'}
+                  </p>
+                </>
+              )}
             </div>
 
           </motion.div>

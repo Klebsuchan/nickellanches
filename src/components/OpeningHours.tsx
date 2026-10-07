@@ -20,9 +20,12 @@ export default function OpeningHours() {
             <span className="font-bold text-stone-600 uppercase tracking-wider text-sm md:text-base">Terça a Domingo</span>
             <span className="font-black text-[#F28B20] text-xl md:text-2xl">18:30 - 22:30</span>
           </div>
-          <div className="bg-[#FCF9F5] p-6 rounded-2xl border border-stone-200 flex justify-between items-center hover:border-[#F28B20] transition-colors">
-            <span className="font-bold text-stone-600 uppercase tracking-wider text-sm md:text-base">Segunda-feira</span>
-            <span className="font-black text-stone-400 text-xl md:text-2xl">Fechado</span>
+          <div className="bg-[#FCF9F5] p-6 rounded-2xl border border-stone-200 flex justify-between items-center hover:border-red-300 transition-colors">
+            <div className="text-left">
+              <span className="font-bold text-stone-600 uppercase tracking-wider text-sm md:text-base block">Segunda-feira</span>
+              <span className="text-[11px] text-red-600 font-bold block mt-0.5 uppercase">Delivery em Manutenção</span>
+            </div>
+            <span className="font-black text-red-600 text-xl md:text-2xl">Fechado</span>
           </div>
         </div>
 
@@ -55,7 +58,7 @@ export default function OpeningHours() {
               </div>
               <div>
                 <h4 className="font-black uppercase text-sm text-stone-900 mb-1">Pedido Fácil</h4>
-                <p className="text-xs text-stone-500 font-medium">Faça seu pedido online direto pelo site ou pelo WhatsApp com atendimento humanizado.</p>
+                <p className="text-xs text-stone-500 font-medium">Faça seu pedido online direto pelo site com total comodidade e acompanhamento em tempo real.</p>
               </div>
             </div>
           </div>

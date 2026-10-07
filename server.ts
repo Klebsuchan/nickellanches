@@ -89,6 +89,18 @@ async function startServer() {
 
   app.post('/api/create-checkout-session', async (req, res) => {
     try {
+      // Bloqueia pagamentos nas segundas-feiras (delivery em manutenção)
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Sao_Paulo',
+        weekday: 'short',
+      });
+      const weekday = formatter.format(new Date());
+      if (weekday === 'Mon') {
+        return res.status(400).json({ 
+          error: "Loja fechada segunda-feira. O delivery está em manutenção hoje e não está aceitando pedidos." 
+        });
+      }
+
       const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
       if (!stripeSecretKey) {
         return res.status(400).json({ error: "STRIPE_SECRET_KEY não configurada no servidor." });

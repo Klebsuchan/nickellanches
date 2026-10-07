@@ -652,7 +652,7 @@ export const INITIAL_100_FEEDBACKS: Feedback[] = [
     userId: 'u-60',
     userName: 'Débora Carvalho',
     userAvatar: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=150&auto=format&fit=crop&q=80',
-    text: 'Ganhamos cupom no joguinho do cachorrinho e o desconto entrou na hora. Adoramos!',
+    text: 'O joguinho do cachorrinho enquanto espera o pedido é muito viciante! Adoramos disputar o recorde.',
     location: 'São Cristóvão - Passo Fundo, RS',
     rating: 5,
     createdAt: new Date('2026-03-24T07:00:00Z')
