@@ -201,6 +201,56 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
     howlAudio.current.volume = 0.5;
   }, []);
 
+  // Jingle Nickel Lanches em loop suave de fundo (som ambiente não tão alto)
+  const bgJingleRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    // encodeURI para garantir leitura correta do nome com espaços e compatibilidade
+    const audio = new Audio('/JINGLE%20NICKEL%20LANCHES.wav');
+    audio.loop = true;
+    audio.volume = 0.22; // volume ambiente baixo e agradável
+    bgJingleRef.current = audio;
+
+    const playIfAllowed = () => {
+      if (!isMutedRef.current && bgJingleRef.current) {
+        bgJingleRef.current.play().catch(() => {
+          // Os navegadores podem exigir interação inicial antes do áudio tocar
+        });
+      }
+    };
+
+    // Tentar tocar
+    playIfAllowed();
+
+    // Em navegadores que bloqueiam autoplay sem interação do usuário, tocar no primeiro toque ou clique na tela
+    const handleFirstInteraction = () => {
+      playIfAllowed();
+      window.removeEventListener('pointerdown', handleFirstInteraction);
+      window.removeEventListener('keydown', handleFirstInteraction);
+    };
+
+    window.addEventListener('pointerdown', handleFirstInteraction, { passive: true });
+    window.addEventListener('keydown', handleFirstInteraction, { passive: true });
+
+    return () => {
+      window.removeEventListener('pointerdown', handleFirstInteraction);
+      window.removeEventListener('keydown', handleFirstInteraction);
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+    };
+  }, []);
+
+  // Controlar o volume/mudo do jingle quando o jogador clicar no botão de som
+  useEffect(() => {
+    if (!bgJingleRef.current) return;
+    if (isMuted) {
+      bgJingleRef.current.pause();
+    } else {
+      bgJingleRef.current.play().catch(() => {});
+    }
+  }, [isMuted]);
+
   const playBark = useCallback(() => {
     if (isMutedRef.current) return;
     try {
