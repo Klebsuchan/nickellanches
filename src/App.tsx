@@ -28,6 +28,7 @@ import CartDrawer from './components/CartDrawer';
 import CheckoutModal from './components/CheckoutModal';
 import TrafficSignDiscount from './components/TrafficSignDiscount';
 import IntroPresentation from './components/IntroPresentation';
+import MaintenanceScreen from './components/MaintenanceScreen';
 import { useToast } from './components/Toast';
 import { isStoreClosedMonday, STORE_CLOSED_MESSAGE } from './lib/storeHours';
 import { auth, signInWithGoogle, signOut, getNextOrderNumber } from './lib/firebase';
@@ -36,6 +37,9 @@ import { subscribeToOrder, getLatestOrders, subscribeToProducts, subscribeToProm
 import { executeUniversalPrint } from './lib/printerService';
 import { playSound } from './lib/audio';
 
+// Variável para colocar o site em manutenção
+const IS_MAINTENANCE_MODE = true;
+
 export default function App() {
   if (window.location.pathname === '/painel-admin') {
     return (
@@ -43,6 +47,11 @@ export default function App() {
         <AdminPanel onClose={() => window.location.href = '/'} />
       </div>
     );
+  }
+
+  // Se o site estiver em manutenção e não for uma rota administrativa ou bypass de visualização
+  if (IS_MAINTENANCE_MODE && !window.location.search.includes('preview=true')) {
+    return <MaintenanceScreen />;
   }
 
   const [activeTab, setActiveTab] = useState<'cardapio' | 'historia' | 'cozinha' | 'comunidade'>('cardapio');
