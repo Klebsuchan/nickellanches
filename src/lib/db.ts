@@ -494,14 +494,14 @@ export const DEFAULT_PAYMENT_SETTINGS: PaymentSettings = {
     customNote: 'Aceitamos as principais bandeiras: Visa, Mastercard, Elo e Hipercard.'
   },
   bankAccount: {
-    enabled: true,
+    enabled: false,
     bankName: 'Nubank (260)',
     agency: '0001',
     accountNumber: '99106460-4',
     accountType: 'corrente',
     holderName: 'Braian Kleber Camargo',
     holderDocument: '',
-    instructions: 'Faça a transferência (TED/DOC ou entre contas) com o valor exato do seu pedido e anexe o comprovante com agência e conta.'
+    instructions: 'Faça a transferência com o valor exato do seu pedido e anexe o comprovante com agência e conta.'
   },
   generalNotes: 'Após realizar o pagamento online, envie seu pedido pelo WhatsApp com a confirmação.'
 };

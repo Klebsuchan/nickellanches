@@ -15,7 +15,9 @@ import {
   Smartphone,
   Wallet,
   Landmark,
-  Building2
+  Building2,
+  RefreshCw,
+  Key
 } from 'lucide-react';
 import { PaymentSettings, savePaymentSettings, DEFAULT_PAYMENT_SETTINGS } from '../lib/db';
 import { generatePixPayload, generatePixQRCode } from '../lib/pix';
@@ -50,6 +52,102 @@ export default function PaymentSettingsEditor({ initialSettings }: PaymentSettin
   const [copiedPayload, setCopiedPayload] = useState(false);
   const [copiedBankField, setCopiedBankField] = useState<string | null>(null);
   const { addToast } = useToast();
+
+  const [stripeStatus, setStripeStatus] = useState<{
+    configured: boolean;
+    mode: string;
+    publishableKey?: string;
+    message?: string;
+    loading: boolean;
+  }>({ configured: false, mode: 'loading', loading: true });
+
+  const [inputStripePublic, setInputStripePublic] = useState('');
+  const [inputStripeSecret, setInputStripeSecret] = useState('');
+  const [isSavingStripeKeys, setIsSavingStripeKeys] = useState(false);
+
+  const checkStripeConnection = async () => {
+    setStripeStatus(prev => ({ ...prev, loading: true }));
+    try {
+      const res = await fetch('/api/stripe-status');
+      if (res.ok) {
+        const data = await res.json();
+        setStripeStatus({
+          configured: !!data.configured,
+          mode: data.mode || 'none',
+          publishableKey: data.publishableKey || '',
+          message: data.message || '',
+          loading: false
+        });
+        if (data.publishableKey) {
+          setInputStripePublic(data.publishableKey);
+        }
+      } else {
+        setStripeStatus({ configured: false, mode: 'error', message: 'Erro ao consultar status da Stripe no servidor.', loading: false });
+      }
+    } catch {
+      setStripeStatus({ configured: false, mode: 'error', message: 'Falha de rede ao consultar status da Stripe.', loading: false });
+    }
+  };
+
+  const handleSaveStripeKeys = async () => {
+    if (!inputStripeSecret.trim() || !inputStripeSecret.trim().startsWith('sk_')) {
+      addToast({
+        title: 'Chave Secreta Inválida',
+        message: "A Chave Secreta/Integração da Stripe deve começar com 'sk_live_' (Produção) ou 'sk_test_' (Teste).",
+        type: 'error'
+      });
+      return;
+    }
+    if (!inputStripePublic.trim() || !inputStripePublic.trim().startsWith('pk_')) {
+      addToast({
+        title: 'Chave Publicável Inválida',
+        message: "A Chave Publicável da Stripe deve começar com 'pk_live_' (Produção) ou 'pk_test_' (Teste).",
+        type: 'error'
+      });
+      return;
+    }
+
+    setIsSavingStripeKeys(true);
+    try {
+      const res = await fetch('/api/save-stripe-keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          publishableKey: inputStripePublic.trim(),
+          secretKey: inputStripeSecret.trim()
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        addToast({
+          title: 'Chaves Stripe Atualizadas!',
+          message: data.message || 'Chaves salvas e validadas com sucesso!',
+          type: 'success'
+        });
+        checkStripeConnection();
+        setInputStripeSecret('');
+      } else {
+        addToast({
+          title: 'Erro na Validação com a Stripe',
+          message: data.error || 'Não foi possível validar as chaves informadas.',
+          type: 'error'
+        });
+      }
+    } catch (err: any) {
+      addToast({
+        title: 'Falha de Conexão',
+        message: err.message || 'Erro ao comunicar com o servidor.',
+        type: 'error'
+      });
+    } finally {
+      setIsSavingStripeKeys(false);
+    }
+  };
+
+  useEffect(() => {
+    checkStripeConnection();
+  }, []);
 
   useEffect(() => {
     if (initialSettings) {
@@ -436,7 +534,7 @@ export default function PaymentSettingsEditor({ initialSettings }: PaymentSettin
               <label className="relative inline-flex items-center cursor-pointer">
                 <input 
                   type="checkbox" 
-                  checked={settings.bankAccount?.enabled ?? true} 
+                  checked={settings.bankAccount?.enabled ?? false} 
                   onChange={e => setSettings({
                     ...settings,
                     bankAccount: {
@@ -710,22 +808,22 @@ export default function PaymentSettingsEditor({ initialSettings }: PaymentSettin
           </div>
         </div>
 
-        {/* 3. SEÇÃO CARTÃO DE CRÉDITO E DÉBITO ONLINE */}
+        {/* 3. SEÇÃO STRIPE CHECKOUT & CARTÃO DE CRÉDITO/DÉBITO ONLINE */}
         <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-stone-200 gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold">
+              <div className="w-12 h-12 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold shadow-xs">
                 <CreditCard size={26} />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-black text-lg text-stone-900 uppercase">Cartão de Crédito e Débito Online</h3>
-                  <span className="bg-purple-100 text-purple-800 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
-                    Débito & Crédito
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-black text-lg text-stone-900 uppercase">Pagamentos com Cartão Online (Stripe Oficial)</h3>
+                  <span className="bg-purple-100 text-purple-800 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase flex items-center gap-1">
+                    <ShieldCheck size={12} /> Stripe Checkout
                   </span>
                 </div>
                 <p className="text-xs text-stone-500 font-medium">
-                  O cliente paga pelo cartão (débito ou crédito) e o dinheiro cai diretamente na sua conta bancária
+                  Receba pagamentos com cartão de crédito e débito direto no site com segurança bancária certificada PCI-DSS
                 </p>
               </div>
             </div>
@@ -742,20 +840,203 @@ export default function PaymentSettingsEditor({ initialSettings }: PaymentSettin
                   })} 
                   className="sr-only peer" 
                 />
-                <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
               </label>
             </div>
           </div>
 
+          {/* PAINEL DE DIAGNÓSTICO EM TEMPO REAL DA CONEXÃO STRIPE */}
+          <div className="bg-gradient-to-r from-purple-900 to-indigo-900 rounded-2xl p-5 text-white shadow-md space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-purple-200">
+                  <Sparkles size={20} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-sm tracking-wide uppercase">Status da Conexão Stripe</span>
+                    {stripeStatus.loading ? (
+                      <span className="text-[10px] font-bold bg-white/20 text-white px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <RefreshCw size={10} className="animate-spin" /> Verificando...
+                      </span>
+                    ) : stripeStatus.configured ? (
+                      <span className="text-[10px] font-black bg-emerald-500 text-white px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                        100% Conectado e Operacional
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-black bg-amber-500 text-stone-900 px-2 py-0.5 rounded-full">
+                        Não Configurado
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-purple-200 mt-0.5">
+                    {stripeStatus.message || "Pronto para processar transações com cartão no Brasil (BRL)"}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={checkStripeConnection}
+                disabled={stripeStatus.loading}
+                className="bg-white/15 hover:bg-white/25 active:scale-95 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 self-start sm:self-center border border-white/20"
+              >
+                <RefreshCw size={13} className={stripeStatus.loading ? "animate-spin" : ""} />
+                <span>Testar Conexão</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-white/10 text-xs">
+              <div className="bg-white/5 p-2.5 rounded-xl">
+                <span className="text-[10px] text-purple-300 font-bold block uppercase">Modo Atual</span>
+                <span className="font-bold text-white uppercase text-xs">
+                  {stripeStatus.mode === "test" ? "🧪 Modo Sandbox (Teste)" : stripeStatus.mode === "live" ? "🚀 Modo Produção (Live)" : "Indefinido"}
+                </span>
+              </div>
+
+              <div className="bg-white/5 p-2.5 rounded-xl">
+                <span className="text-[10px] text-purple-300 font-bold block uppercase">Moeda Base</span>
+                <span className="font-bold text-white text-xs">BRL (R$ Real Brasileiro)</span>
+              </div>
+
+              <div className="bg-white/5 p-2.5 rounded-xl col-span-2">
+                <span className="text-[10px] text-purple-300 font-bold block uppercase">Bandeiras & Carteiras</span>
+                <span className="font-medium text-purple-100 text-[11px]">
+                  Visa, Master, Elo, Hiper, Amex, Apple Pay, Google Pay
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Formulário para Atualização e Inserção das Chaves de Produção/Live */}
+          <div className="bg-stone-50 border border-stone-200 p-5 rounded-2xl space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <Key size={18} className="text-purple-600" />
+                <h4 className="font-bold text-sm text-stone-900 uppercase">
+                  Inserir / Atualizar Chaves API da Stripe (Produção ou Teste)
+                </h4>
+              </div>
+              <span className="text-[10px] font-bold bg-purple-100 text-purple-900 px-2.5 py-0.5 rounded uppercase">
+                Stripe Dashboard &gt; Desenvolvedores &gt; Chaves API
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
+                  Chave Publicável (Publishable Key)
+                </label>
+                <input 
+                  type="text" 
+                  value={inputStripePublic}
+                  onChange={e => setInputStripePublic(e.target.value)}
+                  placeholder="pk_live_... ou pk_test_..."
+                  className="w-full px-3 py-2 text-xs border border-stone-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-mono bg-white"
+                />
+                <span className="text-[10px] text-stone-500 mt-1 block">Começa com pk_live_ (Produção) ou pk_test_ (Teste)</span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
+                  Chave Secreta / Integração (Secret Key)
+                </label>
+                <input 
+                  type="password" 
+                  value={inputStripeSecret}
+                  onChange={e => setInputStripeSecret(e.target.value)}
+                  placeholder="sk_live_... ou sk_test_..."
+                  className="w-full px-3 py-2 text-xs border border-stone-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-mono bg-white"
+                />
+                <span className="text-[10px] text-stone-500 mt-1 block">Começa com sk_live_ (Produção) ou sk_test_ (Teste)</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={handleSaveStripeKeys}
+                disabled={isSavingStripeKeys || !inputStripeSecret.trim() || !inputStripePublic.trim()}
+                className="bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+              >
+                {isSavingStripeKeys ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    <span>Validando e Salva Chaves...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save size={14} />
+                    <span>Salvar e Ativar Chaves da Stripe</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Dicas e explicação do fluxo de pagamento */}
           <div className="bg-purple-50/70 border border-purple-200 p-4 rounded-2xl flex items-start gap-3">
             <ShieldCheck size={20} className="text-purple-600 shrink-0 mt-0.5" />
-            <div className="text-xs text-stone-700 space-y-1">
+            <div className="text-xs text-stone-700 space-y-1.5">
               <p className="font-bold text-stone-900">
-                Como o cliente paga no cartão e o dinheiro cai na sua conta bancária?
+                Como funciona o pagamento com cartão no site da Nickel Lanches?
               </p>
-              <p className="leading-relaxed">
-                Você pode utilizar o <strong>Link de Pagamento / Checkout do Cartão</strong> gerado no seu próprio banco ou maquininha (como Mercado Pago, PagBank/PagSeguro, InfinitePay, Stone/Ton, Asaas, Nubank ou Stripe). O cliente abre o link seguro no próprio pedido, digita os dados do cartão de crédito ou débito, e o valor é creditado diretamente na sua conta bancária.
-              </p>
+              <ul className="list-disc list-inside space-y-1 text-stone-600 leading-relaxed text-[11px]">
+                <li><strong>Checkout Oficial Stripe:</strong> O cliente escolhe Cartão de Crédito ou Débito e o sistema gera uma sessão oficial e segura da Stripe com o valor exato do pedido.</li>
+                <li><strong>Aprovação em Tempo Real:</strong> Assim que o pagamento é concluído, o sistema detecta automaticamente no site, registra o pedido no painel de pedidos, avisa na cozinha e redireciona para o minigame.</li>
+                <li><strong>Depósito Direto:</strong> O valor transacionado vai direto para o saldo da sua conta Stripe e é transferido para a conta bancária da sua empresa.</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Guia para alterar o nome da empresa e o selo de Área Restrita na Stripe */}
+          <div className="bg-amber-50/80 border border-amber-200 p-4 rounded-2xl flex items-start gap-3">
+            <AlertCircle size={20} className="text-amber-600 shrink-0 mt-0.5" />
+            <div className="text-xs text-stone-700 space-y-2 flex-1">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <p className="font-black text-stone-900 uppercase tracking-wide">
+                  Como mudar o nome &quot;Área restrita de klebsuchan&quot; no Checkout do Stripe?
+                </p>
+                <span className="bg-amber-200/80 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                  Configuração no Painel Stripe
+                </span>
+              </div>
+              
+              <div className="text-[11px] space-y-1.5 leading-relaxed text-stone-700">
+                <p>
+                  O texto <strong>&quot;klebsuchan&quot;</strong> e o selo <strong>&quot;Área restrita&quot;</strong> são gerenciados diretamente na sua conta da Stripe:
+                </p>
+                <ol className="list-decimal list-inside space-y-1 pl-1">
+                  <li>
+                    <strong>Mudar de &quot;klebsuchan&quot; para &quot;Nickel Lanches&quot;:</strong> Acesse as{' '}
+                    <a 
+                      href="https://dashboard.stripe.com/settings/public" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-purple-700 underline font-bold inline-flex items-center gap-1 hover:text-purple-900"
+                    >
+                      Configurações Públicas da Stripe <ExternalLink size={10} />
+                    </a>{' '}
+                    e altere o campo <strong>Nome público da empresa</strong> para <em>Nickel Lanches</em>.
+                  </li>
+                  <li>
+                    <strong>Colocar a Logo e Cores da Lanchonete:</strong> Em{' '}
+                    <a 
+                      href="https://dashboard.stripe.com/settings/branding" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-purple-700 underline font-bold inline-flex items-center gap-1 hover:text-purple-900"
+                    >
+                      Personalização de Marca (Branding) <ExternalLink size={10} />
+                    </a>
+                    , envie a logo da Nickel Lanches e defina as cores para que o checkout fique 100% com a identidade visual da loja.
+                  </li>
+                  <li>
+                    <strong>O que significa o selo azul [Área restrita]?</strong> É a tradução da Stripe em português para <em>Test Mode (Sandbox)</em>, indicando que nenhuma cobrança real no cartão está sendo feita enquanto estiver em modo de teste. Assim que você ativar as chaves de Produção (Live), esse selo azul desaparece automaticamente.
+                  </li>
+                </ol>
+              </div>
             </div>
           </div>
 
@@ -763,82 +1044,82 @@ export default function PaymentSettingsEditor({ initialSettings }: PaymentSettin
             <div className="flex items-center gap-4 bg-stone-50 p-4 rounded-xl border border-stone-200">
               <label className="flex items-center gap-2 cursor-pointer font-bold text-sm text-stone-800">
                 <input 
-                  type="checkbox"
-                  checked={settings.cardOnline.acceptCredit}
+                  type="checkbox" 
+                  checked={settings.cardOnline.acceptCredit} 
                   onChange={e => setSettings({
                     ...settings,
                     cardOnline: { ...settings.cardOnline, acceptCredit: e.target.checked }
-                  })}
-                  className="w-4 h-4 text-purple-600 rounded border-stone-300 focus:ring-purple-500"
+                  })} 
+                  className="w-4 h-4 text-purple-600 rounded border-stone-300 focus:ring-purple-500" 
                 />
-                <span>Aceitar Cartão de Crédito Online</span>
+                <span>Aceitar Cartão de Crédito Online (Stripe)</span>
               </label>
             </div>
 
             <div className="flex items-center gap-4 bg-stone-50 p-4 rounded-xl border border-stone-200">
               <label className="flex items-center gap-2 cursor-pointer font-bold text-sm text-stone-800">
                 <input 
-                  type="checkbox"
-                  checked={settings.cardOnline.acceptDebit}
+                  type="checkbox" 
+                  checked={settings.cardOnline.acceptDebit} 
                   onChange={e => setSettings({
                     ...settings,
                     cardOnline: { ...settings.cardOnline, acceptDebit: e.target.checked }
-                  })}
-                  className="w-4 h-4 text-purple-600 rounded border-stone-300 focus:ring-purple-500"
+                  })} 
+                  className="w-4 h-4 text-purple-600 rounded border-stone-300 focus:ring-purple-500" 
                 />
-                <span>Aceitar Cartão de Débito Online</span>
+                <span>Aceitar Cartão de Débito Online (Stripe)</span>
               </label>
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="text-xs font-bold text-stone-700 uppercase block mb-1.5">
-                Link de Recebimento do Cartão (Mercado Pago, InfinitePay, PagBank, Stone, etc.)
-              </label>
-              <input
-                type="url"
-                value={settings.cardOnline.paymentLinkUrl}
-                onChange={e => setSettings({
-                  ...settings,
-                  cardOnline: { ...settings.cardOnline, paymentLinkUrl: e.target.value }
-                })}
-                placeholder="Ex: https://mpago.la/... ou seu link oficial de recebimento"
-                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-semibold text-stone-900 outline-none focus:border-purple-500 text-sm"
-              />
-              <span className="text-[11px] text-stone-500 mt-1 block">
-                Cole aqui o link de cobrança gerado no seu app para receber cartões de crédito e débito na sua conta bancária. Se deixar em branco, o cliente pode solicitar o link direto no WhatsApp ao enviar o pedido.
-              </span>
             </div>
 
             <div>
               <label className="text-xs font-bold text-stone-700 uppercase block mb-1.5">
                 Instruções de Pagamento no Cartão
               </label>
-              <input
-                type="text"
-                value={settings.cardOnline.instructions}
+              <input 
+                type="text" 
+                value={settings.cardOnline.instructions} 
                 onChange={e => setSettings({
                   ...settings,
                   cardOnline: { ...settings.cardOnline, instructions: e.target.value }
-                })}
-                placeholder="Ex: Pague no cartão com segurança. O valor cai direto para a lanchonete."
-                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-medium text-stone-900 outline-none focus:border-purple-500 text-sm"
+                })} 
+                placeholder="Ex: Pague no cartão com segurança Stripe. O valor cai direto na conta da lanchonete." 
+                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-medium text-stone-900 outline-none focus:border-purple-500 text-sm" 
               />
             </div>
 
             <div>
               <label className="text-xs font-bold text-stone-700 uppercase block mb-1.5">
-                Bandeiras Aceitas / Observações
+                Bandeiras Aceitas / Observações Exibidas ao Cliente
               </label>
-              <input
-                type="text"
-                value={settings.cardOnline.customNote || ''}
+              <input 
+                type="text" 
+                value={settings.cardOnline.customNote || ""} 
                 onChange={e => setSettings({
                   ...settings,
                   cardOnline: { ...settings.cardOnline, customNote: e.target.value }
-                })}
-                placeholder="Ex: Aceitamos Visa, Mastercard, Elo e Hipercard."
-                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-medium text-stone-900 outline-none focus:border-purple-500 text-sm"
+                })} 
+                placeholder="Ex: Aceitamos Visa, Mastercard, Elo, Hipercard, Apple Pay e Google Pay." 
+                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-medium text-stone-900 outline-none focus:border-purple-500 text-sm" 
               />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="text-xs font-bold text-stone-700 uppercase block mb-1.5">
+                Link de Contingência / Backup (Opcional)
+              </label>
+              <input 
+                type="url" 
+                value={settings.cardOnline.paymentLinkUrl} 
+                onChange={e => setSettings({
+                  ...settings,
+                  cardOnline: { ...settings.cardOnline, paymentLinkUrl: e.target.value }
+                })} 
+                placeholder="Opcional: https://... (utilizado apenas se desejar fornecer um link manual de reserva)" 
+                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-semibold text-stone-900 outline-none focus:border-purple-500 text-sm" 
+              />
+              <span className="text-[11px] text-stone-500 mt-1 block">
+                Com o Stripe 100% ativo e configurado, o site processa o pagamento de forma automática e integrada pelo Stripe Checkout. Este campo serve apenas como contingência manual se você quiser.
+              </span>
             </div>
           </div>
         </div>

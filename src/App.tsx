@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import NickelText from './components/NickelText';
 import RenderWithNickel from './components/RenderWithNickel';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, MessageCircle, Plus, Menu, Search, SlidersHorizontal, Bell, ShoppingCart, Star, ChefHat, LogOut, ArrowRight, Gamepad2, Tag, Heart, Utensils, BookOpen, Flame, Info, Home, ShoppingBag, User, LayoutGrid, MoreVertical, Share2, Sparkles } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Plus, Menu, Search, SlidersHorizontal, Bell, ShoppingCart, Star, ChefHat, LogOut, ArrowRight, Gamepad2, Tag, Heart, Utensils, BookOpen, Flame, Info, Home, ShoppingBag, User, LayoutGrid, MoreVertical, Share2, Sparkles, CreditCard, QrCode, Banknote, ShieldCheck, Clock } from 'lucide-react';
 import { MENU_ITEMS, DISCOUNT_CODES } from './data';
 import { CartItem, Product, OrderInfo } from './types';
 import AutoMarquee from './components/AutoMarquee';
@@ -28,30 +28,21 @@ import CartDrawer from './components/CartDrawer';
 import CheckoutModal from './components/CheckoutModal';
 import TrafficSignDiscount from './components/TrafficSignDiscount';
 import IntroPresentation from './components/IntroPresentation';
-import MaintenanceScreen from './components/MaintenanceScreen';
 import { useToast } from './components/Toast';
-import { isStoreClosedMonday, STORE_CLOSED_MESSAGE } from './lib/storeHours';
+import { isStoreClosedMonday, getStoreStatus, STORE_CLOSED_MESSAGE } from './lib/storeHours';
 import { auth, signInWithGoogle, signOut, getNextOrderNumber } from './lib/firebase';
 import { User as FirebaseUser } from 'firebase/auth';
 import { subscribeToOrder, getLatestOrders, subscribeToProducts, subscribeToPromos, seedDatabase, createUserProfile, getUserProfile, addXpToUser, saveOrder, UserProfile, Order, getPrinterSettings, subscribeToAllOrders } from './lib/db';
-import { executeUniversalPrint } from './lib/printerService';
 import { playSound } from './lib/audio';
 
-// Variável para colocar o site em manutenção
-const IS_MAINTENANCE_MODE = true;
-
 export default function App() {
-  if (window.location.pathname === '/painel-admin') {
+  const currentPath = window.location.pathname.toLowerCase();
+  if (currentPath === '/admin' || currentPath === '/painel-admin' || currentPath === '/painel' || currentPath === '/gerenciador') {
     return (
-      <div className="min-h-screen bg-stone-100">
+      <div className="min-h-screen bg-stone-900 text-stone-100 font-sans antialiased">
         <AdminPanel onClose={() => window.location.href = '/'} />
       </div>
     );
-  }
-
-  // Se o site estiver em manutenção e não for uma rota administrativa ou bypass de visualização
-  if (IS_MAINTENANCE_MODE && !window.location.search.includes('preview=true')) {
-    return <MaintenanceScreen />;
   }
 
   const [activeTab, setActiveTab] = useState<'cardapio' | 'historia' | 'cozinha' | 'comunidade'>('cardapio');
@@ -67,7 +58,7 @@ export default function App() {
   const [userPoints, setUserPoints] = useState(0);
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [activeModal, setActiveModal] = useState<'privacy' | 'contact' | 'terms' | 'cookies' | null>(null);
+  const [activeModal, setActiveModal] = useState<'privacy' | 'contact' | 'terms' | 'cookies' | 'payments' | null>(null);
   const [showCookies, setShowCookies] = useState(true);
   const [showLastOrdersState, setShowLastOrdersState] = useState(false);
   const [menuItems, setMenuItems] = useState<Product[]>(MENU_ITEMS);
@@ -136,11 +127,12 @@ export default function App() {
   };
 
   const openCheckout = () => {
-    if (isStoreClosedMonday()) {
+    const status = getStoreStatus();
+    if (!status.isOpen) {
       playSound('error');
       addToast({
-        title: STORE_CLOSED_MESSAGE,
-        message: 'Loja fechada segunda-feira: Nosso delivery está em manutenção hoje. Não é possível finalizar pedidos!',
+        title: status.title,
+        message: status.description,
         type: 'error'
       });
       return;
@@ -186,48 +178,7 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Auto-impressão de novos pedidos em tempo real (para o balcão / computador da lanchonete)
-  useEffect(() => {
-    let isInitial = true;
-    const printedOrders = new Set<string>(JSON.parse(localStorage.getItem('printed_orders') || '[]'));
 
-    const unsubscribe = subscribeToAllOrders(async (orders) => {
-      // No primeiro carregamento, marca os existentes para não reimprimir pedidos antigos
-      if (isInitial) {
-        orders.forEach(o => {
-          if (o.id) printedOrders.add(o.id);
-        });
-        localStorage.setItem('printed_orders', JSON.stringify(Array.from(printedOrders)));
-        isInitial = false;
-        return;
-      }
-
-      // Procura novos pedidos com status 'recebido' que ainda não foram impressos
-      for (const order of orders) {
-        if (order.status === 'recebido' && order.id && !printedOrders.has(order.id)) {
-          printedOrders.add(order.id);
-          localStorage.setItem('printed_orders', JSON.stringify(Array.from(printedOrders)));
-
-          try {
-            const settings = await getPrinterSettings();
-            if (settings.autoPrint) {
-              playSound('order_alert');
-              addToast({
-                title: '🔔 Novo Pedido Recebido!',
-                message: `Pedido #${order.orderNumber || order.id.slice(0, 4)} de ${order.userName || 'Cliente'} imprimindo automaticamente!`,
-                type: 'success'
-              });
-              executeUniversalPrint(order, settings, addToast);
-            }
-          } catch (err) {
-            console.warn('Erro ao auto-imprimir novo pedido em background:', err);
-          }
-        }
-      }
-    });
-
-    return () => unsubscribe();
-  }, [addToast]);
 
   const handleLogoClick = () => {
     setLogoClicks(prev => {
@@ -306,12 +257,14 @@ export default function App() {
                   whatsapp: sessionData.metadata.whatsapp || '',
                   address: sessionData.metadata.address || 'Endereço registrado no checkout',
                   region: sessionData.metadata.region || '',
-                  paymentMethod: 'Cartão Online (Aprovado via Stripe Checkout)',
+                  paymentMethod: sessionData.realMethodLabel || 'Cartão Online (Aprovado via Stripe)',
                   isOnlinePayment: true,
                   receiptAuthCode: sessionData.metadata.receiptAuthCode || `AUT-STRIPE-${sessionId.substring(sessionId.length - 8).toUpperCase()}`,
                   deliveryFee: 0,
                   totalToPay: sessionData.metadata.total ? parseFloat(sessionData.metadata.total) : 0
                 };
+              } else if (details && sessionData.realMethodLabel) {
+                details.paymentMethod = sessionData.realMethodLabel;
               }
             }
           } catch (err) {
@@ -332,8 +285,19 @@ export default function App() {
 
         // Garante que o status de pagamento online esteja marcado como aprovado
         details.isOnlinePayment = true;
-        if (!details.paymentMethod.includes('Aprovado via Stripe')) {
-          details.paymentMethod = `${details.paymentMethod} (Aprovado via Stripe)`;
+
+        // Se porventura orderItems estiver vazio (ex: reload sem localStorage), cria item sintético com o valor pago
+        if ((!orderItems || orderItems.length === 0) && details.totalToPay) {
+          orderItems = [{
+            id: 'stripe-online-order',
+            cartItemId: 'stripe-' + Date.now(),
+            name: 'Pedido Pago via Cartão (Stripe)',
+            price: details.totalToPay,
+            quantity: 1,
+            category: 'Lanches',
+            points: 10,
+            image: '/logo.png'
+          } as any];
         }
 
         // Confirmação final do pedido e redirecionamento para o minigame do cachorrinho
@@ -526,11 +490,12 @@ export default function App() {
   };
 
   const handleCheckout = async (details: any, customCartItems?: CartItem[], customDiscountAmount?: number) => {
-    if (isStoreClosedMonday()) {
+    const status = getStoreStatus();
+    if (!status.isOpen) {
       playSound('error');
       addToast({
-        title: STORE_CLOSED_MESSAGE,
-        message: 'Loja fechada segunda-feira: Nosso delivery está em manutenção hoje. Não é possível finalizar pedidos!',
+        title: status.title,
+        message: status.description,
         type: 'error'
       });
       return;
@@ -566,51 +531,74 @@ export default function App() {
 
     let msg = `Me chamo ${clientNameUpper}\n\n`;
     msg += `e gostaria de fazer um pedido aqui pelo whatsapp!\n\n`;
-    msg += `Pedido Número: #${orderNumber}\n`;
-    msg += `Gerado às: ${timeNow}\n\n`;
-    msg += `ITENS DO PEDIDO:\n\n`;
+    msg += `═══════════════════════════\n`;
+    msg += `🍔 *PEDIDO #${orderNumber} - NICKEL LANCHES*\n`;
+    msg += `📅 *Gerado às:* ${timeNow} (${dateNow})\n`;
+    msg += `═══════════════════════════\n\n`;
+    msg += `📋 *ITENS DO PEDIDO:*\n\n`;
 
     activeCart.forEach(item => {
-      const itemTotal = (item.price + (item.extras?.reduce((sum, e) => sum + e.price, 0) || 0)) * item.quantity;
-      msg += `- ${item.quantity}x ${item.name} (R$ ${itemTotal.toFixed(2).replace('.', ',')})\n`;
+      const extrasUnitTotal = item.extras?.reduce((sum, e) => sum + (e.price || 0), 0) || 0;
+      const unitTotal = item.price + extrasUnitTotal;
+      const itemSubtotal = unitTotal * item.quantity;
+
+      msg += `*${item.quantity}x ${item.name}* (R$ ${item.price.toFixed(2).replace('.', ',')} cada)\n`;
+      
       if (item.extras && item.extras.length > 0) {
-        msg += `Adicionais: ${item.extras.map(e => e.name).join(', ')}\n`;
+        msg += `   ➕ *Adicionais:*\n`;
+        item.extras.forEach(extra => {
+          const extraPriceStr = extra.price > 0 ? `+ R$ ${extra.price.toFixed(2).replace('.', ',')}` : 'Incluso';
+          msg += `      • ${extra.name}: ${extraPriceStr}\n`;
+        });
       }
+
       if (item.observation && item.observation.trim()) {
-        msg += `Observação: ${item.observation.trim()}\n`;
+        msg += `   📝 *Observação:* ${item.observation.trim()}\n`;
       }
+
+      msg += `   💵 *Subtotal do item:* R$ ${itemSubtotal.toFixed(2).replace('.', ',')}\n\n`;
     });
 
-    msg += `\n`;
-
-    let totalLine = `TOTAL: R$ ${computedTotalCart.toFixed(2).replace('.', ',')}`;
-    if (details.deliveryFee && details.deliveryFee > 0) {
-      totalLine += ` + Frete R$ ${details.deliveryFee.toFixed(2).replace('.', ',')} (Total: R$ ${finalTotal.toFixed(2).replace('.', ',')})`;
-    } else {
-      totalLine += ` + Frete a calcular`;
+    msg += `═══════════════════════════\n`;
+    msg += `💰 *RESUMO FINANCEIRO:*\n`;
+    msg += `• Subtotal dos Itens: R$ ${baseSubtotal.toFixed(2).replace('.', ',')}\n`;
+    if (activeDiscount > 0) {
+      msg += `• Desconto Aplicado: - R$ ${activeDiscount.toFixed(2).replace('.', ',')}\n`;
     }
-    msg += `${totalLine}\n\n`;
+    if (details.deliveryFee && details.deliveryFee > 0) {
+      msg += `• Taxa de Entrega: R$ ${details.deliveryFee.toFixed(2).replace('.', ',')}${details.region ? ` (${details.region})` : ''}\n`;
+    } else {
+      msg += `• Taxa de Entrega: A calcular / Grátis\n`;
+    }
+    msg += `👉 *TOTAL A PAGAR: R$ ${finalTotal.toFixed(2).replace('.', ',')}*\n`;
+    msg += `═══════════════════════════\n\n`;
 
-    msg += `DADOS PARA ENTREGA:\n`;
-    msg += `Nome: ${clientName}\n`;
-    msg += `WhatsApp: ${(details.whatsapp || '').trim()}\n`;
+    msg += `📍 *DADOS PARA ENTREGA:*\n`;
+    msg += `• *Nome:* ${clientName}\n`;
+    msg += `• *WhatsApp:* ${(details.whatsapp || '').trim()}\n`;
     const cleanAddress = (details.address || '').trim();
     const regionSuffix = details.region && details.region !== 'Frete a calcular' && !cleanAddress.toLowerCase().includes(details.region.toLowerCase())
       ? ` (${details.region})`
       : '';
-    msg += `Endereço: ${cleanAddress}${regionSuffix}\n`;
+    msg += `• *Endereço:* ${cleanAddress}${regionSuffix}\n`;
+    if (details.receiptNotes && details.receiptNotes.trim()) {
+      msg += `• *Obs. Entrega / Referência:* ${details.receiptNotes.trim()}\n`;
+    }
     
     let paymentText = details.paymentMethod || 'Pix';
     if (details.changeFor) {
       paymentText += ` (Troco para R$ ${details.changeFor})`;
     }
-    msg += `Forma de Pagamento: ${paymentText}`;
+    msg += `\n💳 *FORMA DE PAGAMENTO:*\n`;
+    msg += `• ${paymentText}\n`;
     if (paymentText.toLowerCase().includes('pix')) {
-      msg += `\n*Chave PIX (WhatsApp): (54) 99959-8389*`;
+      msg += `• *Chave PIX (WhatsApp): (54) 99959-8389*\n`;
+      msg += `• Favorecido: Nickel Lanches\n`;
     }
-    if (details.receiptNotes && details.receiptNotes.trim()) {
-      msg += `\nObservação da Entrega: ${details.receiptNotes.trim()}`;
-    }
+    
+    msg += `\n🔐 *CÓDIGO DE AUTENTICAÇÃO DO PEDIDO:*\n`;
+    msg += `${authCode}\n\n`;
+    msg += `_Por favor, confirme o recebimento do meu pedido! Aguardo confirmação e tempo estimado de preparo/entrega._ 🚀`;
     
     // 2. Save order and receipt to Firebase
     let orderId = Math.random().toString(36).substring(2, 9).toUpperCase();
@@ -636,38 +624,9 @@ export default function App() {
         receiptSummary: `R$ ${finalTotal.toFixed(2).replace('.', ',')} via ${details.paymentMethod}`
       });
 
-      // 3. Auto-impressão imediata assim que o pedido é realizado
-      try {
-        const printerSettings = await getPrinterSettings();
-        if (printerSettings.autoPrint) {
-          const printedSet = new Set<string>(JSON.parse(localStorage.getItem('printed_orders') || '[]'));
-          printedSet.add(orderId);
-          localStorage.setItem('printed_orders', JSON.stringify(Array.from(printedSet)));
 
-          const orderObj: Order = {
-            id: orderId,
-            orderNumber,
-            userName: details.name || user?.displayName || 'Anônimo',
-            address: details.address || '',
-            paymentMethod: details.paymentMethod || 'Pix',
-            whatsapp: details.whatsapp || '',
-            deliveryFee: details.deliveryFee || 0,
-            changeFor: details.changeFor || '',
-            region: details.region || '',
-            totalPrice: finalTotal,
-            totalPoints: earnedPoints,
-            items: activeCart,
-            receiptNotes: details.receiptNotes || '',
-            status: 'recebido',
-            createdAt: new Date()
-          };
 
-          playSound('order_alert');
-          executeUniversalPrint(orderObj, printerSettings, addToast);
-        }
-      } catch (printErr) {
-        console.warn('Erro ao acionar auto-impressão imediata:', printErr);
-      }
+      // Pedido registrado no banco de dados e pronto para acompanhamento no minigame
     } catch(e) {
       console.error("Error saving order", e);
     }
@@ -813,12 +772,11 @@ export default function App() {
 
     return (
       <div className="w-full pb-0 bg-transparent min-h-screen">
-        {/* Aviso de Segunda Fechada no Cardápio */}
-        {isStoreClosedMonday() && (
+        {/* Aviso de Loja Fechada no Cardápio */}
+        {!getStoreStatus().isOpen && (
           <div className="bg-red-600 text-white py-2 px-4 text-center text-xs sm:text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm">
-            <span className="text-amber-300">⚠️</span>
-            <span>LOJA FECHADA SEGUNDA-FEIRA: DELIVERY EM MANUTENÇÃO HOJE!</span>
-            <span className="hidden md:inline font-bold opacity-90">• Retornamos terça-feira às 18:30</span>
+            <span className="text-amber-300">⏰</span>
+            <span>{getStoreStatus().bannerText}</span>
           </div>
         )}
 
@@ -910,12 +868,11 @@ export default function App() {
 
   const renderMenu = () => (
     <div className="w-full pb-0 bg-transparent">
-      {/* Top Banner com Slogan Oficial ou Aviso de Segunda Fechada */}
-      {isStoreClosedMonday() ? (
+      {/* Top Banner com Slogan Oficial ou Aviso de Loja Fechada */}
+      {!getStoreStatus().isOpen ? (
         <div className="bg-red-600 text-white py-2 px-4 text-center text-xs sm:text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm animate-in fade-in">
-          <span className="text-amber-300">⚠️</span>
-          <span>LOJA FECHADA SEGUNDA-FEIRA: DELIVERY EM MANUTENÇÃO HOJE!</span>
-          <span className="hidden md:inline font-bold opacity-90">• Retornamos terça-feira às 18:30</span>
+          <span className="text-amber-300">⏰</span>
+          <span>{getStoreStatus().bannerText}</span>
         </div>
       ) : (
         <div className="bg-gradient-to-r from-[#4E2A84] via-[#F28B20] to-[#4E2A84] text-white py-1.5 px-4 text-center text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs">
@@ -927,32 +884,38 @@ export default function App() {
 
       {/* Header com Navegação */}
       <header className="sticky top-0 z-50 bg-white border-b border-stone-100 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 py-3.5 flex justify-between items-center">
-          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
-            <img loading="eager" fetchPriority="high" src="/logo.png" alt="Nickel Lanches" className="h-16 sm:h-20 md:h-24 w-auto object-contain drop-shadow-md group-hover:scale-105 transition-transform" />
-            <div className="flex flex-col justify-center -ml-2 sm:-ml-3">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl tracking-tighter leading-none"><NickelText /></h1>
-              <h2 className="text-sm sm:text-lg md:text-xl tracking-tighter leading-none -mt-0.5 sm:-mt-1" style={{ fontFamily: '"Russo One", sans-serif', fontStyle: 'italic', color: '#FFFFFF', WebkitTextStroke: '1px black', textShadow: '1px 1px 0px #000' }}>LANCHES</h2>
+        <div className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 py-2.5 sm:py-3.5 flex justify-between items-center gap-2 xl:gap-4">
+          <div className="flex items-center gap-2 lg:gap-3 cursor-pointer group flex-shrink-0" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
+            <img loading="eager" fetchPriority="high" src="/logo.png" alt="Nickel Lanches" className="h-11 sm:h-14 lg:h-16 w-auto object-contain drop-shadow-md group-hover:scale-105 transition-transform" />
+            <div className="hidden sm:flex flex-col justify-center -ml-1">
+              <h1 className="text-lg sm:text-2xl lg:text-3xl tracking-tighter leading-none"><NickelText /></h1>
+              <h2 className="text-xs sm:text-sm lg:text-base tracking-tighter leading-none -mt-0.5" style={{ fontFamily: '"Russo One", sans-serif', fontStyle: 'italic', color: '#FFFFFF', WebkitTextStroke: '1px black', textShadow: '1px 1px 0px #000' }}>LANCHES</h2>
             </div>
           </div>
           
-          <nav className="hidden lg:flex items-center gap-8">
-            <button onClick={() => { navigateToView('store'); setShowLastOrdersState(false); window.scrollTo(0,0); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Cardápio</button>
-            <button onClick={() => { document.getElementById('quem-somos')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Quem Somos</button>
-            <button onClick={() => { document.getElementById('contato')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-sm font-bold uppercase tracking-wider text-stone-600 hover:text-[#F28B20] transition-colors">Contato</button>
-            <button onClick={() => navigateToView('game')} className="text-sm font-black uppercase tracking-wider text-[#4E2A84] hover:text-[#F28B20] transition-all flex items-center gap-2 group">
-              <img src="/game-icon.svg" alt="Game" className="w-7 h-7 object-contain drop-shadow-sm group-hover:scale-125 group-hover:rotate-12 transition-transform duration-200" />
-              <span className="bg-gradient-to-r from-[#4E2A84] to-[#F28B20] bg-clip-text text-transparent group-hover:text-[#F28B20]">Jogue nosso jogo</span>
+          <nav className="hidden lg:flex items-center gap-2 xl:gap-4 flex-shrink-0">
+            <button onClick={() => { navigateToView('store'); setShowLastOrdersState(false); window.scrollTo(0,0); }} className="text-xs xl:text-sm font-bold uppercase tracking-wider text-stone-700 hover:text-[#F28B20] transition-colors whitespace-nowrap px-2 py-1.5 rounded-lg hover:bg-stone-50">Cardápio</button>
+            {!!activeOrder && (
+              <button onClick={() => navigateToView('game')} className="text-xs xl:text-sm font-bold uppercase tracking-wider text-[#F28B20] hover:text-orange-600 transition-colors flex items-center gap-1.5 relative bg-orange-50 px-2.5 py-1.5 rounded-full border border-orange-200 whitespace-nowrap">
+                <Clock size={15} />
+                <span>Acompanhar Pedido</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              </button>
+            )}
+            <button onClick={() => { document.getElementById('quem-somos')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-xs xl:text-sm font-bold uppercase tracking-wider text-stone-700 hover:text-[#F28B20] transition-colors whitespace-nowrap px-2 py-1.5 rounded-lg hover:bg-stone-50">Quem Somos</button>
+            <button onClick={() => navigateToView('game')} className="text-xs xl:text-sm font-black uppercase tracking-wider text-[#4E2A84] hover:text-[#F28B20] transition-all flex items-center gap-1.5 group whitespace-nowrap px-2.5 py-1.5 rounded-lg hover:bg-purple-50">
+              <img src="/game-icon.svg" alt="Game" className="w-6 h-6 object-contain drop-shadow-sm group-hover:scale-125 group-hover:rotate-12 transition-transform duration-200" />
+              <span className="bg-gradient-to-r from-[#4E2A84] to-[#F28B20] bg-clip-text text-transparent group-hover:text-[#F28B20]">Minigame</span>
             </button>
-            <button onClick={() => { navigateToView('store'); setShowLastOrdersState(true); window.scrollTo(0,0); }} className="bg-[#F28B20] text-white px-6 py-2.5 rounded-full text-sm font-bold uppercase tracking-wider hover:bg-orange-500 transition-colors shadow-sm">Faça seu Pedido</button>
+            <button onClick={() => { navigateToView('store'); setShowLastOrdersState(true); window.scrollTo(0,0); }} className="bg-[#F28B20] text-white px-4 xl:px-5 py-2 rounded-full text-xs xl:text-sm font-bold uppercase tracking-wider hover:bg-orange-500 transition-colors shadow-sm whitespace-nowrap">Faça seu Pedido</button>
           </nav>
 
-          <div className="flex items-center gap-2 md:gap-3 lg:hidden relative">
-            <button onClick={() => navigateToView('game')} className="w-12 h-12 bg-gradient-to-tr from-amber-100 via-purple-100 to-pink-100 rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-xs border border-purple-200/80 active:scale-95" title="Jogue nosso jogo">
-              <img src="/game-icon.svg" alt="Game" className="w-8 h-8 object-contain drop-shadow-sm" />
+          <div className="flex items-center gap-2 md:gap-3 lg:hidden relative flex-shrink-0">
+            <button onClick={() => navigateToView('game')} className="w-10 h-10 bg-gradient-to-tr from-amber-100 via-purple-100 to-pink-100 rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-xs border border-purple-200/80 active:scale-95" title="Jogue nosso jogo">
+              <img src="/game-icon.svg" alt="Game" className="w-7 h-7 object-contain drop-shadow-sm" />
             </button>
-            <button onClick={() => openCart()} className="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center text-stone-900 relative">
-              <ShoppingBag size={24} />
+            <button onClick={() => openCart()} className="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center text-stone-900 relative">
+              <ShoppingBag size={20} />
               {cart.reduce((sum, item) => sum + item.quantity, 0) > 0 && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#4E2A84] rounded-full flex items-center justify-center text-[10px] text-white font-bold border-2 border-white">
                   {cart.reduce((sum, item) => sum + item.quantity, 0)}
@@ -969,16 +932,21 @@ export default function App() {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="absolute top-12 right-0 w-48 bg-white border border-stone-200 rounded-2xl shadow-xl flex flex-col py-2 z-50 overflow-hidden"
+                  className="absolute top-12 right-0 w-56 bg-white border border-stone-200 rounded-2xl shadow-xl flex flex-col py-2 z-50 overflow-hidden"
                 >
-                  <button onClick={() => { setIsMobileMenuOpen(false); navigateToView('profile'); }} className="text-left px-4 py-3 font-bold text-sm text-[#F28B20] uppercase tracking-wide hover:bg-stone-50 transition-colors flex items-center gap-2">
-                    <User size={16} /> Minha Conta
+                  {!!activeOrder && (
+                    <button onClick={() => { setIsMobileMenuOpen(false); navigateToView('game'); }} className="text-left px-4 py-3 font-bold text-sm text-[#F28B20] uppercase tracking-wide hover:bg-stone-50 transition-colors flex items-center gap-2">
+                      <Clock size={16} /> Acompanhar Pedido
+                    </button>
+                  )}
+                  <button onClick={() => { setIsMobileMenuOpen(false); navigateToView('profile'); }} className="text-left px-4 py-3 font-bold text-sm text-stone-700 uppercase tracking-wide hover:bg-stone-50 transition-colors flex items-center gap-2 border-t border-stone-100">
+                    <User size={16} /> Minha Conta & Histórico
                   </button>
                   <button onClick={() => { setIsMobileMenuOpen(false); document.getElementById('quem-somos')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-left px-4 py-3 font-bold text-sm text-stone-700 uppercase tracking-wide hover:bg-stone-50 transition-colors border-t border-stone-100">
                     Quem Somos
                   </button>
-                  <button onClick={() => { setIsMobileMenuOpen(false); document.getElementById('contato')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-left px-4 py-3 font-bold text-sm text-stone-700 uppercase tracking-wide hover:bg-stone-50 transition-colors">
-                    Contato
+                  <button onClick={() => { setIsMobileMenuOpen(false); setActiveModal('payments'); }} className="text-left px-4 py-3 font-bold text-sm text-stone-700 uppercase tracking-wide hover:bg-stone-50 transition-colors flex items-center gap-2 border-t border-stone-100">
+                    <CreditCard size={16} className="text-[#F28B20]" /> Formas de Pagamento
                   </button>
                   <button onClick={() => { setIsMobileMenuOpen(false); navigateToView('game'); }} className="text-left px-4 py-3 font-bold text-sm text-[#4E2A84] uppercase tracking-wide hover:bg-stone-50 transition-colors flex items-center gap-2.5 border-t border-stone-100">
                     <img src="/game-icon.svg" alt="Game" className="w-6 h-6 object-contain" /> Jogue nosso jogo
@@ -992,18 +960,18 @@ export default function App() {
           </div>
           
           {/* Desktop User/Cart icons */}
-          <div className="hidden lg:flex items-center gap-3">
-            <button onClick={handleShareWhatsApp} className="w-12 h-12 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366] hover:text-white rounded-full flex items-center justify-center border border-[#25D366]/30 transition-all hover:scale-105 shadow-2xs cursor-pointer" title="Compartilhar no WhatsApp">
+          <div className="hidden lg:flex items-center gap-2 xl:gap-3 flex-shrink-0">
+            <button onClick={handleShareWhatsApp} className="w-10 h-10 xl:w-11 xl:h-11 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366] hover:text-white rounded-full flex items-center justify-center border border-[#25D366]/30 transition-all hover:scale-105 shadow-2xs cursor-pointer" title="Compartilhar no WhatsApp">
               <Share2 size={18} />
             </button>
-            <button onClick={() => navigateToView('game')} className="w-12 h-12 bg-gradient-to-tr from-amber-50 via-purple-50 to-pink-50 rounded-full flex items-center justify-center border border-purple-200 hover:bg-purple-100 transition-all hover:scale-105 shadow-2xs" title="Jogue nosso jogo">
-              <img src="/game-icon.svg" alt="Game" className="w-7 h-7 object-contain drop-shadow-sm" />
+            <button onClick={() => navigateToView('game')} className="w-10 h-10 xl:w-11 xl:h-11 bg-gradient-to-tr from-amber-50 via-purple-50 to-pink-50 rounded-full flex items-center justify-center border border-purple-200 hover:bg-purple-100 transition-all hover:scale-105 shadow-2xs" title="Jogue nosso jogo">
+              <img src="/game-icon.svg" alt="Game" className="w-6 h-6 object-contain drop-shadow-sm" />
             </button>
-             <button onClick={() => navigateToView('profile')} className="w-12 h-12 bg-stone-50 rounded-full flex items-center justify-center text-[#F28B20] border border-stone-200 hover:bg-stone-100 transition-colors">
-              <User size={20} />
+            <button onClick={() => navigateToView('profile')} className="w-10 h-10 xl:w-11 xl:h-11 bg-stone-50 rounded-full flex items-center justify-center text-[#F28B20] border border-stone-200 hover:bg-stone-100 transition-colors" title="Minha Conta">
+              <User size={18} />
             </button>
-            <button onClick={() => openCart()} className="w-12 h-12 bg-stone-50 rounded-full flex items-center justify-center text-stone-900 border border-stone-200 hover:bg-stone-100 transition-colors relative">
-              <ShoppingBag size={20} />
+            <button onClick={() => openCart()} className="w-10 h-10 xl:w-11 xl:h-11 bg-stone-50 rounded-full flex items-center justify-center text-stone-900 border border-stone-200 hover:bg-stone-100 transition-colors relative" title="Minha Sacola">
+              <ShoppingBag size={18} />
               {cart.reduce((sum, item) => sum + item.quantity, 0) > 0 && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#4E2A84] rounded-full border-2 border-white flex items-center justify-center text-[10px] text-white font-bold">
                   {cart.reduce((sum, item) => sum + item.quantity, 0)}
@@ -1049,7 +1017,7 @@ export default function App() {
 
       {/* Footer / Contato */}
       <div id="contato">
-        <Footer onOpenModal={setActiveModal} />
+        <Footer onOpenModal={setActiveModal} onOpenAdmin={() => navigateToView('admin')} />
       </div>
     </div>
   );
@@ -1073,43 +1041,7 @@ export default function App() {
           onLogout={signOut} 
         />
       )}
-      {/* Info Modals */}
-      <AnimatePresence>
-        {activeModal && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="bg-white border-4 border-black rounded-2xl p-8 max-w-md w-full shadow-[8px_8px_0px_#000] relative"
-            >
-              <h2 className="text-3xl font-display uppercase text-black comic-text-bold tracking-wide mb-4">
-                {activeModal === 'privacy' && 'Termos de Privacidade'}
-                {activeModal === 'contact' && 'Contato'}
-              </h2>
-              <div className="text-zinc-800 font-bold mb-8 space-y-4">
-                {activeModal === 'privacy' && (
-                  <p>Nós respeitamos sua privacidade como um doguinho respeita seu osso! Seus dados de login são usados apenas para salvar seus pedidos intergalácticos e seus pontos XP.</p>
-                )}
-                {activeModal === 'contact' && (
-                  <p>Mande um sinal de fumaça, um pombo correio ou um e-mail para <strong>alo@nickellanches.com.br</strong>. Atendemos de Marte à Lua!</p>
-                )}
-              </div>
-              <button 
-                onClick={() => setActiveModal(null)}
-                className="w-full py-3 bg-yellow-400 border-2 border-black text-black font-display tracking-widest uppercase rounded-xl hover:bg-yellow-500 shadow-[2px_2px_0px_#000] hover:shadow-[4px_4px_0px_#000] transition-all hover:-translate-y-1"
-              >
-                Entendi!
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
 
       {/* Cookie Banner */}
       <AnimatePresence>
@@ -1180,6 +1112,27 @@ export default function App() {
       <div className="relative z-10">
         {view === 'menu' && renderMenu()}
         {view === 'game' && <DogGame order={activeOrder} onFinishOrder={handleFinishOrder} onClose={() => { navigateToView('menu'); window.scrollTo(0,0); }} onViewAbout={() => { navigateToView('about'); window.scrollTo(0,0); }} />}
+        {view === 'about' && (
+          <div className="min-h-screen bg-[#FCF9F5] pt-6 pb-12 px-4 md:px-8">
+            <div className="max-w-7xl mx-auto flex items-center justify-between mb-6">
+              <button 
+                onClick={() => {
+                  if (activeOrder) {
+                    navigateToView('game');
+                  } else {
+                    navigateToView('menu');
+                  }
+                  window.scrollTo(0,0);
+                }} 
+                className="bg-stone-900 text-white px-5 py-2.5 rounded-full font-bold text-xs uppercase tracking-wider flex items-center gap-2 hover:bg-stone-800 transition-colors shadow-md cursor-pointer"
+              >
+                <ArrowLeft size={16} />
+                <span>{activeOrder ? 'Voltar ao Acompanhamento / Jogo' : 'Voltar ao Cardápio'}</span>
+              </button>
+            </div>
+            <StorySection />
+          </div>
+        )}
         {view === 'admin' && <AdminPanel onClose={() => navigateToView('menu')} />}
       </div>
       
@@ -1251,6 +1204,102 @@ export default function App() {
                     <p>Ao realizar um pedido, você concorda com os preços, taxas de entrega e tempos estimados informados no checkout. As imagens do cardápio são ilustrativas, mas garantimos a qualidade e o sabor.</p>
                     <h3 className="text-lg font-bold text-stone-900 mt-4">2. Cancelamentos</h3>
                     <p>Cancelamentos só podem ser realizados antes da confirmação pela cozinha. Uma vez em preparo, não poderemos estornar o valor integral.</p>
+                  </div>
+                </>
+              )}
+
+              {activeModal === 'payments' && (
+                <>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 rounded-2xl bg-orange-100 text-[#F28B20] flex items-center justify-center shrink-0">
+                      <CreditCard size={24} />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-black uppercase text-[#4E2A84] leading-tight">Formas de Pagamento</h2>
+                      <p className="text-xs text-stone-500 font-bold uppercase tracking-wider">Nickel Lanches • Passo Fundo - RS</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 text-stone-700 text-sm leading-relaxed">
+                    <p className="font-medium text-stone-600">
+                      Aqui na <strong>Nickel Lanches</strong> você escolhe como prefere pagar: <strong>online com aprovação na hora</strong> ou <strong>diretamente ao motoboy na entrega</strong>!
+                    </p>
+
+                    {/* Bloco 1: Na Entrega */}
+                    <div className="bg-orange-50/70 border border-orange-200/80 rounded-2xl p-4 space-y-2.5">
+                      <div className="flex items-center gap-2 text-stone-900 font-black text-xs uppercase tracking-wider">
+                        <span>🛵 Pagamento na Entrega (ao Motoboy)</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div className="bg-white p-3 rounded-xl border border-orange-100 space-y-1 shadow-2xs">
+                          <span className="font-bold text-stone-900 flex items-center gap-1.5">
+                            <CreditCard size={15} className="text-[#F28B20]" /> Cartões (Maquininha)
+                          </span>
+                          <p className="text-stone-500 text-[11px]">
+                            O motoboy leva a maquininha sem fio. Aceitamos <strong>Crédito e Débito</strong> (Visa, Mastercard, Elo, Hipercard, Banricompras).
+                          </p>
+                        </div>
+
+                        <div className="bg-white p-3 rounded-xl border border-orange-100 space-y-1 shadow-2xs">
+                          <span className="font-bold text-stone-900 flex items-center gap-1.5">
+                            <QrCode size={15} className="text-emerald-600" /> PIX ao Motoboy
+                          </span>
+                          <p className="text-stone-500 text-[11px]">
+                            Você pode pagar via PIX no ato da entrega para a chave da lanchonete: <strong>(54) 99959-8389</strong>.
+                          </p>
+                        </div>
+
+                        <div className="bg-white p-3 rounded-xl border border-orange-100 space-y-1 shadow-2xs col-span-1 sm:col-span-2">
+                          <span className="font-bold text-stone-900 flex items-center gap-1.5">
+                            <Banknote size={15} className="text-amber-600" /> Dinheiro em Espécie (com Troco)
+                          </span>
+                          <p className="text-stone-500 text-[11px]">
+                            Pague em notas na entrega. Basta informar no carrinho para quanto você precisa de troco que levamos o troco certinho!
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bloco 2: Pagamentos Online / Antecipados */}
+                    <div className="bg-purple-50/70 border border-purple-200/80 rounded-2xl p-4 space-y-2.5">
+                      <div className="flex items-center gap-2 text-stone-900 font-black text-xs uppercase tracking-wider">
+                        <Sparkles size={14} className="text-purple-600" />
+                        <span>Pagar Agora pelo Site (Online / Antecipado)</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div className="bg-white p-3 rounded-xl border border-purple-100 space-y-1 shadow-2xs">
+                          <span className="font-bold text-stone-900 flex items-center gap-1.5">
+                            <QrCode size={15} className="text-purple-600" /> PIX Imediato (QR Code)
+                          </span>
+                          <p className="text-stone-500 text-[11px]">
+                            O site gera o QR Code e o código <strong>PIX Copia e Cola</strong> com o valor exato do seu pedido. Cai na hora!
+                          </p>
+                        </div>
+
+                        <div className="bg-white p-3 rounded-xl border border-purple-100 space-y-1 shadow-2xs">
+                          <span className="font-bold text-stone-900 flex items-center gap-1.5">
+                            <CreditCard size={15} className="text-purple-600" /> Cartão Online (Stripe)
+                          </span>
+                          <p className="text-stone-500 text-[11px]">
+                            Checkout seguro oficial com criptografia bancária Stripe. Pague no crédito ou débito pelo próprio site.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 text-xs text-stone-500 flex items-center gap-2">
+                      <ShieldCheck size={18} className="text-emerald-600 shrink-0" />
+                      <span>Todos os pagamentos online e na maquininha possuem garantia de segurança e autenticidade da Nickel Lanches.</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex justify-end">
+                    <button
+                      onClick={() => setActiveModal(null)}
+                      className="px-6 py-2.5 bg-[#F28B20] text-white font-black text-xs uppercase tracking-wider rounded-xl hover:bg-orange-600 transition-colors cursor-pointer"
+                    >
+                      Fechar
+                    </button>
                   </div>
                 </>
               )}

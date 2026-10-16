@@ -12,6 +12,7 @@ import PrintableReceipt from './PrintableReceipt';
 import PrintModal from './PrintModal';
 import { getConnectedUsbPrinter, sendRawToUsbPrinter, buildReceiptEscPos } from '../lib/escpos';
 import { executeUniversalPrint } from '../lib/printerService';
+import { isStoreClosedMonday, getStoreStatus } from '../lib/storeHours';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -84,13 +85,26 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
     }
   };
 
+  const isInitialLoadRef = useRef(true);
+
   useEffect(() => {
     if (isAuthenticated) {
       const unsubOrders = subscribeToAllOrders((newOrders) => {
         setOrders(prev => {
+          const freshPrinted = new Set<string>(JSON.parse(localStorage.getItem('printed_orders') || '[]'));
+          
+          if (isInitialLoadRef.current) {
+            // Na primeira carga da página, registra os IDs existentes como conhecidos para evitar disparar impressão em massa de pedidos antigos
+            newOrders.forEach(o => {
+              if (o.id) freshPrinted.add(o.id);
+            });
+            localStorage.setItem('printed_orders', JSON.stringify(Array.from(freshPrinted)));
+            isInitialLoadRef.current = false;
+            return newOrders;
+          }
+
           if (autoPrintRef.current) {
             const currentIds = new Set(prev.map(o => o.id));
-            const freshPrinted = new Set<string>(JSON.parse(localStorage.getItem('printed_orders') || '[]'));
             newOrders.forEach(order => {
               if (order.status === 'recebido' && order.id && !currentIds.has(order.id) && !freshPrinted.has(order.id)) {
                 freshPrinted.add(order.id);
@@ -190,24 +204,38 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
           </a>
           <span>Versão 2.1.0</span>
 
-          <div className="pt-2 w-full">
+          <div className="pt-2 w-full space-y-1">
             <button
               type="button"
               onClick={() => {
-                const current = localStorage.getItem('nickel_simular_segunda') === 'true';
-                if (current) {
-                  localStorage.removeItem('nickel_simular_segunda');
+                const status = getStoreStatus();
+                if (!status.isOpen) {
+                  localStorage.setItem('nickel_simular_segunda', 'false');
+                  try {
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('simular_segunda');
+                    url.searchParams.delete('segunda');
+                    url.searchParams.delete('fechado');
+                    window.history.replaceState({}, document.title, url.pathname + url.search);
+                  } catch (_) {}
                 } else {
                   localStorage.setItem('nickel_simular_segunda', 'true');
                 }
                 window.location.reload();
               }}
-              className="w-full text-[10px] py-1.5 px-2 rounded bg-stone-800 hover:bg-stone-700 text-stone-300 font-bold uppercase tracking-normal transition-colors"
+              className={`w-full text-[10px] py-1.5 px-2 rounded font-bold uppercase tracking-normal transition-all shadow-xs ${
+                !getStoreStatus().isOpen
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  : 'bg-stone-800 hover:bg-stone-700 text-stone-300'
+              }`}
             >
-              {typeof window !== 'undefined' && localStorage.getItem('nickel_simular_segunda') === 'true'
-                ? '🔴 Desativar Teste Segunda'
-                : '🟡 Testar Segunda Fechada'}
+              {!getStoreStatus().isOpen
+                ? '🟢 Forçar Abertura da Loja'
+                : '🔴 Forçar Fechamento (Teste)'}
             </button>
+            <span className="text-[9px] text-stone-400 block text-center font-mono">
+              Status Real: {getStoreStatus().badgeText}
+            </span>
           </div>
         </div>
       </div>
@@ -583,7 +611,17 @@ function OrderEditModal({ order, onClose, onSave, onPrint }: any) {
                     <span className="text-green-600">R$ {((item.price + (item.extras?.reduce((s:any,e:any)=>s+e.price,0)||0)) * item.quantity).toFixed(2)}</span>
                   </div>
                   {item.extras && item.extras.length > 0 && (
-                    <div className="text-xs font-bold text-yellow-600 mt-1 uppercase">+ {item.extras.map((e:any) => e.name).join(', ')}</div>
+                    <div className="mt-1.5 pl-2 text-xs space-y-0.5 bg-yellow-50/80 p-2 rounded border border-yellow-200">
+                      <span className="font-bold text-yellow-800 uppercase text-[10px] block">Adicionais:</span>
+                      {item.extras.map((e: any, exIdx: number) => (
+                        <div key={exIdx} className="flex justify-between font-semibold text-stone-700">
+                          <span>• {e.name}</span>
+                          <span className="font-mono text-amber-900">
+                            {e.price > 0 ? `+ R$ ${Number(e.price).toFixed(2).replace('.', ',')}` : '(Incluso)'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   )}
                   {item.observation && (
                     <div className="text-xs italic text-red-500 font-bold mt-1 uppercase">Obs: {item.observation}</div>

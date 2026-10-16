@@ -66,7 +66,11 @@ export function generateReceiptText(
       }
 
       if (item.extras && item.extras.length > 0) {
-        out.push(`   + Adicionais: ${item.extras.map((e: any) => e.name).join(', ')}`);
+        out.push(`   Adicionais:`);
+        item.extras.forEach((e: any) => {
+          const extraPrice = !isKitchenOnly && e.price > 0 ? ` (+ R$ ${Number(e.price).toFixed(2).replace('.', ',')})` : ' (Incluso)';
+          out.push(`   • ${e.name}${extraPrice}`);
+        });
       }
       if (settings.showItemObservations && item.observation && item.observation.trim()) {
         out.push(`   * OBS: ${item.observation.trim().toUpperCase()}`);
@@ -136,7 +140,17 @@ export function generateReceiptHtml(
     const itemTotal = (item.price + extrasTotal) * item.quantity;
 
     const extrasSnippet = item.extras && item.extras.length > 0
-      ? `<div style="padding-left: 10px; font-size: 0.9em; font-weight: normal; margin-top: 2px;">+ Adicionais: ${item.extras.map((e: any) => e.name).join(', ')}</div>`
+      ? `
+        <div style="padding-left: 8px; margin-top: 3px; font-size: 0.88em; border-left: 2px solid #aaa; margin-left: 4px; padding-bottom: 2px;">
+          <div style="font-weight: 900; text-transform: uppercase; font-size: 0.82em; color: #333; margin-bottom: 2px;">Adicionais:</div>
+          ${item.extras.map((e: any) => `
+            <div style="display: flex; justify-content: space-between; font-weight: 600; padding: 1px 0;">
+              <span>• ${e.name}</span>
+              ${!isKitchenOnly ? `<span style="font-family: monospace; white-space: nowrap; margin-left: 6px;">${e.price > 0 ? `+ R$ ${Number(e.price).toFixed(2).replace('.', ',')}` : '(Incluso)'}</span>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      `
       : '';
 
     const obsSnippet = settings.showItemObservations && item.observation && item.observation.trim()

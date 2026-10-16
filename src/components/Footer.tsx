@@ -1,12 +1,13 @@
 import React from 'react';
 import NickelText from './NickelText';
-import { MapPin, Phone, MessageCircle, Mail, Clock, Share2 } from 'lucide-react';
+import { MapPin, Phone, MessageCircle, Mail, Clock, Share2, CreditCard, QrCode, Banknote, ShieldCheck, Landmark, Lock } from 'lucide-react';
 
 interface FooterProps {
-  onOpenModal: (modalId: 'privacy' | 'contact' | 'terms' | 'cookies') => void;
+  onOpenModal: (modalId: 'privacy' | 'contact' | 'terms' | 'cookies' | 'payments') => void;
+  onOpenAdmin?: () => void;
 }
 
-export default function Footer({ onOpenModal }: FooterProps) {
+export default function Footer({ onOpenModal, onOpenAdmin }: FooterProps) {
   return (
     <footer className="bg-stone-900 text-white pt-16 pb-32 md:pb-32 px-4 md:px-8 border-t-[8px] border-[#F28B20]">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
@@ -41,6 +42,11 @@ export default function Footer({ onOpenModal }: FooterProps) {
                 Nossa História
               </button>
             </li>
+            <li>
+              <button onClick={() => onOpenModal('payments')} className="text-stone-400 hover:text-[#F28B20] transition-colors text-sm font-medium flex items-center gap-2">
+                Formas de Pagamento
+              </button>
+            </li>
           </ul>
         </div>
 
@@ -48,6 +54,12 @@ export default function Footer({ onOpenModal }: FooterProps) {
         <div>
           <h3 className="text-lg font-black uppercase tracking-wider mb-6 text-stone-100">Atendimento & Legal</h3>
           <ul className="space-y-4">
+            <li>
+              <button onClick={() => onOpenModal('payments')} className="text-stone-400 hover:text-white transition-colors text-sm font-medium flex items-center gap-1.5">
+                <CreditCard size={15} className="text-[#F28B20]" />
+                <span>Como Pagar seu Pedido</span>
+              </button>
+            </li>
             <li>
               <button onClick={() => onOpenModal('privacy')} className="text-stone-400 hover:text-white transition-colors text-sm font-medium">Política de Privacidade</button>
             </li>
@@ -67,7 +79,7 @@ export default function Footer({ onOpenModal }: FooterProps) {
             <li>
               <a href="https://wa.me/5554999598389" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-stone-400 hover:text-[#25D366] transition-colors group">
                 <MessageCircle size={18} className="shrink-0" />
-                <span className="font-medium text-sm">WhatsApp: (54) 99959-8388</span>
+                <span className="font-medium text-sm">WhatsApp: (54) 99959-8389</span>
               </a>
             </li>
             
@@ -94,11 +106,88 @@ export default function Footer({ onOpenModal }: FooterProps) {
           </ul>
         </div>
       </div>
+
+      {/* SEÇÃO DEDICADA: FORMAS DE PAGAMENTO ACEITAS */}
+      <div className="max-w-7xl mx-auto border-t border-stone-800 pt-8 pb-8">
+        <div className="bg-stone-800/60 rounded-3xl p-6 border border-stone-700/60 flex flex-col lg:flex-row items-center justify-between gap-6">
+          <div className="text-center lg:text-left space-y-1">
+            <div className="flex items-center justify-center lg:justify-start gap-2">
+              <ShieldCheck className="text-[#F28B20]" size={18} />
+              <h4 className="text-sm md:text-base font-black uppercase tracking-wider text-white">
+                Formas de Pagamento Aceitas
+              </h4>
+              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                100% Seguro
+              </span>
+            </div>
+            <p className="text-xs text-stone-400">
+              Pague na entrega com o motoboy ou antecipado online com total segurança e comodidade.
+            </p>
+          </div>
+
+          {/* Badges de Métodos */}
+          <div className="flex flex-wrap items-center justify-center gap-2.5">
+            {/* PIX */}
+            <div className="flex items-center gap-1.5 bg-stone-900 border border-stone-700 px-3 py-2 rounded-xl">
+              <QrCode size={16} className="text-emerald-400" />
+              <div className="text-left">
+                <span className="text-xs font-bold text-white block leading-none">PIX</span>
+                <span className="text-[9px] text-stone-400">Na hora ou entrega</span>
+              </div>
+            </div>
+
+            {/* Cartões de Crédito */}
+            <div className="flex items-center gap-1.5 bg-stone-900 border border-stone-700 px-3 py-2 rounded-xl">
+              <CreditCard size={16} className="text-purple-400" />
+              <div className="text-left">
+                <span className="text-xs font-bold text-white block leading-none">Cartão de Crédito</span>
+                <span className="text-[9px] text-stone-400">Visa, Master, Elo, Hiper</span>
+              </div>
+            </div>
+
+            {/* Cartões de Débito */}
+            <div className="flex items-center gap-1.5 bg-stone-900 border border-stone-700 px-3 py-2 rounded-xl">
+              <CreditCard size={16} className="text-blue-400" />
+              <div className="text-left">
+                <span className="text-xs font-bold text-white block leading-none">Cartão de Débito</span>
+                <span className="text-[9px] text-stone-400">Maquininha na entrega</span>
+              </div>
+            </div>
+
+            {/* Dinheiro */}
+            <div className="flex items-center gap-1.5 bg-stone-900 border border-stone-700 px-3 py-2 rounded-xl">
+              <Banknote size={16} className="text-amber-400" />
+              <div className="text-left">
+                <span className="text-xs font-bold text-white block leading-none">Dinheiro em Espécie</span>
+                <span className="text-[9px] text-stone-400">Levamos troco</span>
+              </div>
+            </div>
+
+            {/* Botão de Ver Detalhes */}
+            <button
+              type="button"
+              onClick={() => onOpenModal('payments')}
+              className="bg-[#F28B20] hover:bg-[#d97a1c] text-white text-xs font-black uppercase tracking-wider px-4 py-2.5 rounded-xl transition-all shadow-sm cursor-pointer whitespace-nowrap"
+            >
+              Ver Detalhes
+            </button>
+          </div>
+        </div>
+      </div>
       
-      {/* Footer Bottom Centered */}
-      <div className="max-w-7xl mx-auto border-t border-stone-800 pt-8 flex flex-col items-center justify-center text-center text-stone-500 text-xs font-medium space-y-2">
-        <p>&copy; {new Date().getFullYear()} <button onClick={() => window.location.href = '/painel-admin'} className="hover:opacity-80 transition-opacity"><NickelText /></button> Lanches. Todos os direitos reservados.</p>
-        <p>Feito com ❤️ para quem ama lanche de verdade.</p>
+      {/* Footer Bottom Centered com Botão do Painel ADM */}
+      <div className="max-w-7xl mx-auto border-t border-stone-800 pt-8 flex flex-col sm:flex-row items-center justify-between text-stone-500 text-xs font-medium gap-4">
+        <p>&copy; {new Date().getFullYear()} <NickelText /> Lanches. Todos os direitos reservados.</p>
+        
+        {onOpenAdmin && (
+          <button
+            type="button"
+            onClick={onOpenAdmin}
+            className="flex items-center gap-1.5 text-stone-300 hover:text-yellow-400 transition-colors font-bold uppercase tracking-wider text-[11px] cursor-pointer bg-stone-800 hover:bg-stone-700 px-3.5 py-2 rounded-xl border border-stone-700 shadow-sm"
+          >
+            <Lock size={13} className="text-yellow-400" /> Área Restrita / Painel ADM
+          </button>
+        )}
       </div>
     </footer>
   );

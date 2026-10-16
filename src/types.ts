@@ -17,6 +17,8 @@ export interface Product {
   category: 'lanches' | 'porcoes' | 'bebidas' | 'doces' | 'combos';
   choices?: { name: string, price?: number, image?: string }[];
   choiceName?: string;
+  badge?: string;
+  freeShipping?: boolean;
 }
 
 export interface CartItem extends Product {

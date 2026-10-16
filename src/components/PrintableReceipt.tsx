@@ -107,8 +107,20 @@ export default function PrintableReceipt({ order, settings, viaTitle, isKitchenO
                 </div>
 
                 {item.extras && item.extras.length > 0 && (
-                  <div className="pl-3 text-xs font-bold text-stone-800 mt-0.5">
-                    + Adicionais: {item.extras.map((e: any) => e.name).join(', ')}
+                  <div className="pl-3 mt-1 space-y-0.5 text-xs">
+                    <div className="font-bold text-stone-900 uppercase text-[11px] tracking-wide">
+                      Adicionais:
+                    </div>
+                    {item.extras.map((e: any, exIdx: number) => (
+                      <div key={exIdx} className="flex justify-between text-stone-800 font-semibold pl-1">
+                        <span>• {e.name}</span>
+                        {!isKitchenOnly && (
+                          <span className="font-mono text-stone-700">
+                            {e.price > 0 ? `+ R$ ${Number(e.price).toFixed(2).replace('.', ',')}` : '(Incluso)'}
+                          </span>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
 

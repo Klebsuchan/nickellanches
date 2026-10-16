@@ -22,7 +22,8 @@ import {
   Building2,
   Navigation,
   Search,
-  CheckCircle2
+  CheckCircle2,
+  RefreshCw
 } from 'lucide-react';
 import { CartItem } from '../types';
 import { PaymentSettings, subscribeToPaymentSettings, DEFAULT_PAYMENT_SETTINGS } from '../lib/db';
@@ -30,7 +31,7 @@ import { generatePixPayload, generatePixQRCode } from '../lib/pix';
 import { useToast } from './Toast';
 import { playSound } from '../lib/audio';
 import { determineRegionFromAddress, searchPassoFundoAddresses, AddressSuggestion } from '../lib/passoFundoAddresses';
-import { isStoreClosedMonday, STORE_CLOSED_MESSAGE, STORE_CLOSED_DESCRIPTION } from '../lib/storeHours';
+import { isStoreClosedMonday, getStoreStatus, STORE_CLOSED_MESSAGE, STORE_CLOSED_DESCRIPTION } from '../lib/storeHours';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -86,6 +87,11 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
 
   const { addToast } = useToast();
 
+  // Garante que uma nova sessão seja sempre gerada ao abrir o checkout
+  useEffect(() => {
+    setStripeSession(null);
+  }, [isOpen]);
+
   // Polling automático para detectar conclusão do pagamento no Stripe sem precisar recarregar
   useEffect(() => {
     if (!stripeSession?.id) return;
@@ -108,7 +114,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
             localStorage.removeItem('nickel_pending_stripe_order');
             const updatedPayload = {
               ...stripeSession.orderPayload,
-              paymentMethod: 'Cartão Online (Aprovado via Stripe Checkout)',
+              paymentMethod: data?.realMethodLabel || stripeSession.orderPayload.paymentMethod || 'Cartão Online (Aprovado via Stripe)',
               isOnlinePayment: true
             };
             setStripeSession(null);
@@ -142,7 +148,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
           });
           const updatedPayload = {
             ...stripeSession.orderPayload,
-            paymentMethod: 'Cartão Online (Aprovado via Stripe Checkout)',
+            paymentMethod: data?.realMethodLabel || stripeSession.orderPayload.paymentMethod || 'Cartão Online (Aprovado via Stripe)',
             isOnlinePayment: true
           };
           setStripeSession(null);
@@ -237,8 +243,17 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
     return determineRegionFromAddress(address);
   }, [address]);
 
-  const deliveryFee = address.trim() ? detectedRegion.fee : 15;
-  const regionLabel = address.trim() ? detectedRegion.label : 'Passo Fundo';
+  // Se o carrinho contiver o produto de teste ou tiver frete grátis, isento o valor da taxa de entrega
+  const isTestOrFreeShippingCart = useMemo(() => {
+    return cart.length > 0 && cart.some(item => 
+      item.id.toLowerCase().includes('teste') || 
+      item.name.toLowerCase().includes('teste') ||
+      (item as any).freeShipping === true
+    );
+  }, [cart]);
+
+  const deliveryFee = isTestOrFreeShippingCart ? 0 : (address.trim() ? detectedRegion.fee : 15);
+  const regionLabel = isTestOrFreeShippingCart ? 'Frete Grátis (Produto Teste)' : (address.trim() ? detectedRegion.label : 'Passo Fundo');
   const detectedBairro = detectedRegion.detectedBairro;
   const currentFinalTotal = total + deliveryFee;
 
@@ -356,11 +371,12 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
 
   const handleWhatsAppCheckout = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (isStoreClosedMonday()) {
+    const status = getStoreStatus();
+    if (!status.isOpen) {
       playSound('error');
       addToast({
-        title: STORE_CLOSED_MESSAGE,
-        message: 'Loja fechada segunda-feira: Nosso delivery está em manutenção hoje. Não é possível finalizar pedidos!',
+        title: status.title,
+        message: status.description,
         type: 'error'
       });
       return;
@@ -381,10 +397,10 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
       finalPaymentLabel = `Transferência Bancária (${b?.bankName || 'Banco'} | Ag: ${b?.agency || ''} | Conta: ${b?.accountNumber || ''})`;
       isOnline = true;
     } else if (paymentMethod === 'credit_online' || paymentMethod === 'cartao_credito') {
-      finalPaymentLabel = 'Cartão de Crédito';
+      finalPaymentLabel = 'Cartão de Crédito Online (Stripe)';
       if (paymentMethod === 'credit_online') isOnline = true;
     } else if (paymentMethod === 'debit_online' || paymentMethod === 'cartao_debito') {
-      finalPaymentLabel = 'Cartão de Débito';
+      finalPaymentLabel = 'Cartão de Débito Online (Stripe)';
       if (paymentMethod === 'debit_online') isOnline = true;
     } else if (paymentMethod === 'dinheiro') {
       finalPaymentLabel = 'Dinheiro';
@@ -402,7 +418,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
     const effectiveWhatsapp = whatsapp.trim() || '(54) 99876-5432';
     const effectiveAddress = address.trim() || 'Rua Principal, 100 - Centro';
     const effectiveRegion = regionLabel || 'Outros bairros (Cidade)';
-    const effectiveFee = deliveryFee || 15;
+    const effectiveFee = deliveryFee;
 
     const orderPayload = { 
       name: effectiveName, 
@@ -445,6 +461,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
             items: cart,
             orderDetails: orderPayload,
             discountAmount: discountAmount,
+            paymentMethod: paymentMethod,
             origin: window.location.origin
           })
         });
@@ -459,9 +476,13 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
             orderPayload
           });
 
+          try {
+            window.location.href = data.url;
+          } catch (_) {}
+
           addToast({
             title: 'Sessão do Stripe Aberta!',
-            message: 'Clique em "Abrir Página do Stripe" para pagar com segurança.',
+            message: 'Acesse o Stripe para efetuar o pagamento. Seu pedido será aprovado e confirmado automaticamente!',
             type: 'info'
           });
           return;
@@ -494,7 +515,6 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
 
   const showOnlineSection = paymentSettings.onlinePaymentsEnabled && (
     paymentSettings.pix.enabled || 
-    paymentSettings.bankAccount?.enabled ||
     (paymentSettings.cardOnline.enabled && (paymentSettings.cardOnline.acceptCredit || paymentSettings.cardOnline.acceptDebit))
   );
 
@@ -615,8 +635,20 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
 
                     <button
                       type="button"
+                      onClick={() => {
+                        setStripeSession(null);
+                        handleWhatsAppCheckout();
+                      }}
+                      className="w-full bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold uppercase tracking-wider py-2.5 px-4 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer border border-purple-200"
+                    >
+                      <RefreshCw size={14} />
+                      <span>Gerar Novo Link Atualizado do Stripe</span>
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => setStripeSession(null)}
-                      className="text-xs text-stone-500 hover:text-stone-800 font-bold uppercase tracking-wider pt-2 block mx-auto transition-colors cursor-pointer"
+                      className="text-xs text-stone-500 hover:text-stone-800 font-bold uppercase tracking-wider pt-1 block mx-auto transition-colors cursor-pointer"
                     >
                       Voltar e escolher outra forma (PIX / Cartão / Maquininha)
                     </button>
@@ -640,11 +672,11 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
               </button>
             </div>
 
-            {/* Aviso de Loja Fechada na Segunda-feira */}
-            {isStoreClosedMonday() && (
+            {/* Aviso de Loja Fechada */}
+            {!getStoreStatus().isOpen && (
               <div className="bg-red-600 text-white px-4 py-3 text-center text-xs md:text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 shrink-0 shadow-inner">
                 <AlertCircle size={18} className="shrink-0 animate-bounce" />
-                <span>Loja fechada segunda-feira: Nosso delivery está em manutenção hoje!</span>
+                <span>{getStoreStatus().bannerText}</span>
               </div>
             )}
 
@@ -672,8 +704,15 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                             <span className="font-bold text-stone-800">{item.quantity}x</span>{' '}
                             <span className="font-medium text-stone-700">{item.name}</span>
                             {item.extras && item.extras.length > 0 && (
-                              <div className="text-xs text-stone-500">
-                                + {item.extras.map(e => e.name).join(', ')}
+                              <div className="text-xs text-amber-800/90 pl-2 mt-0.5 space-y-0.5">
+                                {item.extras.map((e, eIdx) => (
+                                  <div key={eIdx} className="flex items-center gap-1 font-medium">
+                                    <span>• {e.name}</span>
+                                    <span className="text-stone-500 font-semibold">
+                                      ({e.price > 0 ? `+ R$ ${Number(e.price).toFixed(2).replace('.', ',')}` : 'Incluso'})
+                                    </span>
+                                  </div>
+                                ))}
                               </div>
                             )}
                           </div>
@@ -993,155 +1032,6 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                         </div>
                       )}
 
-                      {/* Opção CONTA BANCÁRIA (AGÊNCIA E CONTA) */}
-                      {paymentSettings.bankAccount?.enabled && (
-                        <div className="space-y-2">
-                          <label 
-                            onClick={() => setPaymentMethod('bank_transfer')}
-                            className={`flex items-center justify-between p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
-                              paymentMethod === 'bank_transfer'
-                                ? 'border-blue-600 bg-blue-50/70 shadow-sm'
-                                : 'border-stone-200 hover:border-stone-300 bg-stone-50/50'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                                paymentMethod === 'bank_transfer' ? 'border-blue-600 bg-white' : 'border-stone-300 bg-white'
-                              }`}>
-                                {paymentMethod === 'bank_transfer' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
-                              </div>
-                              <div className={`p-2 rounded-lg ${paymentMethod === 'bank_transfer' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'}`}>
-                                <Landmark size={18} />
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-bold text-sm text-stone-900 block">Conta Bancária (Agência & Conta)</span>
-                                  <span className="text-[10px] font-black bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md uppercase">
-                                    {paymentSettings.bankAccount.bankName ? paymentSettings.bankAccount.bankName.split(' ')[0] : 'Banco'}
-                                  </span>
-                                </div>
-                                <span className="text-xs text-stone-500 font-medium">TED, DOC ou transferência entre contas</span>
-                              </div>
-                            </div>
-                            <span className="font-black text-sm text-blue-700">
-                              R$ {currentFinalTotal.toFixed(2).replace('.', ',')}
-                            </span>
-                          </label>
-
-                          {/* Bloco expandido de Conta Bancária */}
-                          {paymentMethod === 'bank_transfer' && (
-                            <motion.div 
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: 'auto' }}
-                              className="p-4 bg-blue-50/60 rounded-2xl border border-blue-200 space-y-4"
-                            >
-                              <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-blue-100">
-                                <div>
-                                  <span className="text-xs text-stone-500 font-bold uppercase block">Valor Exato a Transferir</span>
-                                  <span className="text-2xl font-black text-stone-900">
-                                    R$ {currentFinalTotal.toFixed(2).replace('.', ',')}
-                                  </span>
-                                </div>
-                                <div className="text-right text-xs">
-                                  <span className="text-stone-500 font-medium block">Instituição:</span>
-                                  <span className="font-black text-blue-900 text-sm">{paymentSettings.bankAccount.bankName || 'Banco do Proprietário'}</span>
-                                </div>
-                              </div>
-
-                              {/* Card com os dados bancários para copiar */}
-                              <div className="bg-stone-900 text-white p-4 rounded-xl border border-stone-800 space-y-3 shadow-md">
-                                <div className="flex justify-between items-center border-b border-stone-800 pb-2">
-                                  <span className="text-xs uppercase font-bold text-yellow-400 flex items-center gap-1.5">
-                                    <Landmark size={14} /> Dados para Transferência
-                                  </span>
-                                  <span className="text-[10px] uppercase font-bold text-stone-400 bg-stone-800 px-2 py-0.5 rounded">
-                                    {paymentSettings.bankAccount.accountType === 'poupanca' ? 'Conta Poupança' : 'Conta Corrente'}
-                                  </span>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-2 text-xs">
-                                  {/* Agência */}
-                                  <div className="bg-stone-800/80 p-2.5 rounded-lg border border-stone-700 flex justify-between items-center">
-                                    <div>
-                                      <span className="text-[10px] text-stone-400 uppercase font-bold block">Agência</span>
-                                      <span className="font-mono font-black text-sm text-yellow-300">{paymentSettings.bankAccount.agency || '0001'}</span>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleCopyBankField(paymentSettings.bankAccount.agency, 'Agência')}
-                                      className="p-1.5 bg-stone-700 hover:bg-stone-600 rounded text-stone-300 hover:text-white transition-colors cursor-pointer"
-                                      title="Copiar Agência"
-                                    >
-                                      {copiedBankField === 'Agência' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-                                    </button>
-                                  </div>
-
-                                  {/* Conta */}
-                                  <div className="bg-stone-800/80 p-2.5 rounded-lg border border-stone-700 flex justify-between items-center">
-                                    <div>
-                                      <span className="text-[10px] text-stone-400 uppercase font-bold block">Conta com Dígito</span>
-                                      <span className="font-mono font-black text-sm text-yellow-300">{paymentSettings.bankAccount.accountNumber || '0000000-0'}</span>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleCopyBankField(paymentSettings.bankAccount.accountNumber, 'Conta')}
-                                      className="p-1.5 bg-stone-700 hover:bg-stone-600 rounded text-stone-300 hover:text-white transition-colors cursor-pointer"
-                                      title="Copiar Conta"
-                                    >
-                                      {copiedBankField === 'Conta' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-                                    </button>
-                                  </div>
-                                </div>
-
-                                {/* Titular e Documento */}
-                                <div className="space-y-1.5 pt-1 text-xs border-t border-stone-800">
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-stone-400">Favorecido / Titular:</span>
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="font-bold text-white uppercase">{paymentSettings.bankAccount.holderName || 'BRAIAN KLEBER'}</span>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleCopyBankField(paymentSettings.bankAccount.holderName, 'Titular')}
-                                        className="p-1 text-stone-400 hover:text-white rounded transition-colors"
-                                      >
-                                        {copiedBankField === 'Titular' ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
-                                      </button>
-                                    </div>
-                                  </div>
-
-                                  {paymentSettings.bankAccount.holderDocument && (
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-stone-400">CPF / CNPJ:</span>
-                                      <div className="flex items-center gap-1.5">
-                                        <span className="font-mono text-stone-300">{paymentSettings.bankAccount.holderDocument}</span>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleCopyBankField(paymentSettings.bankAccount.holderDocument!, 'CPF/CNPJ')}
-                                          className="p-1 text-stone-400 hover:text-white rounded transition-colors"
-                                        >
-                                          {copiedBankField === 'CPF/CNPJ' ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
-                                        </button>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Instruções */}
-                              <div className="p-3 bg-white/80 rounded-xl border border-blue-100 text-xs text-stone-600 space-y-1">
-                                <div className="flex items-center gap-1.5 font-bold text-stone-900">
-                                  <ShieldCheck size={15} className="text-blue-600" />
-                                  <span>Como confirmar o pagamento?</span>
-                                </div>
-                                <p className="text-[11px] leading-relaxed">
-                                  {paymentSettings.bankAccount.instructions || 'Transfira o valor exato pelo aplicativo do seu banco para a agência e conta acima. Anexe o comprovante abaixo para envio junto com seu pedido pelo WhatsApp!'}
-                                </p>
-                              </div>
-                            </motion.div>
-                          )}
-                        </div>
-                      )}
-
                       {/* Opção CARTÃO DE CRÉDITO ONLINE */}
                       {paymentSettings.cardOnline.enabled && paymentSettings.cardOnline.acceptCredit && (
                         <div className="space-y-2">
@@ -1281,6 +1171,15 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                                   Ao clicar em <strong>Pagar com Stripe</strong> abaixo, você acessa o checkout oficial criptografado para pagar no Débito com total segurança.
                                 </p>
                               </div>
+
+                              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 space-y-1">
+                                <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                                  <span>💡 Atenção com Cartões Múltiplos (Nubank, Inter, etc.):</span>
+                                </div>
+                                <p className="text-[11px] leading-relaxed">
+                                  Cartões múltiplos (débito e crédito no mesmo cartão plástico) de bancos como Nubank costumam ser roteados pelas bandeiras de cartão online na função crédito. Se você deseja pagar utilizando o saldo em conta corrente/débito sem usar limite, recomendamos fortemente utilizar o <strong>PIX Imediato</strong>!
+                                </p>
+                              </div>
                             </motion.div>
                           )}
                         </div>
@@ -1288,130 +1187,8 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                     </div>
                   )}
 
-                  {/* 2. SEÇÃO DE PAGAMENTO NA ENTREGA (AO MOTOBOY) */}
+                  {/* 2. OUTRAS OPÇÕES */}
                   <div className="space-y-3 pt-2">
-                    <div className="flex items-center gap-2 text-xs font-black text-stone-700 uppercase tracking-wider">
-                      <span>🛵 Pagar na Entrega (ao Motoboy)</span>
-                    </div>
-
-                    {/* Cartão de Crédito na Entrega */}
-                    <label 
-                      onClick={() => setPaymentMethod('cartao_credito')}
-                      className={`flex items-center justify-between p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
-                        paymentMethod === 'cartao_credito'
-                          ? 'border-[#F28B20] bg-orange-50/70 shadow-sm'
-                          : 'border-stone-200 hover:border-stone-300 bg-stone-50/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                          paymentMethod === 'cartao_credito' ? 'border-[#F28B20] bg-white' : 'border-stone-300 bg-white'
-                        }`}>
-                          {paymentMethod === 'cartao_credito' && <div className="w-2.5 h-2.5 rounded-full bg-[#F28B20]" />}
-                        </div>
-                        <div className={`p-2 rounded-lg ${paymentMethod === 'cartao_credito' ? 'bg-[#F28B20] text-white' : 'bg-stone-100 text-stone-600'}`}>
-                          <CreditCard size={18} />
-                        </div>
-                        <div>
-                          <span className="font-bold text-sm text-stone-900 block">Cartão de Crédito na Entrega</span>
-                          <span className="text-xs text-stone-500 font-medium">O motoboy leva a maquininha na função Crédito</span>
-                        </div>
-                      </div>
-                    </label>
-
-                    {/* Cartão de Débito na Entrega */}
-                    <label 
-                      onClick={() => setPaymentMethod('cartao_debito')}
-                      className={`flex items-center justify-between p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
-                        paymentMethod === 'cartao_debito'
-                          ? 'border-[#F28B20] bg-orange-50/70 shadow-sm'
-                          : 'border-stone-200 hover:border-stone-300 bg-stone-50/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                          paymentMethod === 'cartao_debito' ? 'border-[#F28B20] bg-white' : 'border-stone-300 bg-white'
-                        }`}>
-                          {paymentMethod === 'cartao_debito' && <div className="w-2.5 h-2.5 rounded-full bg-[#F28B20]" />}
-                        </div>
-                        <div className={`p-2 rounded-lg ${paymentMethod === 'cartao_debito' ? 'bg-[#F28B20] text-white' : 'bg-stone-100 text-stone-600'}`}>
-                          <CreditCard size={18} />
-                        </div>
-                        <div>
-                          <span className="font-bold text-sm text-stone-900 block">Cartão de Débito na Entrega</span>
-                          <span className="text-xs text-stone-500 font-medium">O motoboy leva a maquininha na função Débito</span>
-                        </div>
-                      </div>
-                    </label>
-
-                    {/* PIX na Entrega */}
-                    <div className="space-y-2">
-                      <label 
-                        onClick={() => setPaymentMethod('pix')}
-                        className={`flex items-center justify-between p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
-                          paymentMethod === 'pix'
-                            ? 'border-[#F28B20] bg-orange-50/70 shadow-sm'
-                            : 'border-stone-200 hover:border-stone-300 bg-stone-50/50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                            paymentMethod === 'pix' ? 'border-[#F28B20] bg-white' : 'border-stone-300 bg-white'
-                          }`}>
-                            {paymentMethod === 'pix' && <div className="w-2.5 h-2.5 rounded-full bg-[#F28B20]" />}
-                          </div>
-                          <div className={`p-2 rounded-lg ${paymentMethod === 'pix' ? 'bg-[#F28B20] text-white' : 'bg-stone-100 text-stone-600'}`}>
-                            <QrCode size={18} />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-sm text-stone-900 block">PIX na Entrega</span>
-                              <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                                📱 Mesmo WhatsApp
-                              </span>
-                            </div>
-                            <span className="text-xs text-stone-500 font-medium">Chave PIX: (54) 99959-8389 • Pague ao motoboy</span>
-                          </div>
-                        </div>
-                      </label>
-
-                      {paymentMethod === 'pix' && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          className="p-3.5 bg-orange-50/60 rounded-xl border border-orange-200 text-xs space-y-2.5 ml-2"
-                        >
-                          <div className="flex items-start gap-2.5">
-                            <div className="p-2 bg-emerald-100 text-emerald-700 rounded-lg shrink-0 mt-0.5">
-                              <QrCode size={16} />
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-bold text-stone-900 text-xs">Chave PIX da Lanchonete:</span>
-                                <span className="font-black text-[#F28B20] text-xs">
-                                  {paymentSettings.pix.key === '54999598389' ? '(54) 99959-8389' : paymentSettings.pix.key}
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-stone-600 font-medium mt-1 leading-relaxed">
-                                A chave PIX é o próprio número de WhatsApp da lanchonete! Você pode fazer o PIX com o motoboy no ato da entrega ou se preferir já adiantar enviando o comprovante nesta conversa do WhatsApp.
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between pt-2 border-t border-orange-200/60">
-                            <span className="text-[11px] text-stone-600 font-bold">Chave: {paymentSettings.pix.key}</span>
-                            <button
-                              type="button"
-                              onClick={() => handleCopy(paymentSettings.pix.key, 'key_delivery')}
-                              className="bg-white hover:bg-stone-50 border border-stone-200 text-stone-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
-                            >
-                              {copiedKey ? <Check size={13} className="text-green-600" /> : <Copy size={13} />}
-                              <span>{copiedKey ? 'Copiada!' : 'Copiar Chave'}</span>
-                            </button>
-                          </div>
-                        </motion.div>
-                      )}
-                    </div>
-
                     {/* Fiado Prank */}
                     <label 
                       onClick={() => setShowFiadoPrank(true)}
@@ -1475,7 +1252,13 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                 )}
                 <div className="flex justify-between text-stone-600 font-semibold">
                   <span>Taxa de Entrega:</span>
-                  <span className="text-[#F28B20] font-bold">+ R$ {deliveryFee.toFixed(2).replace('.', ',')}</span>
+                  {deliveryFee > 0 ? (
+                    <span className="text-[#F28B20] font-bold">+ R$ {deliveryFee.toFixed(2).replace('.', ',')}</span>
+                  ) : (
+                    <span className="text-emerald-600 font-black flex items-center gap-1">
+                      <span>🚚 FRETE GRÁTIS</span>
+                    </span>
+                  )}
                 </div>
                 <div className="flex justify-between items-center pt-2 border-t border-stone-200">
                   <span className="text-stone-900 font-black text-sm uppercase">Total Final:</span>
@@ -1485,7 +1268,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                 </div>
               </div>
 
-              {isStoreClosedMonday() ? (
+              {!getStoreStatus().isOpen ? (
                 <div className="space-y-2">
                   <button 
                     type="button"
@@ -1493,11 +1276,11 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                     className="w-full bg-stone-300 border-2 border-stone-400 text-stone-600 rounded-2xl py-4 px-4 font-black uppercase tracking-wider cursor-not-allowed flex items-center justify-center gap-3 text-base shadow-none opacity-90"
                   >
                     <Lock size={22} className="shrink-0 text-stone-500" />
-                    <span>Loja fechada segunda-feira</span>
+                    <span>{getStoreStatus().title}</span>
                   </button>
                   <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
                     <p className="text-xs text-red-700 font-bold">
-                      🚫 O delivery está em manutenção às segundas-feiras. Não é possível finalizar pedidos hoje. Retornamos amanhã às 18:30!
+                      🚫 {getStoreStatus().description}
                     </p>
                   </div>
                 </div>

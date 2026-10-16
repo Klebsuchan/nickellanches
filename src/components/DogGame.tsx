@@ -1220,17 +1220,64 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
         <motion.div 
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="w-full bg-white border-2 border-stone-200 rounded-3xl p-5 md:p-8 mb-4 sm:mb-6 shadow-sm relative overflow-hidden text-black flex flex-col items-center justify-center text-center"
+          className="w-full bg-white border-2 border-stone-200 rounded-3xl p-5 md:p-6 mb-4 sm:mb-6 shadow-sm relative overflow-hidden text-black flex flex-col items-center justify-center text-center"
         >
-          <div className="w-14 h-14 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-2.5">
-            <CheckCircle size={30} />
+          {/* Status Header Badge */}
+          <div className="flex items-center gap-2 mb-3">
+            <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
+              (orderStatus === 'entregue' || (orderStatus as string) === 'concluido')
+                ? 'bg-green-500 text-white shadow-sm'
+                : ((orderStatus as string) === 'a_caminho' || (orderStatus as string) === 'enviado' || (orderStatus as string) === 'saiu_entrega')
+                ? 'bg-purple-600 text-white shadow-sm animate-pulse'
+                : ((orderStatus as string) === 'em_preparo' || (orderStatus as string) === 'preparando' || (orderStatus as string) === 'cozinha')
+                ? 'bg-amber-500 text-stone-900 shadow-sm'
+                : 'bg-blue-600 text-white'
+            }`}>
+              {(orderStatus === 'entregue' || (orderStatus as string) === 'concluido') && '✅ 4. Pedido Entregue!'}
+              {((orderStatus as string) === 'a_caminho' || (orderStatus as string) === 'enviado' || (orderStatus as string) === 'saiu_entrega') && '🛵 3. Pedido Enviado / A Caminho!'}
+              {((orderStatus as string) === 'em_preparo' || (orderStatus as string) === 'preparando' || (orderStatus as string) === 'cozinha') && '👨‍🍳 2. Em Preparo na Chapa!'}
+              {((orderStatus as string) === 'recebido' || (orderStatus as string) === 'pendente' || (orderStatus as string) === 'cozinha_confirmou') && '📋 1. Pedido Confirmado'}
+            </span>
           </div>
-          <h3 className="font-display font-black uppercase text-xl sm:text-2xl mb-1 text-stone-900">
-            Pedido Confirmado!
+
+          <h3 className="font-display font-black uppercase text-xl sm:text-2xl mb-1 text-stone-900 flex items-center gap-2">
+            {(orderStatus === 'entregue' || (orderStatus as string) === 'concluido') && <span>Pedido Entregue! Bom Apetite! 🍔🎉</span>}
+            {((orderStatus as string) === 'a_caminho' || (orderStatus as string) === 'enviado' || (orderStatus as string) === 'saiu_entrega') && <span>Pedido Enviado! A Caminho! 🛵💨</span>}
+            {((orderStatus as string) === 'em_preparo' || (orderStatus as string) === 'preparando' || (orderStatus as string) === 'cozinha') && <span>Pedido Em Preparo! 👨‍🍳🔥</span>}
+            {((orderStatus as string) === 'recebido' || (orderStatus as string) === 'pendente' || (orderStatus as string) === 'cozinha_confirmou') && <span>Pedido Confirmado & Na Fila! 📋</span>}
           </h3>
-          <p className="text-stone-600 font-medium max-w-lg mx-auto text-xs sm:text-sm leading-relaxed mb-3.5">
-            Divirta-se com o minigame infinito enquanto seu lanche entra em preparo! Você pode correr o tempo que quiser.
+
+          <p className="text-stone-600 font-medium max-w-lg mx-auto text-xs sm:text-sm leading-relaxed mb-4">
+            {(orderStatus === 'entregue' || (orderStatus as string) === 'concluido')
+              ? 'Seu lanche chegou! Agradecemos a preferência pela Nickel Lanches. Pode fechar o jogo ou continuar jogando à vontade!'
+              : ((orderStatus as string) === 'a_caminho' || (orderStatus as string) === 'enviado' || (orderStatus as string) === 'saiu_entrega')
+              ? 'O motoboy já saiu com o seu lanche e está a caminho do seu endereço! Fique atento ao toque do portão/interfone.'
+              : ((orderStatus as string) === 'em_preparo' || (orderStatus as string) === 'preparando' || (orderStatus as string) === 'cozinha')
+              ? 'O chef já está preparando o seu lanche com receitas exclusivas! Enquanto isso, divirta-se correndo com o cachorrinho.'
+              : 'Seu pedido foi registrado na cozinha! Jogue enquanto preparamos seu lanche.'}
           </p>
+
+          {/* Linha do Tempo do Pedido */}
+          <div className="w-full max-w-md bg-stone-100 p-3 rounded-2xl border border-stone-200 mb-4">
+            <div className="flex justify-between items-center text-[10px] sm:text-xs font-black uppercase tracking-tight text-stone-500 mb-2">
+              <span className={((orderStatus as string) === 'recebido' || (orderStatus as string) === 'pendente' || (orderStatus as string) === 'cozinha_confirmou' || (orderStatus as string) === 'em_preparo' || (orderStatus as string) === 'preparando' || (orderStatus as string) === 'a_caminho' || orderStatus === 'entregue' || (orderStatus as string) === 'concluido') ? 'text-blue-600 font-bold' : ''}>1. Confirmado</span>
+              <span className={((orderStatus as string) === 'em_preparo' || (orderStatus as string) === 'preparando' || (orderStatus as string) === 'cozinha' || (orderStatus as string) === 'a_caminho' || orderStatus === 'entregue' || (orderStatus as string) === 'concluido') ? 'text-amber-600 font-bold' : ''}>2. Preparo</span>
+              <span className={((orderStatus as string) === 'a_caminho' || (orderStatus as string) === 'enviado' || (orderStatus as string) === 'saiu_entrega' || orderStatus === 'entregue' || (orderStatus as string) === 'concluido') ? 'text-purple-600 font-bold' : ''}>3. Enviado</span>
+              <span className={(orderStatus === 'entregue' || (orderStatus as string) === 'concluido') ? 'text-green-600 font-bold' : ''}>4. Entregue</span>
+            </div>
+
+            <div className="w-full h-2.5 bg-stone-200 rounded-full overflow-hidden p-0.5">
+              <div 
+                className="h-full bg-gradient-to-r from-blue-500 via-amber-500 via-purple-500 to-green-500 rounded-full transition-all duration-500"
+                style={{
+                  width: (orderStatus === 'entregue' || (orderStatus as string) === 'concluido') ? '100%'
+                    : ((orderStatus as string) === 'a_caminho' || (orderStatus as string) === 'enviado' || (orderStatus as string) === 'saiu_entrega') ? '75%'
+                    : ((orderStatus as string) === 'em_preparo' || (orderStatus as string) === 'preparando' || (orderStatus as string) === 'cozinha') ? '50%'
+                    : '25%'
+                }}
+              />
+            </div>
+          </div>
 
           <div className="flex flex-wrap items-center justify-center gap-2.5">
             <button
@@ -1239,15 +1286,23 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
             >
               <MessageCircle size={15} /> Encaminhar p/ WhatsApp
             </button>
-            {onClose && (
+            {(orderStatus === 'entregue' || (orderStatus as string) === 'concluido') ? (
+              <button
+                onClick={handleExitGame}
+                className="bg-green-500 hover:bg-green-600 text-white px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-md transition-all cursor-pointer"
+              >
+                <span>Concluir e Voltar ao Início</span>
+                <CheckCircle size={15} />
+              </button>
+            ) : onClose ? (
               <button
                 onClick={handleExitGame}
                 className="bg-stone-100 hover:bg-stone-200 text-stone-800 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer"
               >
-                <span>Sair e Voltar</span>
+                <span>Voltar ao Cardápio</span>
                 <ArrowRight size={14} />
               </button>
-            )}
+            ) : null}
           </div>
         </motion.div>
       )}
@@ -1466,15 +1521,7 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
         </div>
       </div>
 
-      {/* Botão de Dev se houver pedido ativo */}
-      {order && (
-        <button 
-          onClick={onFinishOrder}
-          className="mt-2 mb-4 px-5 py-2 bg-white border border-stone-200 text-stone-500 font-bold uppercase text-xs tracking-widest rounded-xl hover:bg-stone-50 transition-all shadow-xs"
-        >
-          (Dev: Pular para "Entregue")
-        </button>
-      )}
+
 
       {/* Conteúdo Institucional mantido */}
       {order ? (

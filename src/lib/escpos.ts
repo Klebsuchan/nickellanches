@@ -236,8 +236,16 @@ export function buildReceiptEscPos(
     b.bold(true).twoColumns(itemLabel, priceLabel, width).bold(false);
 
     if (item.extras && item.extras.length > 0) {
-      const extrasStr = '+ ' + item.extras.map((e: any) => e.name).join(', ');
-      b.textLine(`   ${extrasStr}`);
+      b.textLine('   Adicionais:');
+      item.extras.forEach((e: any) => {
+        const extraName = `   • ${e.name}`;
+        const extraPrice = !isKitchenOnly && e.price > 0 ? `+ R$ ${Number(e.price).toFixed(2).replace('.', ',')}` : '(Incluso)';
+        if (!isKitchenOnly) {
+          b.twoColumns(extraName, extraPrice, width);
+        } else {
+          b.textLine(extraName);
+        }
+      });
     }
 
     if (settings.showItemObservations && item.observation && item.observation.trim()) {

@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Trash2, Lock, AlertCircle } from 'lucide-react';
+import { X, Trash2, Lock, AlertCircle, CreditCard, QrCode, Banknote, ShieldCheck } from 'lucide-react';
 import { CartItem } from '../types';
 import RenderWithNickel from './RenderWithNickel';
-import { isStoreClosedMonday } from '../lib/storeHours';
+import { getStoreStatus } from '../lib/storeHours';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -65,8 +65,16 @@ export default function CartDrawer({
                             <span className="text-yellow-500">{item.quantity}x</span> <RenderWithNickel text={item.name} />
                           </h4>
                           {item.extras && item.extras.length > 0 && (
-                            <div className="text-xs text-yellow-600 font-bold mt-1">
-                              + {item.extras.map(e => e.name).join(', ')}
+                            <div className="text-xs font-semibold mt-1.5 bg-yellow-50/90 p-2 rounded-lg border border-yellow-200/80 space-y-1">
+                              <span className="font-black text-stone-800 uppercase text-[10px] tracking-wider block">Adicionais:</span>
+                              {item.extras.map((e, eIdx) => (
+                                <div key={eIdx} className="flex justify-between items-center text-stone-700">
+                                  <span>+ {e.name}</span>
+                                  <span className="font-mono text-stone-900 font-bold">
+                                    {e.price > 0 ? `+ R$ ${Number(e.price).toFixed(2).replace('.', ',')}` : 'Incluso'}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
                           )}
                           {item.observation && (
@@ -167,15 +175,44 @@ export default function CartDrawer({
                   </div>
                 </div>
 
-                {isStoreClosedMonday() ? (
+                {/* Formas de Pagamento Aceitas Preview */}
+                <div className="bg-stone-50 border border-stone-200/90 rounded-2xl p-3 mb-3 text-xs space-y-1.5 shadow-2xs">
+                  <div className="flex items-center justify-between text-[11px] font-black text-stone-600 uppercase tracking-tight">
+                    <span className="flex items-center gap-1 text-[#4E2A84]">
+                      <ShieldCheck size={13} className="text-emerald-600" /> Formas de Pagamento
+                    </span>
+                    <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-bold">
+                      Na Entrega ou Online
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5 pt-0.5 text-center">
+                    <div className="bg-white border border-stone-200 rounded-xl py-1.5 px-1 flex flex-col items-center justify-center shadow-2xs">
+                      <QrCode size={14} className="text-emerald-600 mb-0.5" />
+                      <span className="text-[10px] font-black text-stone-800 leading-tight">PIX</span>
+                      <span className="text-[8px] text-stone-400 font-medium">Imediato</span>
+                    </div>
+                    <div className="bg-white border border-stone-200 rounded-xl py-1.5 px-1 flex flex-col items-center justify-center shadow-2xs">
+                      <CreditCard size={14} className="text-[#4E2A84] mb-0.5" />
+                      <span className="text-[10px] font-black text-stone-800 leading-tight">Cartões</span>
+                      <span className="text-[8px] text-stone-400 font-medium">Crédito/Débito</span>
+                    </div>
+                    <div className="bg-white border border-stone-200 rounded-xl py-1.5 px-1 flex flex-col items-center justify-center shadow-2xs">
+                      <Banknote size={14} className="text-amber-600 mb-0.5" />
+                      <span className="text-[10px] font-black text-stone-800 leading-tight">Dinheiro</span>
+                      <span className="text-[8px] text-stone-400 font-medium">Com Troco</span>
+                    </div>
+                  </div>
+                </div>
+
+                {!getStoreStatus().isOpen ? (
                   <div className="space-y-3">
                     <div className="p-3.5 bg-red-50 border-2 border-red-500 rounded-xl text-center space-y-1">
                       <div className="text-xs font-black uppercase text-red-700 flex items-center justify-center gap-1.5">
                         <AlertCircle size={16} className="shrink-0" />
-                        <span>Loja fechada segunda-feira</span>
+                        <span>{getStoreStatus().title}</span>
                       </div>
                       <p className="text-[11px] text-red-600 font-bold leading-tight">
-                        Nosso delivery está em manutenção hoje. Não é possível finalizar pedidos. Retornamos terça-feira às 18:30!
+                        {getStoreStatus().description}
                       </p>
                     </div>
 
@@ -184,7 +221,7 @@ export default function CartDrawer({
                       disabled
                       className="w-full py-4 bg-stone-300 border-2 border-stone-400 text-stone-600 font-display tracking-widest uppercase rounded-xl cursor-not-allowed flex items-center justify-center gap-2 text-base opacity-90 shadow-none"
                     >
-                      <Lock size={18} /> Loja Fechada (Segunda-feira)
+                      <Lock size={18} /> Loja Fechada (Abre às 18:30)
                     </button>
                   </div>
                 ) : (

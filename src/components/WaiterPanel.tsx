@@ -54,7 +54,13 @@ export default function WaiterPanel({ orders, onClose }: WaiterPanelProps) {
                     <div>
                       <span><span className="font-bold text-yellow-400">{item.quantity}x</span> <RenderWithNickel text={item.name} /></span>
                       {item.extras && item.extras.length > 0 && (
-                        <div className="text-xs text-yellow-400/80 pl-4 mt-1">+ {item.extras.map((e:any)=>e.name).join(', ')}</div>
+                        <div className="text-xs text-yellow-400/90 pl-4 mt-1 space-y-0.5">
+                          {item.extras.map((e: any, exIdx: number) => (
+                            <div key={exIdx}>
+                              + {e.name} {e.price > 0 ? `(+R$ ${Number(e.price).toFixed(2).replace('.', ',')})` : ''}
+                            </div>
+                          ))}
+                        </div>
                       )}
                       {item.observation && (
                         <div className="text-xs text-red-400 pl-4 mt-1 italic">"{item.observation}"</div>
@@ -104,7 +110,13 @@ export default function WaiterPanel({ orders, onClose }: WaiterPanelProps) {
                   <div className="flex flex-col">
                     <span>{item.quantity}x <RenderWithNickel text={item.name.substring(0, 15)} /></span>
                     {item.extras && item.extras.length > 0 && (
-                      <span className="pl-4">+ {item.extras.map((e:any)=>e.name).join(', ')}</span>
+                      <div className="pl-4 text-xs font-semibold space-y-0.5">
+                        {item.extras.map((e: any, exIdx: number) => (
+                          <div key={exIdx}>
+                            + {e.name} {e.price > 0 ? `(+R$ ${Number(e.price).toFixed(2).replace('.', ',')})` : ''}
+                          </div>
+                        ))}
+                      </div>
                     )}
                     {item.observation && (
                       <span className="pl-4 italic">"{item.observation}"</span>
