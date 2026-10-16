@@ -3,7 +3,7 @@
 // ======================================================================
 
 import { Order, PrinterSettings } from './db';
-import { getConnectedUsbPrinter, sendRawToUsbPrinter, buildReceiptEscPos } from './escpos';
+import { getConnectedUsbPrinter, checkAndAutoReconnectUsbPrinter, sendRawToUsbPrinter, buildReceiptEscPos } from './escpos';
 
 /**
  * Generates plain text comanda suitable for clipboard or raw logs
@@ -113,7 +113,7 @@ export function generateReceiptHtml(
   viaTitle?: string
 ): string {
   const is58 = settings.printerType === 'thermal_58';
-  const paperWidth = is58 ? '54mm' : '78mm';
+  const paperWidth = is58 ? '46mm' : '68mm';
   const fontSize = 
     settings.fontSize === 'small' ? (is58 ? '10px' : '11px') :
     settings.fontSize === 'large' ? (is58 ? '13px' : '15px') :
@@ -268,7 +268,7 @@ export function generateReceiptHtml(
  */
 export function buildCompletePrintPageHtml(order: Order, settings: PrinterSettings): string {
   const is58 = settings.printerType === 'thermal_58';
-  const paperWidth = is58 ? '54mm' : '78mm';
+  const paperWidth = is58 ? '46mm' : '68mm';
 
   let bodyContent = '';
   if (settings.printCopies === 2) {
@@ -418,29 +418,31 @@ export async function executeUniversalPrint(
   addToast?: (t: { message: string; type: 'success' | 'error' | 'info' | 'warning' }) => void
 ): Promise<{ success: boolean; method: string }> {
 
-  // 1. WebUSB direct check
-  if (settings.connectionMode === 'webusb') {
-    const usbStatus = getConnectedUsbPrinter();
-    if (usbStatus.connected) {
-      try {
-        if (settings.printCopies === 2) {
-          const kitchenData = buildReceiptEscPos(order, settings, true, 'VIA 1 - COZINHA');
-          await sendRawToUsbPrinter(kitchenData);
-          await new Promise(r => setTimeout(r, 450));
-          const deliveryData = buildReceiptEscPos(order, settings, false, 'VIA 2 - ENTREGA');
-          await sendRawToUsbPrinter(deliveryData);
-        } else {
-          const singleData = buildReceiptEscPos(order, settings, false);
-          await sendRawToUsbPrinter(singleData);
-        }
+  // 1. WebUSB direct check (auto reconnect if device was previously paired)
+  let usbStatus = getConnectedUsbPrinter();
+  if (!usbStatus.connected) {
+    usbStatus = await checkAndAutoReconnectUsbPrinter();
+  }
 
-        if (addToast) {
-          addToast({ message: 'Comanda impressa diretamente na PS-80 USB via ESC/POS!', type: 'success' });
-        }
-        return { success: true, method: 'webusb' };
-      } catch (err) {
-        console.warn('Falha no WebUSB direto, usando Spooler USB do Sistema:', err);
+  if (usbStatus.connected) {
+    try {
+      if (settings.printCopies === 2) {
+        const kitchenData = buildReceiptEscPos(order, settings, true, 'VIA 1 - COZINHA');
+        await sendRawToUsbPrinter(kitchenData);
+        await new Promise(r => setTimeout(r, 450));
+        const deliveryData = buildReceiptEscPos(order, settings, false, 'VIA 2 - ENTREGA');
+        await sendRawToUsbPrinter(deliveryData);
+      } else {
+        const singleData = buildReceiptEscPos(order, settings, false);
+        await sendRawToUsbPrinter(singleData);
       }
+
+      if (addToast) {
+        addToast({ message: 'Comanda impressa diretamente na impressora USB via ESC/POS!', type: 'success' });
+      }
+      return { success: true, method: 'webusb' };
+    } catch (err) {
+      console.warn('Falha no WebUSB direto, usando Spooler USB do Sistema:', err);
     }
   }
 

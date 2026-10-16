@@ -135,13 +135,13 @@ body {
   }
 
   #printable-command.thermal-80 {
-    width: 78mm !important;
-    max-width: 78mm !important;
+    width: 68mm !important;
+    max-width: 68mm !important;
   }
 
   #printable-command.thermal-58 {
-    width: 54mm !important;
-    max-width: 54mm !important;
+    width: 46mm !important;
+    max-width: 46mm !important;
   }
 
   #printable-command.normal-a4 {

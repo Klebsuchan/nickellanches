@@ -54,7 +54,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
   
   // Métodos de pagamento: PIX online, Cartão de Crédito Online, Cartão de Débito Online, Maquininha na entrega (crédito ou débito), PIX na entrega, Dinheiro
   const [paymentMethod, setPaymentMethod] = useState<
-    'pix_online' | 'bank_transfer' | 'credit_online' | 'debit_online' | 'cartao_credito' | 'cartao_debito' | 'pix' | 'dinheiro' | 'fiado'
+    'pix_online' | 'bank_transfer' | 'credit_online' | 'debit_online' | 'cartao_credito' | 'cartao_debito' | 'pix' | 'dinheiro' | 'fiado' | 'teste_pagamento'
   >('pix_online');
 
   const [changeOption, setChangeOption] = useState<'none' | 'need'>('none');
@@ -387,7 +387,10 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
     let formattedChange = '';
     let isOnline = false;
 
-    if (paymentMethod === 'pix_online' || paymentMethod === 'pix') {
+    if (paymentMethod === 'teste_pagamento') {
+      finalPaymentLabel = '🧪 Teste de Pagamento (Pedido Ilusório)';
+      isOnline = false;
+    } else if (paymentMethod === 'pix_online' || paymentMethod === 'pix') {
       finalPaymentLabel = paymentMethod === 'pix_online' 
         ? 'PIX Imediato (WhatsApp: (54) 99959-8389)' 
         : 'PIX na Entrega (WhatsApp: (54) 99959-8389)';
@@ -1189,6 +1192,34 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
 
                   {/* 2. OUTRAS OPÇÕES */}
                   <div className="space-y-3 pt-2">
+                    {/* Opção de Teste de Pagamento / Pedido Ilusório */}
+                    <label 
+                      onClick={() => { setPaymentMethod('teste_pagamento'); setChangeOption('none'); setChangeFor(''); setErrorMessage(''); }}
+                      className={`flex items-center justify-between p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
+                        paymentMethod === 'teste_pagamento'
+                          ? 'border-amber-500 bg-amber-50/80 shadow-xs'
+                          : 'border-stone-200 hover:border-amber-300 bg-stone-50/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                          paymentMethod === 'teste_pagamento' ? 'border-amber-600 bg-white' : 'border-stone-300 bg-white'
+                        }`}>
+                          {paymentMethod === 'teste_pagamento' && <div className="w-2.5 h-2.5 rounded-full bg-amber-600" />}
+                        </div>
+                        <div className={`p-2 rounded-lg ${paymentMethod === 'teste_pagamento' ? 'bg-amber-500 text-stone-900 font-bold' : 'bg-amber-100 text-amber-800'}`}>
+                          <Sparkles size={18} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm text-stone-900 block">🧪 Teste de Pagamento (Pedido Ilusório)</span>
+                            <span className="bg-amber-100 text-amber-800 text-[10px] font-black uppercase px-2 py-0.5 rounded-md">Simulação</span>
+                          </div>
+                          <span className="text-xs text-stone-500 font-medium block">Valida o caminho completo do pedido sem cobrar nada</span>
+                        </div>
+                      </div>
+                    </label>
+
                     {/* Fiado Prank */}
                     <label 
                       onClick={() => setShowFiadoPrank(true)}
@@ -1308,6 +1339,11 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                       <>
                         <CreditCard size={22} className="shrink-0 text-amber-300" />
                         <span>Pagar com Stripe (R$ {currentFinalTotal.toFixed(2).replace('.', ',')})</span>
+                      </>
+                    ) : paymentMethod === 'teste_pagamento' ? (
+                      <>
+                        <Sparkles size={22} className="shrink-0 text-amber-300 animate-pulse" />
+                        <span>Finalizar Pedido de Teste (Ao Vivo)</span>
                       </>
                     ) : (
                       <>

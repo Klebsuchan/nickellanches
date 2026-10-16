@@ -403,6 +403,37 @@ export default function PrintSettingsEditor({ settings, setSettings, onSaveSetti
               </div>
             </div>
 
+            {/* BANNER MODO IFOOD - IMPRESSÃO SILENCIOSA E AUTOMÁTICA */}
+            <div className="bg-amber-400 text-stone-950 p-4 rounded-xl border-2 border-amber-300 shadow-lg space-y-2">
+              <div className="flex items-center gap-2 font-black text-xs sm:text-sm uppercase tracking-wide text-stone-900">
+                <Zap size={18} className="fill-stone-900 stroke-stone-900 shrink-0" />
+                <span>Modo iFood: Impressão 100% Automática e Silenciosa (Sem janela de confirmação)</span>
+              </div>
+              <p className="text-xs font-semibold text-stone-900 leading-relaxed">
+                Para o sistema imprimir <strong>direto na impressora sem você precisar apertar em "Imprimir"</strong> na janela do navegador:
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-medium text-stone-950 pt-1">
+                <div className="bg-white/95 p-3 rounded-lg border border-amber-500/30">
+                  <div className="font-bold text-stone-900 text-xs mb-1 flex items-center gap-1">
+                    <span>1.</span> Ativar Impressão Silenciosa no Chrome
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1 text-[11px] text-stone-800">
+                    <li>Clique com o botão direito no atalho do Chrome -&gt; <strong>Propriedades</strong>.</li>
+                    <li>No campo <strong>Destino</strong>, adicione <code className="bg-amber-100 border border-amber-300 px-1 py-0.5 rounded font-mono font-bold text-black"> --kiosk-printing</code> no final.</li>
+                    <li>Clique em <strong>OK</strong>. Pronto! O Chrome enviará todas as impressões direto para a impressora padrão.</li>
+                  </ol>
+                </div>
+                <div className="bg-white/95 p-3 rounded-lg border border-amber-500/30">
+                  <div className="font-bold text-stone-900 text-xs mb-1 flex items-center gap-1">
+                    <span>2.</span> Ou Conectar via Cabo USB Direto (ESC/POS)
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-stone-800">
+                    Clique no botão <strong>"Conectar Cabo USB"</strong> acima e selecione sua impressora PS-80 / POS-80. O sistema enviará os dados direto para o cabo USB da impressora sem abrir caixas de diálogo!
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Hardware Features of PS-80 */}
             <div className="pt-3 border-t border-stone-800 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <label className="flex items-center gap-3 p-2.5 bg-stone-850/80 rounded-xl border border-stone-800 hover:border-stone-700 cursor-pointer">

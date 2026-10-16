@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Printer, CheckSquare, Lock, X, Plus, Trash2, Edit2, Package, Tag, Clock, Save, Eye, EyeOff, Settings, List, Check, ArrowRight, ImagePlus, ChevronLeft, ChevronRight, RefreshCw, XCircle, Grid, Image as ImageIcon, Send, CreditCard, QrCode, ExternalLink, Volume2 } from 'lucide-react';
-import { Order, getProducts, saveProduct, deleteProduct, getPromos, savePromo, deletePromo, getAllOrders, updateOrderStatus, PromoCode, subscribeToAllOrders, Banner, getBanners, saveBanner, deleteBanner, subscribeToProducts, subscribeToPromos, subscribeToBanners, deleteOrder, saveOrderAdmin, subscribeToPaymentSettings, PaymentSettings, PrinterSettings, DEFAULT_PRINTER_SETTINGS, savePrinterSettings, subscribeToPrinterSettings } from '../lib/db';
+import { Printer, CheckSquare, Lock, X, Plus, Trash2, Edit2, Package, Tag, Clock, Save, Eye, EyeOff, Settings, List, Check, ArrowRight, ImagePlus, ChevronLeft, ChevronRight, RefreshCw, XCircle, Grid, Image as ImageIcon, Send, CreditCard, QrCode, ExternalLink, Volume2, Sparkles } from 'lucide-react';
+import { Order, getProducts, saveProduct, deleteProduct, getPromos, savePromo, deletePromo, getAllOrders, updateOrderStatus, PromoCode, subscribeToAllOrders, Banner, getBanners, saveBanner, deleteBanner, subscribeToProducts, subscribeToPromos, subscribeToBanners, deleteOrder, saveOrderAdmin, subscribeToPaymentSettings, PaymentSettings, PrinterSettings, DEFAULT_PRINTER_SETTINGS, savePrinterSettings, subscribeToPrinterSettings, saveOrder } from '../lib/db';
 import { Product, Extra } from '../types';
 import { useToast } from './Toast';
 import { playSound } from '../lib/audio';
@@ -422,6 +422,45 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
     setSelectedIds(new Set());
   };
 
+  const handleCreateLiveTestOrder = async () => {
+    try {
+      const randomOrderNum = Math.floor(100 + Math.random() * 900);
+      const testOrderPayload: Omit<Order, 'createdAt' | 'id'> = {
+        orderNumber: randomOrderNum,
+        userName: `Cliente Teste #${randomOrderNum} (Ilusório)`,
+        whatsapp: '(54) 99999-8888',
+        address: 'Rua de Teste, 100 - Centro, Passo Fundo',
+        region: 'Passo Fundo',
+        paymentMethod: 'Pix na Entrega (Teste Ilusório)',
+        receiptNotes: 'Teste de sincronização em tempo real, som de 3s e impressão.',
+        deliveryFee: 6.00,
+        totalPrice: 45.00,
+        totalPoints: 50,
+        status: 'recebido',
+        items: [
+          {
+            name: 'Xis Espetacular (Pedido de Teste)',
+            price: 39.00,
+            quantity: 1,
+            extras: [{ name: 'Mussarela Extra', price: 0 }],
+            observation: 'Teste sem pagamento efetuado'
+          }
+        ]
+      };
+
+      await saveOrder('guest', testOrderPayload);
+      playSound('coin');
+      addToast({
+        title: 'Pedido de Teste Criado!',
+        message: 'O pedido foi enviado ao vivo ao banco de dados. O alerta de 3s e a impressão serão acionados!',
+        type: 'success'
+      });
+    } catch (err) {
+      console.error(err);
+      addToast({ message: 'Erro ao criar pedido de teste', type: 'error' as any });
+    }
+  };
+
   const columns = [
     { id: 'recebido', title: 'Recebidos', color: 'bg-stone-200 border-stone-300 text-stone-700' },
     { id: 'preparando', title: 'Em Preparo', color: 'bg-yellow-100 border-yellow-300 text-yellow-800' },
@@ -450,6 +489,15 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
             title="Testar o alarme de novo pedido (3 segundos contínuos)"
           >
             <Volume2 size={15} /> Testar Alerta (3s)
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCreateLiveTestOrder}
+            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all shadow-xs cursor-pointer"
+            title="Criar um pedido de teste ao vivo no banco sem pagamento"
+          >
+            <Sparkles size={15} /> Criar Pedido Teste
           </button>
           
           <button onClick={selectAll} className="text-sm font-bold uppercase text-stone-600 hover:text-black">

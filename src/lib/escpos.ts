@@ -320,6 +320,73 @@ export const getConnectedUsbPrinter = (): UsbPrinterStatus => {
   return { connected: false };
 };
 
+export const checkAndAutoReconnectUsbPrinter = async (): Promise<UsbPrinterStatus> => {
+  if (!isWebUsbSupported()) {
+    return { connected: false };
+  }
+  if (activeUsbDevice && activeUsbDevice.opened) {
+    return getConnectedUsbPrinter();
+  }
+
+  try {
+    const devices: USBDeviceDef[] = await (navigator as any).usb.getDevices();
+    if (devices && devices.length > 0) {
+      const device = devices[0];
+      if (!device.opened) {
+        await device.open();
+        if (device.configuration === null) {
+          await device.selectConfiguration(1);
+        }
+
+        let foundInterface = -1;
+        let foundEndpoint = -1;
+
+        for (const conf of device.configurations) {
+          for (const iface of conf.interfaces) {
+            for (const alt of iface.alternates) {
+              for (const ep of alt.endpoints) {
+                if (ep.direction === 'out' && (ep.type === 'bulk' || ep.type === 'interrupt')) {
+                  foundInterface = iface.interfaceNumber;
+                  foundEndpoint = ep.endpointNumber;
+                  break;
+                }
+              }
+              if (foundEndpoint !== -1) break;
+            }
+            if (foundEndpoint !== -1) break;
+          }
+          if (foundEndpoint !== -1) break;
+        }
+
+        if (foundInterface === -1 || foundEndpoint === -1) {
+          foundInterface = 0;
+          foundEndpoint = 1;
+        }
+
+        try {
+          await device.claimInterface(foundInterface);
+        } catch (e) {
+          console.warn('Interface claim notice in auto reconnect:', e);
+        }
+
+        activeUsbDevice = device;
+        activeOutEndpoint = foundEndpoint;
+      }
+
+      return {
+        connected: true,
+        deviceName: device.productName || 'Impressora PS-80 USB',
+        vendorId: device.vendorId,
+        productId: device.productId
+      };
+    }
+  } catch (err) {
+    console.warn('Auto reconnect WebUSB check notice:', err);
+  }
+
+  return { connected: false };
+};
+
 export const connectUsbPrinter = async (): Promise<UsbPrinterStatus> => {
   if (!isWebUsbSupported()) {
     throw new Error('WebUSB não é suportado neste navegador. Use Google Chrome ou Microsoft Edge no PC/Notebook.');
