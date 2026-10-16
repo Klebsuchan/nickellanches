@@ -310,7 +310,7 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
             transition={{ delay: 0.2 }}
             className="text-amber-300 font-bold text-[11px] sm:text-sm md:text-base tracking-wide mb-2 sm:mb-3 drop-shadow"
           >
-            O Sabor Gigante & Mais Tradicional de Passo Fundo 🍔
+            O Sabor Espetacular & Mais Tradicional de Passo Fundo 🍔
           </motion.p>
 
           {/* 3 Pilares com layout otimizado tanto para mobile quanto desktop */}
@@ -325,7 +325,7 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
               <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-[#F28B20]/20 text-[#F28B20] flex items-center justify-center mb-0.5 sm:mb-1">
                 <Utensils size={13} className="sm:w-4 sm:h-4" />
               </div>
-              <h4 className="text-[10px] sm:text-xs font-black text-white leading-tight">Xis Gigante</h4>
+              <h4 className="text-[10px] sm:text-xs font-black text-white leading-tight">Xis Espetacular</h4>
               <p className="text-[8px] sm:text-[10px] text-stone-400 font-medium hidden sm:block mt-0.5">Prensado & farto</p>
             </div>
 
