@@ -70,7 +70,7 @@ export const playSound = (type: 'coin' | 'powerup' | 'error' | 'jump' | 'laser' 
       gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.7);
       osc.start(now);
       osc.stop(now + 0.7);
-    } else if (type === 'bell' || type === 'order_alert') {
+    } else if (type === 'bell') {
       // Som clássico de campainha de balcão de lanchonete (ding-dong alegre e nítido)
       osc.type = 'sine';
       osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
@@ -82,6 +82,46 @@ export const playSound = (type: 'coin' | 'powerup' | 'error' | 'jump' | 'laser' 
       
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.8);
+    } else if (type === 'order_alert') {
+      // Alerta sonoro bem alto e contínuo de 3 segundos para novos pedidos no painel adm
+      const now = ctx.currentTime;
+      const duration = 3.0; // Exatamente 3 segundos contínuos
+
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+
+      // Dois osciladores para som marcante e penetrante no ambiente de cozinha
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const alertGain = ctx.createGain();
+
+      osc1.type = 'sawtooth'; // Onda dente de serra penetrante
+      osc2.type = 'square';   // Onda quadrada estilo alarme
+
+      // Sequência de bip/sirene ritmada e contínua durante os 3 segundos (20 alternâncias)
+      const pulses = 20;
+      for (let i = 0; i < pulses; i++) {
+        const t = now + (i * 0.15);
+        const f1 = (i % 2 === 0) ? 880 : 1244; // A5 <-> D#6
+        const f2 = (i % 2 === 0) ? 1318 : 1760; // E6 <-> A6
+        osc1.frequency.setValueAtTime(f1, t);
+        osc2.frequency.setValueAtTime(f2, t);
+      }
+
+      osc1.connect(alertGain);
+      osc2.connect(alertGain);
+      alertGain.connect(ctx.destination);
+
+      // Volume BEM ALTO (gain 0.80)
+      alertGain.gain.setValueAtTime(0.8, now);
+      alertGain.gain.setValueAtTime(0.8, now + duration - 0.1);
+      alertGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + duration);
+      osc2.stop(now + duration);
     } else if (type === 'coin') {
       osc.type = 'square';
       osc.frequency.setValueAtTime(987.77, ctx.currentTime); // B5

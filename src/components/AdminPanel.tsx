@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Printer, CheckSquare, Lock, X, Plus, Trash2, Edit2, Package, Tag, Clock, Save, Eye, EyeOff, Settings, List, Check, ArrowRight, ImagePlus, ChevronLeft, ChevronRight, RefreshCw, XCircle, Grid, Image as ImageIcon, Send, CreditCard, QrCode, ExternalLink } from 'lucide-react';
+import { Printer, CheckSquare, Lock, X, Plus, Trash2, Edit2, Package, Tag, Clock, Save, Eye, EyeOff, Settings, List, Check, ArrowRight, ImagePlus, ChevronLeft, ChevronRight, RefreshCw, XCircle, Grid, Image as ImageIcon, Send, CreditCard, QrCode, ExternalLink, Volume2 } from 'lucide-react';
 import { Order, getProducts, saveProduct, deleteProduct, getPromos, savePromo, deletePromo, getAllOrders, updateOrderStatus, PromoCode, subscribeToAllOrders, Banner, getBanners, saveBanner, deleteBanner, subscribeToProducts, subscribeToPromos, subscribeToBanners, deleteOrder, saveOrderAdmin, subscribeToPaymentSettings, PaymentSettings, PrinterSettings, DEFAULT_PRINTER_SETTINGS, savePrinterSettings, subscribeToPrinterSettings } from '../lib/db';
 import { Product, Extra } from '../types';
 import { useToast } from './Toast';
@@ -103,18 +103,25 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
             return newOrders;
           }
 
-          if (autoPrintRef.current) {
-            const currentIds = new Set(prev.map(o => o.id));
-            newOrders.forEach(order => {
-              if (order.status === 'recebido' && order.id && !currentIds.has(order.id) && !freshPrinted.has(order.id)) {
+          const currentIds = new Set(prev.map(o => o.id));
+          let hasNewLiveOrder = false;
+
+          newOrders.forEach(order => {
+            if (order.status === 'recebido' && order.id && !currentIds.has(order.id)) {
+              hasNewLiveOrder = true;
+              if (autoPrintRef.current && !freshPrinted.has(order.id)) {
                 freshPrinted.add(order.id);
                 printedOrders.current.add(order.id);
                 localStorage.setItem('printed_orders', JSON.stringify(Array.from(freshPrinted)));
-                playSound('order_alert');
                 executePrintOrder(order, printSettings, setOrderToPrint, addToast);
               }
-            });
+            }
+          });
+
+          if (hasNewLiveOrder) {
+            playSound('order_alert');
           }
+
           return newOrders;
         });
       });
@@ -435,6 +442,15 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
               <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-[3px] transition-transform ${printSettings.autoPrint ? 'left-6' : 'left-1'}`}></div>
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => playSound('order_alert')}
+            className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-stone-900 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all shadow-xs cursor-pointer"
+            title="Testar o alarme de novo pedido (3 segundos contínuos)"
+          >
+            <Volume2 size={15} /> Testar Alerta (3s)
+          </button>
           
           <button onClick={selectAll} className="text-sm font-bold uppercase text-stone-600 hover:text-black">
             {selectedIds.size === orders.length ? 'Desmarcar Todos' : 'Selecionar Todos'}
