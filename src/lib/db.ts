@@ -152,7 +152,9 @@ export interface PromoCode {
 export const getProducts = async (): Promise<Product[]> => {
   const productsRef = collection(db, "products");
   const snap = await getDocs(productsRef);
-  return snap.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Product[];
+  return snap.docs
+    .filter(doc => doc.id !== 'teste_pagamento_10cts')
+    .map(doc => ({ ...doc.data(), id: doc.id })) as Product[];
 };
 
 export const saveProduct = async (product: Omit<Product, 'id'>, id?: string) => {
@@ -224,13 +226,17 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
 
     // Also include any dynamically added products from Firestore
     const menuItemIds = new Set(MENU_ITEMS.map(i => i.id));
-    for (const doc of snap.docs) {
-      if (!menuItemIds.has(doc.id)) {
-        merged.push({ ...doc.data(), id: doc.id } as Product);
+    for (const d of snap.docs) {
+      if (d.id === 'teste_pagamento_10cts') {
+        deleteDoc(d.ref).catch(() => {});
+        continue;
+      }
+      if (!menuItemIds.has(d.id)) {
+        merged.push({ ...d.data(), id: d.id } as Product);
       }
     }
 
-    callback(merged);
+    callback(merged.filter(p => p.id !== 'teste_pagamento_10cts'));
   }, (error) => {
     console.error("Error subscribing to products (offline or missing rules):", error);
     callback(MENU_ITEMS);
@@ -277,6 +283,13 @@ export const seedDatabase = async (initialProducts: Product[], initialPromos: { 
   
     const productsSnap = await getDocs(productsRef);
     
+    // Ensure obsolete test product is removed
+    try {
+      await deleteDoc(doc(db, "products", "teste_pagamento_10cts"));
+    } catch {
+      // ignore
+    }
+
     // Always force seed to ensure prices are updated
     if (true) {
       for (const p of initialProducts) {

@@ -24,18 +24,6 @@ export const DISCOUNT_CODES: Record<string, number> = {
 
 export const MENU_ITEMS: Product[] = [
   {
-    "id": "teste_pagamento_10cts",
-    "name": "Teste de Pagamento (R$ 0,50 - Frete Grátis)",
-    "description": "Item especial de teste para validar o caminho completo do pedido com Frete Grátis.",
-    "price": 0.50,
-    "points": 1,
-    "emoji": "🧪",
-    "image": "/logo.png",
-    "category": "lanches",
-    "badge": "Frete Grátis 🚚",
-    "freeShipping": true
-  },
-  {
     "id": "b_agua",
     "name": "Água Mineral",
     "description": "Água mineral 500ml.",
