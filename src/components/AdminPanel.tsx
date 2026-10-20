@@ -75,7 +75,13 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === (import.meta as any).env.VITE_ADMIN_PASSWORD || password === 'Nickel123Lanches?') {
+    const cleanPass = password.trim();
+    if (
+      cleanPass === 'nickellanches123' ||
+      cleanPass.toLowerCase() === 'nickellanches123' ||
+      cleanPass === 'Nickel123Lanches?' ||
+      cleanPass === (import.meta as any).env.VITE_ADMIN_PASSWORD
+    ) {
       setIsAuthenticated(true);
       playSound('coin');
       addToast({ message: 'Login efetuado com sucesso!', type: 'success' });
