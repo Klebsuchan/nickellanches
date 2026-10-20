@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Printer, CheckSquare, Lock, X, Plus, Trash2, Edit2, Package, Tag, Clock, Save, Eye, EyeOff, Settings, List, Check, ArrowRight, ImagePlus, ChevronLeft, ChevronRight, RefreshCw, XCircle, Grid, Image as ImageIcon, Send, CreditCard, QrCode, ExternalLink, Volume2, Sparkles } from 'lucide-react';
+import { Printer, CheckSquare, Lock, LogOut, X, Plus, Trash2, Edit2, Package, Tag, Clock, Save, Eye, EyeOff, Settings, List, Check, ArrowRight, ImagePlus, ChevronLeft, ChevronRight, RefreshCw, XCircle, Grid, Image as ImageIcon, Send, CreditCard, QrCode, ExternalLink, Volume2, Sparkles } from 'lucide-react';
 import { Order, getProducts, saveProduct, deleteProduct, getPromos, savePromo, deletePromo, getAllOrders, updateOrderStatus, PromoCode, subscribeToAllOrders, Banner, getBanners, saveBanner, deleteBanner, subscribeToProducts, subscribeToPromos, subscribeToBanners, deleteOrder, saveOrderAdmin, subscribeToPaymentSettings, PaymentSettings, PrinterSettings, DEFAULT_PRINTER_SETTINGS, savePrinterSettings, subscribeToPrinterSettings, saveOrder } from '../lib/db';
 import { Product, Extra } from '../types';
 import { useToast } from './Toast';
@@ -33,8 +33,8 @@ export const executePrintOrder = async (
 };
 
 export default function AdminPanel({ onClose }: AdminPanelProps) {
-  // Mocado a pedido do usuario: sempre true
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  // Acesso estritamente protegido pela senha nickellanches123
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'promos' | 'banners' | 'payments' | 'settings'>('orders');
@@ -79,15 +79,14 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
     if (
       cleanPass === 'nickellanches123' ||
       cleanPass.toLowerCase() === 'nickellanches123' ||
-      cleanPass === 'Nickel123Lanches?' ||
-      cleanPass === (import.meta as any).env.VITE_ADMIN_PASSWORD
+      ((import.meta as any).env?.VITE_ADMIN_PASSWORD && cleanPass === (import.meta as any).env?.VITE_ADMIN_PASSWORD)
     ) {
       setIsAuthenticated(true);
       playSound('coin');
       addToast({ message: 'Login efetuado com sucesso!', type: 'success' });
     } else {
       playSound('error');
-      addToast({ message: 'Senha incorreta!', type: 'error' as any });
+      addToast({ message: 'Senha incorreta! Digite a senha de administrador.', type: 'error' as any });
     }
   };
 
@@ -148,36 +147,57 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
 
   if (!isAuthenticated) {
     return (
-      <div className="fixed inset-0 bg-stone-900 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-stone-900/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <motion.form 
           initial={{ scale: 0.9, opacity: 0 }} 
           animate={{ scale: 1, opacity: 1 }} 
           onSubmit={handleLogin} 
-          className="bg-white p-8 rounded-2xl border border-stone-200 shadow-sm max-w-sm w-full relative"
+          className="bg-white p-8 rounded-2xl border border-stone-200 shadow-2xl max-w-sm w-full relative"
         >
-          <button type="button" onClick={onClose} className="absolute top-4 right-4 text-black hover:bg-zinc-100 p-2 rounded-full"><X size={20}/></button>
-          <div className="flex justify-center mb-6 text-yellow-500">
-            <Lock size={48} />
+          <button 
+            type="button" 
+            onClick={onClose} 
+            className="absolute top-4 right-4 text-stone-400 hover:text-stone-800 hover:bg-stone-100 p-2 rounded-full transition-colors"
+          >
+            <X size={20}/>
+          </button>
+          
+          <div className="flex justify-center mb-5">
+            <div className="w-16 h-16 rounded-2xl bg-yellow-400/20 flex items-center justify-center border-2 border-yellow-400 text-yellow-600 shadow-inner">
+              <Lock size={32} />
+            </div>
           </div>
-          <h2 className="text-2xl font-display font-bold text-center text-black mb-6 uppercase">Acesso Restrito</h2>
-          <div className="relative mb-6">
+          
+          <h2 className="text-2xl font-display font-bold text-center text-stone-900 mb-1 uppercase tracking-wide">
+            Acesso Restrito
+          </h2>
+          <p className="text-center text-stone-500 text-xs mb-6 font-medium">
+            Digite a senha de administrador para gerenciar pedidos, cardápio e impressora.
+          </p>
+          
+          <div className="relative mb-5">
             <input 
               type={showPassword ? "text" : "password"} 
-              placeholder="Senha administrativa"
+              placeholder="Senha de administrador"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full border border-stone-200 rounded-lg p-3 pr-12 outline-none focus:ring-4 focus:ring-yellow-400 font-bold text-black"
+              autoFocus
+              className="w-full border border-stone-300 rounded-xl p-3.5 pr-12 outline-none focus:ring-4 focus:ring-yellow-400/50 focus:border-yellow-500 font-bold text-stone-900 placeholder:font-normal placeholder:text-stone-400"
             />
             <button 
               type="button" 
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 p-1"
             >
               {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
           </div>
-          <button type="submit" className="w-full bg-black text-yellow-400 font-display uppercase tracking-widest py-3 rounded-lg border border-stone-200 hover:-translate-y-1 hover:shadow-sm transition-all">
-            Entrar
+          
+          <button 
+            type="submit" 
+            className="w-full bg-stone-900 hover:bg-black text-yellow-400 font-display uppercase tracking-widest py-3.5 rounded-xl border border-stone-800 hover:-translate-y-0.5 shadow-md hover:shadow-lg transition-all font-bold cursor-pointer"
+          >
+            Entrar no Painel
           </button>
         </motion.form>
       </div>
@@ -249,6 +269,18 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
             <span className="text-[9px] text-stone-400 block text-center font-mono">
               Status Real: {getStoreStatus().badgeText}
             </span>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsAuthenticated(false);
+                setPassword('');
+                onClose();
+              }}
+              className="w-full mt-3 py-2 px-3 bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 text-red-300 hover:text-red-100 rounded-lg font-bold uppercase tracking-wider text-[11px] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <LogOut size={13} /> Sair do Painel
+            </button>
           </div>
         </div>
       </div>

@@ -221,7 +221,7 @@ export default function CartDrawer({
                       disabled
                       className="w-full py-4 bg-stone-300 border-2 border-stone-400 text-stone-600 font-display tracking-widest uppercase rounded-xl cursor-not-allowed flex items-center justify-center gap-2 text-base opacity-90 shadow-none"
                     >
-                      <Lock size={18} /> Loja Fechada (Abre às 18:30)
+                      <Lock size={18} /> Loja Fechada
                     </button>
                   </div>
                 ) : (

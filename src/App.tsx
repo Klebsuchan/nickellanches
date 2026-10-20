@@ -12,7 +12,6 @@ import { MENU_ITEMS, DISCOUNT_CODES } from './data';
 import { CartItem, Product, OrderInfo } from './types';
 import AutoMarquee from './components/AutoMarquee';
 import InstagramFeed from './components/InstagramFeed';
-import OpeningHours from './components/OpeningHours';
 import Footer from './components/Footer';
 import DogGame from './components/DogGame';
 import AdminPanel from './components/AdminPanel';
@@ -598,7 +597,7 @@ export default function App() {
     
     msg += `\n🔐 *CÓDIGO DE AUTENTICAÇÃO DO PEDIDO:*\n`;
     msg += `${authCode}\n\n`;
-    msg += `_Por favor, confirme o recebimento do meu pedido! Aguardo confirmação e tempo estimado de preparo/entrega._ 🚀`;
+    msg += `_Por favor, confirme o recebimento do meu pedido!_ 🚀`;
     
     // 2. Save order and receipt to Firebase
     let orderId = Math.random().toString(36).substring(2, 9).toUpperCase();
@@ -1048,8 +1047,6 @@ export default function App() {
         </div>
       </div>
 
-      <OpeningHours />
-
       {/* Instagram Feed */}
       <InstagramFeed />
 
@@ -1239,7 +1236,7 @@ export default function App() {
                   <div className="space-y-4 text-stone-600 text-sm font-medium leading-relaxed">
                     <p>Estes Termos de Uso regulam a utilização do nosso serviço de delivery.</p>
                     <h3 className="text-lg font-bold text-stone-900 mt-6">1. Pedidos</h3>
-                    <p>Ao realizar um pedido, você concorda com os preços, taxas de entrega e tempos estimados informados no checkout. As imagens do cardápio são ilustrativas, mas garantimos a qualidade e o sabor.</p>
+                    <p>Ao realizar um pedido, você concorda com os preços e taxas de entrega informados no checkout. As imagens do cardápio são ilustrativas, mas garantimos a qualidade e o sabor.</p>
                     <h3 className="text-lg font-bold text-stone-900 mt-4">2. Cancelamentos</h3>
                     <p>Cancelamentos só podem ser realizados antes da confirmação pela cozinha. Uma vez em preparo, não poderemos estornar o valor integral.</p>
                   </div>
