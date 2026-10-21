@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Printer, Download, CheckCircle2, Zap, Volume2, RefreshCw, ExternalLink, Monitor, ShieldCheck, Clock, FileText, Sparkles, Check } from 'lucide-react';
-import { Order, PrinterSettings, savePrinterSettings, subscribeToBridgeStatus } from '../lib/db';
+import { Order, PrinterSettings, savePrinterSettings, subscribeToBridgeStatus, isOrderPaid, markOrderAsPaid } from '../lib/db';
 import { checkWindowsBridgeStatus, downloadWindowsAutoPrintApp, executeUniversalPrint } from '../lib/printerService';
 import { playSound } from '../lib/audio';
 import { useToast } from './Toast';
@@ -324,7 +324,7 @@ export default function AutoPrintApp({
         </div>
       </div>
 
-      {/* CONTROLES RÁPIDOS E FILA EXCLUSIVA DE COMANDAS */}
+      {/* CONTROLES RÁPIDOS E FILA EXCLUSIVA DE COMANDAS (SOMENTE PEDIDOS PAGOS) */}
       <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden text-stone-900">
         <div className="p-4 sm:p-5 bg-stone-900 text-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-3">
@@ -332,14 +332,14 @@ export default function AutoPrintApp({
               <FileText size={20} />
             </div>
             <div>
-              <h3 className="font-black uppercase text-base tracking-wide flex items-center gap-2">
-                Central Exclusiva de Comandas
-                <span className="bg-stone-800 text-yellow-400 text-xs px-2.5 py-0.5 rounded-md border border-stone-700">
-                  {orders.length} comandas
+              <h3 className="font-black uppercase text-base tracking-wide flex items-center gap-2 flex-wrap">
+                Central Exclusiva de Comandas (Pedidos Pagos)
+                <span className="bg-emerald-500 text-stone-950 text-xs px-2.5 py-0.5 rounded-md font-black">
+                  {orders.filter((o) => isOrderPaid(o)).length} comandas pagas
                 </span>
               </h3>
               <p className="text-xs text-stone-400">
-                Todas as comandas abaixo são monitoradas e enviadas automaticamente para a impressora assim que chegam.
+                Somente pedidos com pagamento confirmado entram na comanda, disparam o aviso sonoro e vão para a impressora.
               </p>
             </div>
           </div>
@@ -372,128 +372,198 @@ export default function AutoPrintApp({
           </div>
         </div>
 
-        {/* LISTA DE COMANDAS EM TEMPO REAL */}
+        {/* LISTA DE COMANDAS PAGAS EM TEMPO REAL */}
         <div className="p-4 sm:p-5">
-          {orders.length === 0 ? (
+          {orders.filter((o) => isOrderPaid(o)).length === 0 ? (
             <div className="text-center py-12 bg-stone-50 rounded-xl border-2 border-dashed border-stone-200">
               <Printer size={40} className="mx-auto text-stone-400 mb-3" />
               <div className="font-black uppercase text-stone-700 text-base">
-                Aguardando Novas Comandas...
+                Aguardando Comandas Pagas...
               </div>
               <p className="text-xs text-stone-500 mt-1">
-                Assim que um cliente fizer um pedido no site, a comanda aparecerá aqui e sairá automaticamente na impressora.
+                Assim que um pedido tiver o pagamento aprovado, a comanda aparecerá aqui, tocará o alerta e sairá na impressora.
               </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {orders.map((order) => {
-                const isPrinted = order.id ? printedOrderIds.has(order.id) : false;
-                const orderNum = order.orderNumber
-                  ? `PEDIDO #${order.orderNumber}`
-                  : `#${order.id?.substring(0, 5).toUpperCase()}`;
-                const timeStr = order.createdAt?.toDate
-                  ? order.createdAt.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-                  : typeof order.createdAt === 'string'
-                  ? order.createdAt
-                  : 'Agora';
+              {orders
+                .filter((o) => isOrderPaid(o))
+                .map((order) => {
+                  const isPrinted = order.id ? printedOrderIds.has(order.id) : false;
+                  const orderNum = order.orderNumber
+                    ? `PEDIDO #${order.orderNumber}`
+                    : `#${order.id?.substring(0, 5).toUpperCase()}`;
+                  const timeStr = order.createdAt?.toDate
+                    ? order.createdAt.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                    : typeof order.createdAt === 'string'
+                    ? order.createdAt
+                    : 'Agora';
 
-                return (
-                  <div
-                    key={order.id}
-                    className="bg-stone-50 rounded-xl border-2 border-stone-200 hover:border-yellow-400 transition-all p-4 flex flex-col justify-between shadow-xs"
-                  >
-                    <div>
-                      {/* Cabeçalho da Comanda */}
-                      <div className="flex justify-between items-start gap-2 border-b border-stone-200 pb-2.5 mb-2.5">
+                  return (
+                    <div
+                      key={order.id}
+                      className="bg-stone-50 rounded-xl border-2 border-emerald-300 hover:border-yellow-400 transition-all p-4 flex flex-col justify-between shadow-xs"
+                    >
+                      <div>
+                        {/* Cabeçalho da Comanda */}
+                        <div className="flex justify-between items-start gap-2 border-b border-stone-200 pb-2.5 mb-2.5">
+                          <div>
+                            <span className="font-black text-base text-stone-950 block">{orderNum}</span>
+                            <span className="text-[11px] font-bold text-stone-500 flex items-center gap-1">
+                              <Clock size={11} /> {timeStr}
+                            </span>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md flex items-center gap-1 bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              <Check size={11} className="stroke-[3]" /> Pago
+                            </span>
+
+                            <span
+                              className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
+                                isPrinted
+                                  ? 'bg-stone-200 text-stone-700'
+                                  : 'bg-yellow-200 text-stone-900'
+                              }`}
+                            >
+                              {isPrinted ? 'Impressa' : 'Na Comanda'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Dados do Cliente */}
+                        <div className="text-xs space-y-1 mb-3 border-b border-dashed border-stone-200 pb-2.5">
+                          <div className="font-black text-stone-900 uppercase">
+                            {order.userName || 'Cliente Balcão'}
+                          </div>
+                          {order.whatsapp && (
+                            <div className="text-stone-600 font-semibold">Tel: {order.whatsapp}</div>
+                          )}
+                          <div className="text-stone-600 line-clamp-2">
+                            <strong>Entrega:</strong> {order.address || 'Retirada no Balcão'}
+                          </div>
+                        </div>
+
+                        {/* Itens da Comanda */}
+                        <div className="space-y-1.5 mb-3 max-h-36 overflow-y-auto pr-1">
+                          {(order.items || []).map((item: any, idx: number) => (
+                            <div key={idx} className="text-xs bg-white p-2 rounded-lg border border-stone-200">
+                              <div className="font-bold text-stone-900 flex justify-between">
+                                <span>
+                                  {item.quantity}x {item.name}
+                                </span>
+                              </div>
+                              {item.extras && item.extras.length > 0 && (
+                                <div className="text-[11px] text-stone-600 pl-2 mt-0.5">
+                                  {item.extras.map((ex: any, i: number) => (
+                                    <div key={i}>+ {ex.name}</div>
+                                  ))}
+                                </div>
+                              )}
+                              {item.observation && (
+                                <div className="text-[11px] font-bold text-red-600 uppercase mt-0.5">
+                                  Obs: {item.observation}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Rodapé da Comanda + Botão Imprimir Direto */}
+                      <div className="pt-2.5 border-t border-stone-200 flex items-center justify-between gap-2">
                         <div>
-                          <span className="font-black text-base text-stone-950 block">{orderNum}</span>
-                          <span className="text-[11px] font-bold text-stone-500 flex items-center gap-1">
-                            <Clock size={11} /> {timeStr}
+                          <span className="text-[10px] font-bold uppercase text-stone-500 block">
+                            {order.paymentMethod || 'Pago'}
+                          </span>
+                          <span className="font-black text-base text-emerald-700">
+                            R$ {(order.totalPrice || 0).toFixed(2).replace('.', ',')}
                           </span>
                         </div>
-                        <span
-                          className={`text-[10px] font-black uppercase px-2 py-1 rounded-md flex items-center gap-1 ${
-                            isPrinted
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                              : 'bg-amber-100 text-amber-900 border border-amber-300'
-                          }`}
+
+                        <button
+                          type="button"
+                          onClick={() => onPrintOrder(order)}
+                          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-black uppercase text-xs transition-all cursor-pointer shadow-xs bg-stone-900 hover:bg-yellow-400 text-yellow-400 hover:text-stone-950"
                         >
-                          {isPrinted ? (
-                            <>
-                              <Check size={11} className="stroke-[3]" /> Impressa
-                            </>
-                          ) : (
-                            'Na Fila'
-                          )}
-                        </span>
-                      </div>
-
-                      {/* Dados do Cliente */}
-                      <div className="text-xs space-y-1 mb-3 border-b border-dashed border-stone-200 pb-2.5">
-                        <div className="font-black text-stone-900 uppercase">
-                          {order.userName || 'Cliente Balcão'}
-                        </div>
-                        {order.whatsapp && (
-                          <div className="text-stone-600 font-semibold">Tel: {order.whatsapp}</div>
-                        )}
-                        <div className="text-stone-600 line-clamp-2">
-                          <strong>Entrega:</strong> {order.address || 'Retirada no Balcão'}
-                        </div>
-                      </div>
-
-                      {/* Itens da Comanda */}
-                      <div className="space-y-1.5 mb-3 max-h-36 overflow-y-auto pr-1">
-                        {(order.items || []).map((item: any, idx: number) => (
-                          <div key={idx} className="text-xs bg-white p-2 rounded-lg border border-stone-200">
-                            <div className="font-bold text-stone-900 flex justify-between">
-                              <span>
-                                {item.quantity}x {item.name}
-                              </span>
-                            </div>
-                            {item.extras && item.extras.length > 0 && (
-                              <div className="text-[11px] text-stone-600 pl-2 mt-0.5">
-                                {item.extras.map((ex: any, i: number) => (
-                                  <div key={i}>+ {ex.name}</div>
-                                ))}
-                              </div>
-                            )}
-                            {item.observation && (
-                              <div className="text-[11px] font-bold text-red-600 uppercase mt-0.5">
-                                Obs: {item.observation}
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                          <Printer size={14} />
+                          {isPrinted ? 'Reimprimir' : 'Imprimir'}
+                        </button>
                       </div>
                     </div>
-
-                    {/* Rodapé da Comanda + Botão Imprimir Direto */}
-                    <div className="pt-2.5 border-t border-stone-200 flex items-center justify-between gap-2">
-                      <div>
-                        <span className="text-[10px] font-bold uppercase text-stone-500 block">
-                          {order.paymentMethod || 'A Confirmar'}
-                        </span>
-                        <span className="font-black text-base text-emerald-700">
-                          R$ {(order.totalPrice || 0).toFixed(2).replace('.', ',')}
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => onPrintOrder(order)}
-                        className="flex items-center gap-1.5 px-3.5 py-2 bg-stone-900 hover:bg-yellow-400 text-yellow-400 hover:text-stone-950 rounded-xl font-black uppercase text-xs transition-all cursor-pointer shadow-xs"
-                      >
-                        <Printer size={14} />
-                        {isPrinted ? 'Reimprimir' : 'Imprimir'}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           )}
         </div>
       </div>
+
+      {/* PEDIDOS RETIDOS AGUARDANDO PAGAMENTO (FORA DA COMANDA) */}
+      {orders.filter((o) => !isOrderPaid(o)).length > 0 && (
+        <div className="bg-amber-50 rounded-2xl border-2 border-amber-300 shadow-sm overflow-hidden text-stone-900">
+          <div className="p-4 bg-amber-100 border-b border-amber-300 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <div>
+              <h4 className="font-black uppercase text-sm text-amber-950 flex items-center gap-2">
+                <Clock size={18} className="text-amber-700" />
+                Pedidos Aguardando Confirmação de Pagamento ({orders.filter((o) => !isOrderPaid(o)).length})
+              </h4>
+              <p className="text-xs text-amber-900 font-medium">
+                Estes pedidos (ex: PIX pendente) NÃO entraram na comanda e NÃO tocaram o alerta sonoro. Confirme o pagamento para liberar e imprimir.
+              </p>
+            </div>
+          </div>
+
+          <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {orders
+              .filter((o) => !isOrderPaid(o))
+              .map((order) => {
+                const orderNum = order.orderNumber
+                  ? `PEDIDO #${order.orderNumber}`
+                  : `#${order.id?.substring(0, 5).toUpperCase()}`;
+                return (
+                  <div
+                    key={order.id}
+                    className="bg-white rounded-xl border border-amber-300 p-3.5 flex flex-col justify-between gap-3 shadow-2xs"
+                  >
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-black text-sm text-stone-900">{orderNum}</span>
+                        <span className="text-[10px] font-black uppercase bg-amber-100 text-amber-900 px-2 py-0.5 rounded border border-amber-300">
+                          Aguardando Pgto
+                        </span>
+                      </div>
+                      <div className="text-xs font-bold text-stone-800">{order.userName || 'Cliente'}</div>
+                      <div className="text-[11px] text-stone-500">
+                        {order.paymentMethod || 'PIX'} • R$ {(order.totalPrice || 0).toFixed(2).replace('.', ',')}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!order.id) return;
+                        try {
+                          await markOrderAsPaid(order.id, order.orderNumber);
+                          playSound('order_alert');
+                          addToast({
+                            message: `Pagamento confirmado! Pedido #${order.orderNumber || ''} enviado para a comanda!`,
+                            type: 'success',
+                          });
+                          onPrintOrder({ ...order, isPaid: true, paymentStatus: 'pago' });
+                        } catch {
+                          addToast({ message: 'Erro ao confirmar pagamento', type: 'error' });
+                        }
+                      }}
+                      className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-black uppercase text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all"
+                    >
+                      <Check size={14} className="stroke-[3]" />
+                      <span>Confirmar Pgto & Enviar p/ Comanda</span>
+                    </button>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

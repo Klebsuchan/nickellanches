@@ -281,13 +281,13 @@ export default function App() {
           }
         }
 
-        // Se ainda faltar detalhes, tenta consultar a sessão no backend
-        if (!details && sessionId) {
+        // Consulta a sessão no backend para obter a bandeira/tipo do cartão e confirmar aprovação
+        if (sessionId) {
           try {
             const res = await fetch(`/api/checkout-session/${sessionId}`);
             if (res.ok) {
               const sessionData = await res.json();
-              if (sessionData.metadata) {
+              if (!details && sessionData.metadata) {
                 details = {
                   name: sessionData.metadata.name || sessionData.customer_details?.name || 'Cliente Stripe',
                   whatsapp: sessionData.metadata.whatsapp || '',
@@ -295,6 +295,8 @@ export default function App() {
                   region: sessionData.metadata.region || '',
                   paymentMethod: sessionData.realMethodLabel || 'Cartão Online (Aprovado via Stripe)',
                   isOnlinePayment: true,
+                  isPaid: true,
+                  paymentStatus: 'pago',
                   receiptAuthCode: sessionData.metadata.receiptAuthCode || `AUT-STRIPE-${sessionId.substring(sessionId.length - 8).toUpperCase()}`,
                   deliveryFee: 0,
                   totalToPay: sessionData.metadata.total ? parseFloat(sessionData.metadata.total) : 0
@@ -315,12 +317,19 @@ export default function App() {
             address: 'Endereço informado no checkout',
             paymentMethod: 'Cartão Online (Aprovado via Stripe)',
             isOnlinePayment: true,
+            isPaid: true,
+            paymentStatus: 'pago',
             deliveryFee: 0
           };
         }
 
-        // Garante que o status de pagamento online esteja marcado como aprovado
+        // Garante que o status de pagamento online aprovado no Stripe seja registrado como PAGO
         details.isOnlinePayment = true;
+        details.isPaid = true;
+        details.paymentStatus = 'pago';
+        if (!details.paymentMethod || !details.paymentMethod.toLowerCase().includes('aprovado')) {
+          details.paymentMethod = `${details.paymentMethod || 'Cartão Online'} (Aprovado via Stripe)`;
+        }
 
         // Se porventura orderItems estiver vazio (ex: reload sem localStorage), cria item sintético com o valor pago
         if ((!orderItems || orderItems.length === 0) && details.totalToPay) {
@@ -649,11 +658,17 @@ export default function App() {
     let orderId = Math.random().toString(36).substring(2, 9).toUpperCase();
     try {
       const uid = user ? user.uid : 'guest';
+      const isPaid = Boolean(
+        details.isPaid || 
+        (details.isOnlinePayment && details.paymentMethod?.toLowerCase().includes('aprovado'))
+      );
       orderId = await saveOrder(uid, {
         items: activeCart,
         totalPrice: finalTotal,
         totalPoints: earnedPoints,
         status: 'recebido',
+        isPaid,
+        paymentStatus: isPaid ? 'pago' : 'pendente',
         userName: details.name || user?.displayName || 'Anônimo',
         address: details.address,
         paymentMethod: details.paymentMethod,
@@ -668,8 +683,6 @@ export default function App() {
         receiptFileName: details.receiptFileName || '',
         receiptSummary: `R$ ${finalTotal.toFixed(2).replace('.', ',')} via ${details.paymentMethod}`
       });
-
-
 
       // Pedido registrado no banco de dados e pronto para acompanhamento no minigame
     } catch(e) {

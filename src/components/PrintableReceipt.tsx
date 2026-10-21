@@ -1,5 +1,4 @@
-import React from 'react';
-import { Order, PrinterSettings } from '../lib/db';
+import { Order, PrinterSettings, isOrderPaid } from '../lib/db';
 import { sanitizeForThermal } from '../lib/printerService';
 
 interface PrintableReceiptProps {
@@ -175,8 +174,16 @@ export default function PrintableReceipt({ order, settings, viaTitle, isKitchenO
 
           {settings.showPaymentDetails && (
             <div className="mt-2 text-xs">
+              <div className={`text-center font-black text-xs py-0.5 px-1 uppercase tracking-wide mb-1 ${
+                isOrderPaid(order) ? 'bg-black text-white' : 'bg-amber-600 text-white'
+              }`}>
+                {isOrderPaid(order) ? '>>> PEDIDO PAGO E CONFIRMADO <<<' : '>>> AGUARDANDO PAGAMENTO <<<'}
+              </div>
               <p className="font-bold break-words">
                 Pagamento: <span className="font-black uppercase">{cleanPayment}</span>
+              </p>
+              <p className="font-bold">
+                Status: <span className="font-black">{isOrderPaid(order) ? 'PAGO' : 'AGUARDANDO PAGAMENTO'}</span>
               </p>
               {order.changeFor && (
                 <p className="font-black mt-0.5">Troco para: R$ {order.changeFor}</p>

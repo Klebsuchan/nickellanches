@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Printer, CheckSquare, Lock, LogOut, X, Plus, Trash2, Edit2, Package, Tag, Clock, Save, Eye, EyeOff, Settings, List, Check, ArrowRight, ImagePlus, ChevronLeft, ChevronRight, RefreshCw, XCircle, Grid, Image as ImageIcon, Send, CreditCard, QrCode, ExternalLink, Volume2, Zap, Download, Users, PauseCircle, PlayCircle, Search, Calendar, Phone, MapPin, ShoppingBag } from 'lucide-react';
-import { Order, getProducts, saveProduct, toggleProductPause, deleteProduct, getPromos, savePromo, deletePromo, getAllOrders, updateOrderStatus, PromoCode, subscribeToAllOrders, Banner, getBanners, saveBanner, deleteBanner, subscribeToProducts, subscribeToPromos, subscribeToBanners, deleteOrder, saveOrderAdmin, subscribeToPaymentSettings, PaymentSettings, PrinterSettings, DEFAULT_PRINTER_SETTINGS, savePrinterSettings, subscribeToPrinterSettings, subscribeToStoreHours, saveStoreHoursSettings } from '../lib/db';
+import { Order, getProducts, saveProduct, toggleProductPause, deleteProduct, getPromos, savePromo, deletePromo, getAllOrders, updateOrderStatus, PromoCode, subscribeToAllOrders, Banner, getBanners, saveBanner, deleteBanner, subscribeToProducts, subscribeToPromos, subscribeToBanners, deleteOrder, saveOrderAdmin, subscribeToPaymentSettings, PaymentSettings, PrinterSettings, DEFAULT_PRINTER_SETTINGS, savePrinterSettings, subscribeToPrinterSettings, subscribeToStoreHours, saveStoreHoursSettings, isOrderPaid, markOrderAsPaid } from '../lib/db';
 import { Product, Extra } from '../types';
 import { useToast } from './Toast';
 import { playSound } from '../lib/audio';
@@ -70,6 +70,29 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
   const printSettingsRef = useRef(printSettings);
   const printedOrders = useRef<Set<string>>(new Set(JSON.parse(localStorage.getItem('printed_orders') || '[]')));
   const knownOrderIdsRef = useRef<Set<string>>(new Set());
+  const knownPaidOrderIdsRef = useRef<Set<string>>(new Set());
+  const [confirmPrintUnpaidOrder, setConfirmPrintUnpaidOrder] = useState<Order | null>(null);
+
+  const handleMarkAsPaidAndPrint = async (order: Order) => {
+    if (!order.id) return;
+    try {
+      await markOrderAsPaid(order.id, order.orderNumber);
+      knownPaidOrderIdsRef.current.add(order.id);
+      playSound('order_alert');
+      const updatedOrder = { ...order, isPaid: true, paymentStatus: 'pago' as const };
+      await executePrintOrder(updatedOrder, printSettingsRef.current, setOrderToPrint, addToast, { force: true });
+      addToast({
+        title: 'Pagamento Confirmado!',
+        message: `Pedido #${order.orderNumber || order.id.substring(0, 4)} marcado como PAGO e comanda enviada!`,
+        type: 'success'
+      });
+    } catch (err: any) {
+      addToast({
+        message: 'Erro ao confirmar pagamento: ' + err.message,
+        type: 'error'
+      });
+    }
+  };
 
   useEffect(() => {
     autoPrintRef.current = printSettings.autoPrint;
@@ -116,8 +139,11 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
           // Na primeira carga da página, registra os IDs existentes como conhecidos para evitar disparar impressão em massa de pedidos antigos
           newOrders.forEach(o => {
             if (o.id) {
-              freshPrinted.add(o.id);
               knownOrderIdsRef.current.add(o.id);
+              if (isOrderPaid(o)) {
+                knownPaidOrderIdsRef.current.add(o.id);
+                freshPrinted.add(o.id);
+              }
             }
           });
           localStorage.setItem('printed_orders', JSON.stringify(Array.from(freshPrinted)));
@@ -126,21 +152,27 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
           return;
         }
 
-        const newlyArrivedOrders: Order[] = [];
+        const newlyPaidOrders: Order[] = [];
         newOrders.forEach(order => {
-          if (order.id && !knownOrderIdsRef.current.has(order.id)) {
-            knownOrderIdsRef.current.add(order.id);
-            if (!order.status || order.status === 'recebido') {
-              newlyArrivedOrders.push(order);
+          if (!order.id) return;
+          knownOrderIdsRef.current.add(order.id);
+
+          const paid = isOrderPaid(order);
+          // REGRA: Só dispara alerta sonoro e comanda se o pedido estiver PAGO!
+          if (paid && !knownPaidOrderIdsRef.current.has(order.id)) {
+            knownPaidOrderIdsRef.current.add(order.id);
+            if (!order.status || order.status === 'recebido' || order.status === 'preparando') {
+              newlyPaidOrders.push(order);
             }
           }
         });
 
         setOrders(newOrders);
 
-        if (newlyArrivedOrders.length > 0) {
+        // REGRA DE OURO: AVISA E IMPRIME APENAS OS PEDIDOS QUE FORAM PAGOS!
+        if (newlyPaidOrders.length > 0) {
           playSound('order_alert');
-          newlyArrivedOrders.forEach(order => {
+          newlyPaidOrders.forEach(order => {
             if (autoPrintRef.current && order.id && !freshPrinted.has(order.id)) {
               freshPrinted.add(order.id);
               printedOrders.current.add(order.id);
@@ -552,6 +584,23 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [confirmPrintUnpaidOrder, setConfirmPrintUnpaidOrder] = useState<Order | null>(null);
+
+  const handleMarkAsPaidAndPrint = async (order: Order) => {
+    if (!order.id) return;
+    try {
+      await markOrderAsPaid(order.id, order.orderNumber);
+      addToast({
+        message: `Pedido #${order.orderNumber || ''} marcado como PAGO! Comanda enviada para a impressora.`,
+        type: 'success'
+      });
+      const paidOrder = { ...order, isPaid: true, paymentStatus: 'pago' as const };
+      await executePrintOrder(paidOrder, printSettings, setOrderToPrint, addToast, { force: true });
+    } catch (err) {
+      console.error('Erro ao marcar pedido como pago:', err);
+      addToast({ message: 'Erro ao marcar pedido como pago', type: 'error' });
+    }
+  };
 
   const toggleSelect = (id: string) => {
     const newSet = new Set(selectedIds);
@@ -577,8 +626,22 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
   const printMass = () => {
     if (selectedIds.size === 0) return;
     const selectedOrders = orders.filter((o: Order) => selectedIds.has(o.id!));
+    const paidSelected = selectedOrders.filter((o: Order) => isOrderPaid(o));
+    if (paidSelected.length === 0) {
+      addToast({
+        message: 'Atenção: Só podem ir para a comanda os pedidos que foram PAGOS! Confirme o pagamento primeiro.',
+        type: 'warning'
+      });
+      return;
+    }
+    if (paidSelected.length < selectedOrders.length) {
+      addToast({
+        message: `Imprimindo apenas os ${paidSelected.length} pedidos PAGOS. Pedidos pendentes foram ignorados.`,
+        type: 'info'
+      });
+    }
     let delay = 0;
-    selectedOrders.forEach((order: Order) => {
+    paidSelected.forEach((order: Order) => {
       setTimeout(() => {
         executePrintOrder(order, printSettings, setOrderToPrint, addToast, { force: true });
       }, delay);
@@ -599,8 +662,10 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
     setSelectedIds(new Set());
   };
 
+  const unpaidOrders = orders.filter((o: Order) => !isOrderPaid(o));
+
   const columns = [
-    { id: 'recebido', title: 'Recebidos', color: 'bg-stone-200 border-stone-300 text-stone-700' },
+    { id: 'recebido', title: 'Na Comanda (Pagos)', color: 'bg-emerald-100 border-emerald-300 text-emerald-900' },
     { id: 'preparando', title: 'Em Preparo', color: 'bg-yellow-100 border-yellow-300 text-yellow-800' },
     { id: 'a_caminho', title: 'A Caminho', color: 'bg-blue-100 border-blue-300 text-blue-800' },
     { id: 'entregue', title: 'Entregues', color: 'bg-green-100 border-green-300 text-green-800' }
@@ -609,9 +674,14 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
   return (
     <div className="h-full flex flex-col">
       <div className="flex justify-between items-center mb-6 flex-wrap gap-4 bg-white p-4 rounded-xl shadow-sm border border-stone-200">
-        <h2 className="text-2xl font-display uppercase font-bold flex items-center gap-2">
-          <CheckSquare size={24} className="text-yellow-500" /> Painel de Pedidos
-        </h2>
+        <div>
+          <h2 className="text-2xl font-display uppercase font-bold flex items-center gap-2">
+            <CheckSquare size={24} className="text-yellow-500" /> Painel de Comandas (Somente Pagos)
+          </h2>
+          <p className="text-xs text-stone-500 font-medium">
+            Apenas pedidos com pagamento confirmado entram nas colunas da comanda, disparam o alerta sonoro e imprimem.
+          </p>
+        </div>
         <div className="flex items-center gap-3 flex-wrap">
           <button
             type="button"
@@ -658,7 +728,7 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
             <button onClick={() => bulkChangeStatus('entregue')} className="px-2 py-1 bg-green-100 border border-green-200 text-green-800 rounded text-xs font-bold shadow-sm hover:bg-green-200">Entregue</button>
           </div>
 
-          <button onClick={printMass} className="bg-stone-900 text-yellow-400 p-2 rounded-lg hover:bg-stone-800 transition-colors tooltip" title="Imprimir selecionados">
+          <button onClick={printMass} className="bg-stone-900 text-yellow-400 p-2 rounded-lg hover:bg-stone-800 transition-colors tooltip" title="Imprimir comandas pagas selecionadas">
             <Printer size={18} />
           </button>
           <button onClick={deleteSelected} className="bg-red-100 text-red-600 p-2 rounded-lg hover:bg-red-200 transition-colors" title="Apagar selecionados">
@@ -668,17 +738,29 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
       </div>
 
       <div className="flex-1 overflow-x-auto flex gap-6 pb-4">
-        {columns.map(col => (
-          <div key={col.id} className={`flex-none w-80 flex flex-col bg-stone-200/50 rounded-2xl border-2 border-stone-200/50 overflow-hidden`}>
-            <div className={`p-3 border-b-2 flex justify-between items-center ${col.color}`}>
-              <h3 className="font-bold uppercase tracking-widest text-sm">{col.title}</h3>
-              <span className="bg-white/50 px-2 py-0.5 rounded-full text-xs font-black">
-                {orders.filter((o: Order) => (o.status || 'recebido') === col.id).length}
+        {/* COLUNA DE RETENÇÃO: PEDIDOS AGUARDANDO PAGAMENTO (FORA DA COMANDA) */}
+        <div className="flex-none w-80 flex flex-col bg-amber-50/80 rounded-2xl border-2 border-amber-300 overflow-hidden">
+          <div className="p-3 border-b-2 flex justify-between items-center bg-amber-200/90 border-amber-300 text-amber-950">
+            <div>
+              <h3 className="font-black uppercase tracking-wider text-xs flex items-center gap-1.5">
+                <Clock size={14} /> Aguardando Pagamento
+              </h3>
+              <span className="text-[10px] font-bold text-amber-800 block">
+                Fora da Comanda • Sem Alerta
               </span>
             </div>
-            <div className="flex-1 p-3 overflow-y-auto space-y-3">
-              {orders.filter((o: Order) => (o.status || 'recebido') === col.id).map((order: Order) => (
-                <div key={order.id} className={`bg-white p-3 rounded-xl border-2 shadow-sm relative transition-all ${selectedIds.has(order.id!) ? 'border-yellow-400 shadow-md ring-4 ring-yellow-400/20' : 'border-stone-200 hover:border-stone-300'}`}>
+            <span className="bg-white/80 px-2.5 py-0.5 rounded-full text-xs font-black text-amber-950">
+              {unpaidOrders.length}
+            </span>
+          </div>
+          <div className="flex-1 p-3 overflow-y-auto space-y-3">
+            {unpaidOrders.length === 0 ? (
+              <div className="text-center py-8 px-3 text-xs text-amber-800/70 font-medium">
+                Nenhum pedido pendente de pagamento no momento.
+              </div>
+            ) : (
+              unpaidOrders.map((order: Order) => (
+                <div key={order.id} className={`bg-white p-3 rounded-xl border-2 shadow-sm relative transition-all ${selectedIds.has(order.id!) ? 'border-yellow-400 shadow-md ring-4 ring-yellow-400/20' : 'border-amber-300 hover:border-amber-400'}`}>
                   <div className="absolute top-3 right-3 cursor-pointer" onClick={(e) => { e.stopPropagation(); toggleSelect(order.id!); }}>
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedIds.has(order.id!) ? 'bg-yellow-400 border-yellow-400' : 'border-stone-300'}`}>
                       {selectedIds.has(order.id!) && <Check size={12} className="text-black stroke-[4]"/>}
@@ -695,32 +777,102 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
                       </span>
                     </div>
                     <div className="font-bold text-stone-800 mb-1">{order.userName || 'Anônimo'}</div>
-                    <div className="text-xs text-stone-500 font-medium mb-3 flex items-center gap-1 line-clamp-1">
+                    <div className="text-xs text-stone-500 font-medium mb-2 flex items-center gap-1 line-clamp-1">
                       {order.address || 'Retirada no Balcão'}
                     </div>
-                    <div className="flex justify-between items-center border-t border-dashed border-stone-200 pt-2">
-                      <span className="font-black text-green-600">R$ {order.totalPrice.toFixed(2)}</span>
+                    <div className="flex justify-between items-center border-t border-dashed border-stone-200 pt-2 flex-wrap gap-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold uppercase bg-stone-100 px-2 py-0.5 rounded text-stone-600 border border-stone-200">{order.paymentMethod || 'Não info'}</span>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            executePrintOrder(order, printSettings, setOrderToPrint, addToast);
-                          }}
-                          className="p-1.5 bg-stone-100 hover:bg-yellow-400 hover:text-black rounded-lg transition-colors text-stone-700"
-                          title="Imprimir Comanda"
-                        >
-                          <Printer size={15} />
-                        </button>
+                        <span className="font-black text-amber-700">R$ {order.totalPrice.toFixed(2)}</span>
+                        <span className="text-[10px] font-black uppercase bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded border border-amber-300 flex items-center gap-1">
+                          <Clock size={10} /> Aguardando Pgto
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold uppercase bg-stone-100 px-2 py-0.5 rounded text-stone-600 border border-stone-200 max-w-[110px] truncate" title={order.paymentMethod || 'PIX'}>
+                        {order.paymentMethod || 'PIX'}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await handleMarkAsPaidAndPrint(order);
+                      }}
+                      className="w-full mt-2.5 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                      title="Confirmar pagamento, avisar e enviar para a comanda"
+                    >
+                      <Check size={14} className="stroke-[3]" />
+                      <span>Confirmar Pgto & Enviar p/ Comanda</span>
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* COLUNAS OFICIAIS DA COMANDA (SOMENTE PEDIDOS PAGOS!) */}
+        {columns.map(col => {
+          const colPaidOrders = orders.filter((o: Order) => isOrderPaid(o) && (o.status || 'recebido') === col.id);
+          return (
+            <div key={col.id} className={`flex-none w-80 flex flex-col bg-stone-200/50 rounded-2xl border-2 border-stone-200/50 overflow-hidden`}>
+              <div className={`p-3 border-b-2 flex justify-between items-center ${col.color}`}>
+                <h3 className="font-bold uppercase tracking-widest text-sm">{col.title}</h3>
+                <span className="bg-white/50 px-2 py-0.5 rounded-full text-xs font-black">
+                  {colPaidOrders.length}
+                </span>
+              </div>
+              <div className="flex-1 p-3 overflow-y-auto space-y-3">
+                {colPaidOrders.map((order: Order) => (
+                  <div key={order.id} className={`bg-white p-3 rounded-xl border-2 shadow-sm relative transition-all ${selectedIds.has(order.id!) ? 'border-yellow-400 shadow-md ring-4 ring-yellow-400/20' : 'border-stone-200 hover:border-stone-300'}`}>
+                    <div className="absolute top-3 right-3 cursor-pointer" onClick={(e) => { e.stopPropagation(); toggleSelect(order.id!); }}>
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedIds.has(order.id!) ? 'bg-yellow-400 border-yellow-400' : 'border-stone-300'}`}>
+                        {selectedIds.has(order.id!) && <Check size={12} className="text-black stroke-[4]"/>}
+                      </div>
+                    </div>
+                    
+                    <div className="pr-8 cursor-pointer" onClick={() => setEditingOrder(order)}>
+                      <div className="flex justify-between items-start mb-1">
+                        <span className="font-black text-lg text-stone-900">
+                          {order.orderNumber ? `PEDIDO #${order.orderNumber}` : `#${order.id?.substring(0,6).toUpperCase()}`}
+                        </span>
+                        <span className="text-xs text-stone-500 font-bold bg-stone-100 px-2 py-1 rounded">
+                          {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}
+                        </span>
+                      </div>
+                      <div className="font-bold text-stone-800 mb-1">{order.userName || 'Anônimo'}</div>
+                      <div className="text-xs text-stone-500 font-medium mb-3 flex items-center gap-1 line-clamp-1">
+                        {order.address || 'Retirada no Balcão'}
+                      </div>
+                      <div className="flex justify-between items-center border-t border-dashed border-stone-200 pt-2 flex-wrap gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-black text-green-600">R$ {order.totalPrice.toFixed(2)}</span>
+                          <span className="text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-300 flex items-center gap-1">
+                            <Check size={10} className="stroke-[3]" /> Pago
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] font-bold uppercase bg-stone-100 px-2 py-0.5 rounded text-stone-600 border border-stone-200 max-w-[110px] truncate" title={order.paymentMethod || 'Pago'}>{order.paymentMethod || 'Pago'}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              executePrintOrder(order, printSettings, setOrderToPrint, addToast, { force: true });
+                            }}
+                            className="p-1.5 rounded-lg transition-colors cursor-pointer bg-stone-100 hover:bg-yellow-400 hover:text-black text-stone-700"
+                            title="Imprimir Comanda"
+                          >
+                            <Printer size={15} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Order Modal */}
@@ -741,16 +893,84 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
         )}
       </AnimatePresence>
       <ConfirmModal isOpen={confirmDeleteOpen} message={`Tem certeza que deseja apagar ${selectedIds.size} pedidos permanentemente?`} onConfirm={performDelete} onCancel={() => setConfirmDeleteOpen(false)} />
+
+      {/* Modal de Confirmação para Imprimir Pedido Não Pago */}
+      <AnimatePresence>
+        {confirmPrintUnpaidOrder && (
+          <div className="fixed inset-0 bg-black/70 z-[140] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border-2 border-amber-400 text-stone-900 space-y-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-amber-100 text-amber-800 rounded-2xl flex items-center justify-center shrink-0">
+                  <Clock size={24} />
+                </div>
+                <div>
+                  <h3 className="font-black text-lg uppercase tracking-tight">Pedido Não Pago</h3>
+                  <p className="text-xs text-stone-500 font-medium">
+                    Pedido #{confirmPrintUnpaidOrder.orderNumber || confirmPrintUnpaidOrder.id?.substring(0, 4)} está como "Aguardando Pagamento".
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 leading-relaxed font-medium">
+                Pela regra da loja, <strong>somente pedidos pagos devem ir para a comanda da cozinha</strong>. Você deseja confirmar o pagamento agora e imprimir?
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const ord = confirmPrintUnpaidOrder;
+                    setConfirmPrintUnpaidOrder(null);
+                    await handleMarkAsPaidAndPrint(ord);
+                  }}
+                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black uppercase text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Check size={16} className="stroke-[3]" />
+                  <span>Confirmar Pagamento & Imprimir Comanda</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ord = confirmPrintUnpaidOrder;
+                    setConfirmPrintUnpaidOrder(null);
+                    executePrintOrder(ord, printSettings, setOrderToPrint, addToast, { force: true });
+                  }}
+                  className="w-full py-2.5 px-4 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold uppercase text-xs rounded-xl transition-all cursor-pointer"
+                >
+                  Imprimir Mesmo Sem Pagamento
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setConfirmPrintUnpaidOrder(null)}
+                  className="w-full py-2 text-stone-500 hover:text-stone-800 font-bold uppercase text-xs text-center cursor-pointer transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
 function OrderEditModal({ order, onClose, onSave, onPrint }: any) {
+  const isInitiallyPaid = isOrderPaid(order);
   const [formData, setFormData] = useState({
     userName: order.userName || '',
     address: order.address || '',
     paymentMethod: order.paymentMethod || '',
     status: order.status || 'recebido',
+    isPaid: isInitiallyPaid,
+    paymentStatus: isInitiallyPaid ? 'pago' : (order.paymentStatus || 'pendente'),
     adminNotes: order.adminNotes || ''
   });
 
@@ -760,7 +980,19 @@ function OrderEditModal({ order, onClose, onSave, onPrint }: any) {
         <div className="p-6 border-b-2 border-stone-100 flex justify-between items-center sticky top-0 bg-white z-10 rounded-t-2xl">
           <h2 className="text-2xl font-black uppercase flex items-center gap-2">Comanda #{order.id}</h2>
           <div className="flex gap-2">
-            <button onClick={onPrint} className="p-2 bg-stone-100 rounded-full hover:bg-stone-200 transition-colors"><Printer size={20}/></button>
+            <button 
+              onClick={() => {
+                if (!formData.isPaid) {
+                  onPrint();
+                } else {
+                  onPrint();
+                }
+              }} 
+              className="p-2 bg-stone-100 rounded-full hover:bg-stone-200 transition-colors"
+              title="Imprimir comanda"
+            >
+              <Printer size={20}/>
+            </button>
             <button onClick={onClose} className="p-2 bg-stone-100 rounded-full hover:bg-stone-200 transition-colors"><X size={20}/></button>
           </div>
         </div>
@@ -778,6 +1010,57 @@ function OrderEditModal({ order, onClose, onSave, onPrint }: any) {
               <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Método de Pagamento</label>
               <input value={formData.paymentMethod} onChange={e => setFormData({...formData, paymentMethod: e.target.value})} className="w-full border-2 border-stone-200 rounded-lg p-2 font-bold" />
             </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Status do Pagamento</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, isPaid: true, paymentStatus: 'pago' })}
+                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-black uppercase flex items-center justify-center gap-1.5 border-2 transition-all cursor-pointer ${
+                    formData.isPaid
+                      ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
+                      : 'bg-stone-50 border-stone-200 text-stone-600 hover:border-emerald-300'
+                  }`}
+                >
+                  <Check size={14} className="stroke-[3]" />
+                  <span>Pago (Liberado)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, isPaid: false, paymentStatus: 'pendente' })}
+                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-black uppercase flex items-center justify-center gap-1.5 border-2 transition-all cursor-pointer ${
+                    !formData.isPaid
+                      ? 'bg-amber-500 border-amber-500 text-stone-950 shadow-xs'
+                      : 'bg-stone-50 border-stone-200 text-stone-600 hover:border-amber-300'
+                  }`}
+                >
+                  <Clock size={14} />
+                  <span>Aguardando Pgto</span>
+                </button>
+              </div>
+              <p className="text-[10px] text-stone-500 mt-1">
+                {formData.isPaid
+                  ? '✅ Comanda autorizada para impressão na cozinha.'
+                  : '⚠️ Pedido bloqueado para a comanda até confirmação do pagamento.'}
+              </p>
+            </div>
+
+            {!formData.isPaid && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const updatedData = { ...formData, isPaid: true, paymentStatus: 'pago' };
+                  setFormData(updatedData);
+                  await onSave(updatedData);
+                  onPrint();
+                }}
+                className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+              >
+                <CreditCard size={15} />
+                <span>Confirmar Pagamento & Imprimir Comanda</span>
+              </button>
+            )}
 
             {order.receiptAuthCode && (
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-1 text-xs">
@@ -1975,7 +2258,16 @@ function CustomerOrderHistory({
                           {itemsText}
                         </td>
                         <td className="py-3.5 px-4 text-xs font-bold text-stone-600">
-                          {order.paymentMethod || '-'}
+                          <div>{order.paymentMethod || '-'}</div>
+                          {isOrderPaid(order) ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded border border-emerald-300 mt-1">
+                              <Check size={10} className="stroke-[3]" /> Pago
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase bg-amber-100 text-amber-900 px-2 py-0.5 rounded border border-amber-300 mt-1">
+                              <Clock size={10} /> Aguardando Pgto
+                            </span>
+                          )}
                         </td>
                         <td className="py-3.5 px-4 text-xs font-black uppercase text-stone-700">
                           {order.status || 'recebido'}
@@ -1985,6 +2277,25 @@ function CustomerOrderHistory({
                         </td>
                         <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            {!isOrderPaid(order) && (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    await markOrderAsPaid(order.id!, order.orderNumber);
+                                    addToast({ message: `Pedido #${order.orderNumber || ''} marcado como PAGO! Comanda enviada.`, type: 'success' });
+                                    executePrintOrder({ ...order, isPaid: true, paymentStatus: 'pago' }, printSettings, setOrderToPrint, addToast, { force: true });
+                                  } catch {
+                                    addToast({ message: 'Erro ao confirmar pagamento', type: 'error' });
+                                  }
+                                }}
+                                className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-black flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
+                                title="Confirmar Pagamento e Imprimir Comanda"
+                              >
+                                <CreditCard size={13} />
+                                <span>Confirmar Pgto</span>
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => setInspectingOrder(order)}
@@ -2087,19 +2398,47 @@ function CustomerOrderHistory({
                           <span className="text-xs font-bold uppercase text-stone-600">
                             · {order.status || 'recebido'}
                           </span>
+                          {isOrderPaid(order) ? (
+                            <span className="text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-300 flex items-center gap-1">
+                              <Check size={10} className="stroke-[3]" /> Pago
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-black uppercase bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded border border-amber-300 flex items-center gap-1">
+                              <Clock size={10} /> Aguardando Pgto
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2">
                           <span className="font-mono font-black text-base text-emerald-600 tabular-nums">
                             R$ {Number(order.totalPrice || 0).toFixed(2).replace('.', ',')}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => executePrintOrder(order, printSettings, setOrderToPrint, addToast, { force: true })}
-                            className="px-3 py-1.5 bg-stone-900 hover:bg-black text-yellow-400 rounded-lg text-xs font-bold uppercase flex items-center gap-1.5 transition-colors cursor-pointer"
-                          >
-                            <Printer size={14} /> Reimprimir
-                          </button>
+                          {!isOrderPaid(order) ? (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await markOrderAsPaid(order.id!, order.orderNumber);
+                                  addToast({ message: `Pedido #${order.orderNumber || ''} marcado como PAGO! Comanda enviada.`, type: 'success' });
+                                  executePrintOrder({ ...order, isPaid: true, paymentStatus: 'pago' }, printSettings, setOrderToPrint, addToast, { force: true });
+                                } catch {
+                                  addToast({ message: 'Erro ao confirmar pagamento', type: 'error' });
+                                }
+                              }}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-black uppercase flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                              title="Confirmar pagamento e imprimir comanda"
+                            >
+                              <CreditCard size={14} /> Confirmar & Imprimir
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => executePrintOrder(order, printSettings, setOrderToPrint, addToast, { force: true })}
+                              className="px-3 py-1.5 bg-stone-900 hover:bg-black text-yellow-400 rounded-lg text-xs font-bold uppercase flex items-center gap-1.5 transition-colors cursor-pointer"
+                            >
+                              <Printer size={14} /> Reimprimir
+                            </button>
+                          )}
                         </div>
                       </div>
 

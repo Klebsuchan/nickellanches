@@ -2,7 +2,7 @@
 // Thermal Receipt Printing Service for USB & Spooler Printers (POS-80 / POS-58)
 // ======================================================================
 
-import { Order, PrinterSettings, getCloudBridgeStatus, enqueueCloudPrintJob } from './db';
+import { Order, PrinterSettings, getCloudBridgeStatus, enqueueCloudPrintJob, isOrderPaid } from './db';
 import { getConnectedUsbPrinter, checkAndAutoReconnectUsbPrinter, sendRawToUsbPrinter, buildReceiptEscPos } from './escpos';
 
 const RECEIPT_MAX_COLS = 32;
@@ -276,8 +276,16 @@ export function generateReceiptText(
 
     if (settings.showPaymentDetails) {
       pushRaw(line);
+      const isPaid = isOrderPaid(order);
+      if (isPaid) {
+        pushCentered('>>> PEDIDO PAGO E CONFIRMADO <<<');
+      } else {
+        pushCentered('>>> AGUARDANDO PAGAMENTO <<<');
+      }
+      pushRaw(line);
       const cleanPayment = sanitizeForThermal(order.paymentMethod || 'A Confirmar').toUpperCase();
       pushWrapped(`Pagamento: ${cleanPayment}`, '  ');
+      pushWrapped(`Status: ${isPaid ? 'PAGO' : 'AGUARDANDO PAGAMENTO'}`, '  ');
       if (order.changeFor) {
         pushDotRow('Troco para:', `R$ ${order.changeFor}`);
       }
@@ -456,7 +464,11 @@ export function generateReceiptHtml(
 
           ${settings.showPaymentDetails ? `
             <div style="font-size: 0.88em; margin-top: 4px; line-height: 1.35;">
+              <div style="background: ${isOrderPaid(order) ? '#000' : '#d97706'}; color: #fff; text-align: center; font-weight: 900; font-size: 0.85em; padding: 2.5px 0; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">
+                ${isOrderPaid(order) ? '>>> PEDIDO PAGO E CONFIRMADO <<<' : '>>> AGUARDANDO PAGAMENTO <<<'}
+              </div>
               <div style="word-break: break-word;">Pagamento: <strong style="text-transform: uppercase;">${cleanPayment}</strong></div>
+              <div>Status: <strong>${isOrderPaid(order) ? 'PAGO' : 'AGUARDANDO PAGAMENTO'}</strong></div>
               ${order.changeFor ? `<div style="font-weight: 900; margin-top: 2px;">Troco para: R$ ${order.changeFor}</div>` : ''}
               ${order.receiptAuthCode ? `
                 <div style="margin-top: 3px; font-size: 0.85em; color: #222; border: 1px solid #bbb; padding: 2px 4px; background: #fafafa; word-break: break-word;">
@@ -758,6 +770,22 @@ export async function executeUniversalPrint(
   addToast?: (t: { message: string; type: 'success' | 'error' | 'info' | 'warning' }) => void,
   options?: { force?: boolean }
 ): Promise<{ success: boolean; method: string }> {
+  const isTestOrder =
+    String(order.id || '').startsWith('TESTE') ||
+    order.userName === 'CLIENTE TESTE' ||
+    order.userName === 'TESTE IMPRESSÃO AUTOMÁTICA';
+
+  // REGRA DE OURO: Só pode ir para a comanda da impressora os pedidos que foram PAGOS!
+  if (!isTestOrder && !isOrderPaid(order)) {
+    if (addToast) {
+      addToast({
+        message: 'Atenção: Só podem ir para a comanda os pedidos que foram PAGOS! Confirme o pagamento primeiro.',
+        type: 'warning',
+      });
+    }
+    return { success: false, method: 'unpaid_blocked' };
+  }
+
   const forcePrint = options?.force ?? true;
 
   // 0. Send to Windows "Impressão Automática" App (Local + Cloud Queue)
@@ -1264,6 +1292,12 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '    $out.Add(" " + $line)',
     '    foreach ($dl in (Format-DotRow32 "TOTAL DO PEDIDO:" ("R$ " + $totalPrice.ToString("N2")) 32)) { $out.Add(" " + $dl) }',
     '    $out.Add(" " + $line)',
+    '    $isDocPaid = if ($f.isPaid.booleanValue -eq $true -or $f.paymentStatus.stringValue -eq "pago" -or ($payment.Contains("APROVADO") -or $payment.Contains("STRIPE"))) { $true } else { $false }',
+    '    if ($isDocPaid) {',
+    '      foreach ($cl in (Center-Text32 ">>> PEDIDO PAGO E CONFIRMADO <<<" 32)) { $out.Add(" " + $cl) }',
+    '      $out.Add(" " + $line)',
+    '    }',
+    '    foreach ($wl in (Wrap-Text32 ("Status: " + (if ($isDocPaid) { "PAGO" } else { "AGUARDANDO PAGAMENTO" })) 32 "  ")) { $out.Add(" " + $wl) }',
     '    foreach ($wl in (Wrap-Text32 ("Pagamento: " + $payment) 32 "  ")) { $out.Add(" " + $wl) }',
     '    if ($changeFor) {',
     '      foreach ($dl in (Format-DotRow32 "Troco para:" ("R$ " + $changeFor) 32)) { $out.Add(" " + $dl) }',
@@ -1374,15 +1408,21 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '    foreach ($d in $initResp.documents) {',
     '      $did = ($d.name -split "/")[-1]',
     '      $st = if ($d.fields.status.stringValue) { $d.fields.status.stringValue } else { "recebido" }',
+    '      $isPaid = $false',
+    '      if ($d.fields.isPaid.booleanValue -eq $true) { $isPaid = $true }',
+    '      if ($d.fields.paymentStatus.stringValue -eq "pago") { $isPaid = $true }',
+    '      if ($d.fields.paymentMethod.stringValue -and ($d.fields.paymentMethod.stringValue.ToLower().Contains("aprovado") -or $d.fields.paymentMethod.stringValue.ToLower().Contains("stripe"))) { $isPaid = $true }',
     '      $dt = [DateTime]::MinValue',
     '      if ($d.fields.createdAt.timestampValue) {',
     '        try { $dt = [DateTime]::Parse($d.fields.createdAt.timestampValue).ToLocalTime() } catch {}',
     '      }',
-    '      if ($st -eq "recebido" -and $dt -gt $newestTime) {',
+    '      if ($st -eq "recebido" -and $isPaid -and $dt -gt $newestTime) {',
     '        $newestTime = $dt',
     '        $newestRecebido = $d',
     '      }',
-    '      Save-PrintedId $did',
+    '      if ($isPaid) {',
+    '        Save-PrintedId $did',
+    '      }',
     '    }',
     '  }',
     '  if ($isFirstRun) {',
@@ -1446,15 +1486,20 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '        try {',
     '          $r = Invoke-RestMethod -Uri $ordersUrl -Method Get -TimeoutSec 6',
     '          if ($r.documents -and $r.documents.Count -gt 0) {',
-    '            $bestDoc = $r.documents[0]',
+    '            $bestDoc = $null',
     '            $bestDt = [DateTime]::MinValue',
     '            foreach ($d in $r.documents) {',
-    '              if ($d.fields.createdAt.timestampValue) {',
+    '              $isPaid = $false',
+    '              if ($d.fields.isPaid.booleanValue -eq $true) { $isPaid = $true }',
+    '              if ($d.fields.paymentStatus.stringValue -eq "pago") { $isPaid = $true }',
+    '              if ($d.fields.paymentMethod.stringValue -and ($d.fields.paymentMethod.stringValue.ToLower().Contains("aprovado") -or $d.fields.paymentMethod.stringValue.ToLower().Contains("stripe"))) { $isPaid = $true }',
+    '              if ($isPaid -and $d.fields.createdAt.timestampValue) {',
     '                $dt = [DateTime]::Parse($d.fields.createdAt.timestampValue)',
     '                if ($dt -gt $bestDt) { $bestDt = $dt; $bestDoc = $d }',
     '              }',
     '            }',
-    '            try { [Console]::Beep(1000, 200); [Console]::Beep(1500, 250) } catch {}',
+    '            if ($bestDoc) {',
+    '              try { [Console]::Beep(1000, 200); [Console]::Beep(1500, 250) } catch {}',
     `            if (${copiesCount} -eq 2) {`,
     '              [void](Print-RawComanda (Format-FirestoreOrder $bestDoc $true "VIA 1 - COZINHA / PREPARO"))',
     '              Start-Sleep -Milliseconds 400',
@@ -1585,16 +1630,21 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '          $statusVal = $docItem.fields.status.stringValue',
     '          if (-not $statusVal) { $statusVal = "recebido" }',
     '',
-    '          if ($statusVal -eq "recebido" -and (-not $printedIds.Contains($docId))) {',
+    '          $isPaid = $false',
+    '          if ($docItem.fields.isPaid.booleanValue -eq $true) { $isPaid = $true }',
+    '          elseif ($docItem.fields.paymentStatus.stringValue -eq "pago") { $isPaid = $true }',
+    '          elseif ($docItem.fields.paymentStatus.stringValue -ne "pendente" -and $docItem.fields.paymentMethod.stringValue -and $docItem.fields.paymentMethod.stringValue.ToLower().Contains("aprovado")) { $isPaid = $true }',
+    '',
+    '          if ($isPaid -and ($statusVal -eq "recebido" -or $statusVal -eq "preparando") -and (-not $printedIds.Contains($docId))) {',
     '            Save-PrintedId $docId',
     '            $orderNum = if ($docItem.fields.orderNumber.integerValue) { [string]$docItem.fields.orderNumber.integerValue } else { $docId.Substring(0, 4).ToUpper() }',
     '            $clientName = if ($docItem.fields.userName.stringValue) { $docItem.fields.userName.stringValue } else { "Cliente" }',
     '            $nowStr = (Get-Date).ToString("HH:mm:ss")',
     '',
     '            Write-Host ""',
-    '            Write-Host "======================================================" -ForegroundColor Yellow',
-    '            Write-Host (" [" + $nowStr + "] NOVO PEDIDO NO SITE! COMANDA #" + $orderNum + " - " + $clientName) -ForegroundColor Green',
-    '            Write-Host "======================================================" -ForegroundColor Yellow',
+    '            Write-Host "======================================================" -ForegroundColor Green',
+    '            Write-Host (" [" + $nowStr + "] PEDIDO PAGO CONFIRMADO! COMANDA #" + $orderNum + " - " + $clientName) -ForegroundColor Green',
+    '            Write-Host "======================================================" -ForegroundColor Green',
     '            try { [Console]::Beep(1000, 250); [Console]::Beep(1400, 250); [Console]::Beep(1800, 400) } catch {}',
     '',
     `            if (${copiesCount} -eq 2) {`,

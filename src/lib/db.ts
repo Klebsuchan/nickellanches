@@ -17,6 +17,9 @@ export interface Order {
   totalPoints: number;
   createdAt: any;
   status?: string;
+  isPaid?: boolean;
+  paymentStatus?: 'pago' | 'pendente' | 'recusado';
+  paidAt?: any;
   userId?: string;
   userName?: string;
   paymentMethod?: string;
@@ -33,6 +36,20 @@ export interface Order {
   region?: string;
   adminNotes?: string;
 }
+
+export const isOrderPaid = (order: Partial<Order> | undefined | null): boolean => {
+  if (!order) return false;
+  if (order.isPaid === true) return true;
+  if (order.paymentStatus === 'pago') return true;
+  if (order.isPaid === false || order.paymentStatus === 'pendente' || order.paymentStatus === 'recusado') {
+    return false;
+  }
+  const method = (order.paymentMethod || '').toLowerCase();
+  if (method.includes('aprovado') || method.includes('pago online')) {
+    return true;
+  }
+  return false;
+};
 
 export const createUserProfile = async (user: FirebaseUser) => {
   const userRef = doc(db, "users", user.uid);
@@ -73,8 +90,11 @@ export const saveOrder = async (userId: string, orderData: Omit<Order, 'createdA
   const userOrdersRef = collection(db, "users", userId, "orders");
   const globalOrdersRef = collection(db, "global_orders");
   
+  const paid = isOrderPaid(orderData);
   const payload = {
     ...orderData,
+    isPaid: paid,
+    paymentStatus: paid ? 'pago' : (orderData.paymentStatus || 'pendente'),
     userId,
     createdAt: serverTimestamp()
   };
@@ -84,16 +104,41 @@ export const saveOrder = async (userId: string, orderData: Omit<Order, 'createdA
     await setDoc(doc(db, "users", userId, "orders", docRef.id), payload);
   }
 
-  // Notifica a fila de Impressão Automática na nuvem imediatamente
-  try {
-    await setDoc(doc(db, "settings", "print_signal"), {
-      latestOrderId: docRef.id,
-      orderNumber: orderData.orderNumber || 1,
-      updatedAtMs: Date.now()
-    }, { merge: true });
-  } catch (_) {}
+  // REGRA DE OURO: SÓ envia para a comanda e sinaliza impressão se o pedido foi PAGO!
+  if (paid) {
+    try {
+      await setDoc(doc(db, "settings", "print_signal"), {
+        latestOrderId: docRef.id,
+        orderNumber: orderData.orderNumber || 1,
+        isPaid: true,
+        updatedAtMs: Date.now()
+      }, { merge: true });
+    } catch (_) {}
+  }
 
   return docRef.id;
+};
+
+export const markOrderAsPaid = async (orderId: string, orderNumber?: number) => {
+  try {
+    const orderRef = doc(db, 'global_orders', orderId);
+    await updateDoc(orderRef, {
+      isPaid: true,
+      paymentStatus: 'pago',
+      paidAt: serverTimestamp()
+    });
+
+    // Notifica a fila de Impressão Automática na nuvem imediatamente
+    await setDoc(doc(db, "settings", "print_signal"), {
+      latestOrderId: orderId,
+      orderNumber: orderNumber || 1,
+      isPaid: true,
+      updatedAtMs: Date.now()
+    }, { merge: true });
+  } catch (e) {
+    console.error("Erro ao marcar pedido como pago:", e);
+    throw e;
+  }
 };
 
 export const getLatestOrders = async (userId: string): Promise<Order[]> => {
@@ -360,7 +405,7 @@ export const seedDatabase = async (initialProducts: Product[], initialPromos: { 
     
     const metaSnap = await getDoc(metaRef);
     const currentVersion = metaSnap.exists() ? metaSnap.data().seedVersion : 0;
-    const TARGET_VERSION = 24;
+    const TARGET_VERSION = 25;
   
     const productsSnap = await getDocs(productsRef);
     const existingDocs = new Map(productsSnap.docs.map(d => [d.id, d.data()]));
@@ -382,6 +427,22 @@ export const seedDatabase = async (initialProducts: Product[], initialPromos: { 
           console.error("Failed to seed product:", p.id, p, e);
         }
       }
+      // Garante que os pagamentos online (PIX e Cartão Online Stripe) estejam 100% ativos
+      try {
+        await setDoc(doc(db, "settings", "payments"), {
+          onlinePaymentsEnabled: true,
+          pix: {
+            ...DEFAULT_PAYMENT_SETTINGS.pix,
+            enabled: true
+          },
+          cardOnline: {
+            ...DEFAULT_PAYMENT_SETTINGS.cardOnline,
+            enabled: true,
+            acceptCredit: true,
+            acceptDebit: true
+          }
+        }, { merge: true });
+      } catch (_) {}
       try {
         await setDoc(metaRef, { seedVersion: TARGET_VERSION }, { merge: true });
       } catch(e) {
@@ -528,6 +589,16 @@ export const deleteOrder = async (orderId: string) => {
 export const saveOrderAdmin = async (orderId: string, updates: Partial<Order>) => {
   try {
     await updateDoc(doc(db, 'global_orders', orderId), updates);
+    if (updates.isPaid === true || updates.paymentStatus === 'pago') {
+      try {
+        await setDoc(doc(db, "settings", "print_signal"), {
+          latestOrderId: orderId,
+          orderNumber: updates.orderNumber || 1,
+          isPaid: true,
+          updatedAtMs: Date.now()
+        }, { merge: true });
+      } catch (_) {}
+    }
   } catch (e) {
     console.error("Error updating order: ", e);
     throw e;
@@ -607,7 +678,14 @@ export const getPaymentSettings = async (): Promise<PaymentSettings> => {
     const docRef = doc(db, 'settings', 'payments');
     const snap = await getDoc(docRef);
     if (snap.exists()) {
-      return { ...DEFAULT_PAYMENT_SETTINGS, ...snap.data() } as PaymentSettings;
+      const data = snap.data();
+      return {
+        ...DEFAULT_PAYMENT_SETTINGS,
+        ...data,
+        pix: { ...DEFAULT_PAYMENT_SETTINGS.pix, ...(data.pix || {}) },
+        cardOnline: { ...DEFAULT_PAYMENT_SETTINGS.cardOnline, ...(data.cardOnline || {}) },
+        bankAccount: { ...DEFAULT_PAYMENT_SETTINGS.bankAccount, ...(data.bankAccount || {}) },
+      } as PaymentSettings;
     }
   } catch (e) {
     console.error("Error getting payment settings: ", e);
@@ -629,7 +707,14 @@ export const subscribeToPaymentSettings = (callback: (settings: PaymentSettings)
   const docRef = doc(db, 'settings', 'payments');
   return onSnapshot(docRef, (snap) => {
     if (snap.exists()) {
-      callback({ ...DEFAULT_PAYMENT_SETTINGS, ...snap.data() } as PaymentSettings);
+      const data = snap.data();
+      callback({
+        ...DEFAULT_PAYMENT_SETTINGS,
+        ...data,
+        pix: { ...DEFAULT_PAYMENT_SETTINGS.pix, ...(data.pix || {}) },
+        cardOnline: { ...DEFAULT_PAYMENT_SETTINGS.cardOnline, ...(data.cardOnline || {}) },
+        bankAccount: { ...DEFAULT_PAYMENT_SETTINGS.bankAccount, ...(data.bankAccount || {}) },
+      } as PaymentSettings);
     } else {
       callback(DEFAULT_PAYMENT_SETTINGS);
     }

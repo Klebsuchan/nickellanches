@@ -55,10 +55,10 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
   const addressContainerRef = useRef<HTMLDivElement>(null);
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Métodos de pagamento: inicia em 'teste_pagamento' para pular o checkout de pagamento no teste completo
+  // Métodos de pagamento
   const [paymentMethod, setPaymentMethod] = useState<
-    'pix_online' | 'bank_transfer' | 'credit_online' | 'debit_online' | 'fiado' | 'teste_pagamento'
-  >('teste_pagamento');
+    'pix_online' | 'bank_transfer' | 'credit_online' | 'debit_online' | 'fiado'
+  >('pix_online');
 
   const [errorMessage, setErrorMessage] = useState('');
   const [showFiadoPrank, setShowFiadoPrank] = useState(false);
@@ -116,7 +116,9 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
             const updatedPayload = {
               ...stripeSession.orderPayload,
               paymentMethod: data?.realMethodLabel || stripeSession.orderPayload.paymentMethod || 'Cartão Online (Aprovado via Stripe)',
-              isOnlinePayment: true
+              isOnlinePayment: true,
+              isPaid: true,
+              paymentStatus: 'pago'
             };
             setStripeSession(null);
             onConfirm(updatedPayload);
@@ -147,18 +149,22 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
             message: 'O pagamento no Stripe foi aprovado com sucesso!',
             type: 'success'
           });
+          sessionStorage.removeItem('nickel_pending_stripe_order');
+          localStorage.removeItem('nickel_pending_stripe_order');
           const updatedPayload = {
             ...stripeSession.orderPayload,
             paymentMethod: data?.realMethodLabel || stripeSession.orderPayload.paymentMethod || 'Cartão Online (Aprovado via Stripe)',
-            isOnlinePayment: true
+            isOnlinePayment: true,
+            isPaid: true,
+            paymentStatus: 'pago'
           };
           setStripeSession(null);
           onConfirm(updatedPayload);
           return;
         } else {
           addToast({
-            title: 'Aguardando Pagamento',
-            message: 'O pagamento ainda não foi concluído na página do Stripe. Finalize lá e clique aqui novamente.',
+            title: 'Aguardando Pagamento no Stripe',
+            message: 'O pagamento ainda não consta como concluído no Stripe. Conclua o pagamento na aba do Stripe e tente novamente.',
             type: 'info'
           });
         }
@@ -172,37 +178,6 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
     } finally {
       setIsCheckingStripePayment(false);
     }
-  };
-
-  const handleForceApproveStripe = () => {
-    if (!stripeSession) return;
-    playSound('powerup');
-    addToast({
-      title: 'Pagamento Aprovado!',
-      message: 'Pagamento no cartão confirmado com sucesso! Redirecionando para o minigame...',
-      type: 'success'
-    });
-    sessionStorage.removeItem('nickel_pending_stripe_order');
-    localStorage.removeItem('nickel_pending_stripe_order');
-    const updatedPayload = {
-      ...stripeSession.orderPayload,
-      paymentMethod: 'Cartão Online (Aprovado via Stripe)',
-      isOnlinePayment: true
-    };
-    setStripeSession(null);
-    onConfirm(updatedPayload);
-  };
-
-  const handleFillTestData = () => {
-    setName('Cliente Teste Nickel');
-    setWhatsapp('(54) 99876-5432');
-    setAddress('Av. Brasil, 500 - Centro, Passo Fundo');
-    playSound('coin');
-    addToast({
-      title: 'Dados Preenchidos para Teste!',
-      message: 'Nome, WhatsApp e endereço preenchidos com sucesso!',
-      type: 'success'
-    });
   };
 
   const handleCopyBankField = (text: string, fieldName: string) => {
@@ -220,9 +195,18 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
       const merged: PaymentSettings = {
         ...DEFAULT_PAYMENT_SETTINGS,
         ...newSettings,
+        onlinePaymentsEnabled: newSettings.onlinePaymentsEnabled ?? true,
+        pix: {
+          ...DEFAULT_PAYMENT_SETTINGS.pix,
+          ...(newSettings.pix || {}),
+          enabled: newSettings.pix?.enabled ?? true
+        },
         cardOnline: {
           ...DEFAULT_PAYMENT_SETTINGS.cardOnline,
-          ...(newSettings.cardOnline || {})
+          ...(newSettings.cardOnline || {}),
+          enabled: newSettings.cardOnline?.enabled ?? true,
+          acceptCredit: newSettings.cardOnline?.acceptCredit ?? true,
+          acceptDebit: newSettings.cardOnline?.acceptDebit ?? true
         },
         bankAccount: {
           ...DEFAULT_PAYMENT_SETTINGS.bankAccount,
@@ -230,11 +214,6 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
         }
       };
       setPaymentSettings(merged);
-      
-      // Se pagamentos online não estiverem habilitados, default para pagamento na entrega
-      if (!merged.onlinePaymentsEnabled || (!merged.pix.enabled && !merged.bankAccount?.enabled && !merged.cardOnline.enabled)) {
-        setPaymentMethod(prev => (prev === 'pix_online' || prev === 'bank_transfer' || prev === 'credit_online' || prev === 'debit_online' ? 'pix' : prev));
-      }
     });
     return () => unsub();
   }, []);
@@ -244,17 +223,13 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
     return determineRegionFromAddress(`${address} ${neighborhood}`.trim());
   }, [address, neighborhood]);
 
-  // Se o carrinho contiver o produto de teste ou tiver frete grátis, isento o valor da taxa de entrega
-  const isTestOrFreeShippingCart = useMemo(() => {
-    return cart.length > 0 && cart.some(item => 
-      item.id.toLowerCase().includes('teste') || 
-      item.name.toLowerCase().includes('teste') ||
-      (item as any).freeShipping === true
-    );
+  // Se o carrinho contiver frete grátis, isenta a taxa de entrega
+  const isFreeShippingCart = useMemo(() => {
+    return cart.length > 0 && cart.some(item => (item as any).freeShipping === true);
   }, [cart]);
 
-  const deliveryFee = isTestOrFreeShippingCart ? 0 : ((address.trim() || neighborhood.trim()) ? detectedRegion.fee : 15);
-  const regionLabel = isTestOrFreeShippingCart ? 'Frete Grátis (Produto Teste)' : ((address.trim() || neighborhood.trim()) ? detectedRegion.label : 'Passo Fundo');
+  const deliveryFee = isFreeShippingCart ? 0 : ((address.trim() || neighborhood.trim()) ? detectedRegion.fee : 15);
+  const regionLabel = isFreeShippingCart ? 'Frete Grátis' : ((address.trim() || neighborhood.trim()) ? detectedRegion.label : 'Passo Fundo');
   const detectedBairro = detectedRegion.detectedBairro;
   const currentFinalTotal = total + deliveryFee;
 
@@ -383,7 +358,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
     }
 
     if (!paymentMethod) {
-      setPaymentMethod('teste_pagamento');
+      setPaymentMethod('pix_online');
     }
     return true;
   };
@@ -433,10 +408,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
     let formattedChange = '';
     let isOnline = false;
 
-    if (paymentMethod === 'teste_pagamento') {
-      finalPaymentLabel = '🧪 Teste de Pagamento (Pedido Ilusório)';
-      isOnline = false;
-    } else if (paymentMethod === 'pix_online') {
+    if (paymentMethod === 'pix_online') {
       finalPaymentLabel = 'PIX Imediato (Site: (54) 99959-8389)';
       isOnline = true;
     } else if (paymentMethod === 'bank_transfer') {
@@ -478,8 +450,8 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
       receiptNotes: orderNotes.trim() || undefined
     };
 
-    // Modo de teste ativo: pula o checkout externo do Stripe para finalizar o pedido direto
-    if (false && (paymentMethod === 'credit_online' || paymentMethod === 'debit_online')) {
+    // Processamento de cartão online seguro via Stripe Checkout
+    if (paymentMethod === 'credit_online' || paymentMethod === 'debit_online') {
       setIsProcessingStripe(true);
       setErrorMessage('');
 
@@ -519,8 +491,14 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
           });
 
           try {
-            window.location.href = data.url;
-          } catch (_) {}
+            if (window.top === window.self) {
+              window.location.href = data.url;
+            } else {
+              window.open(data.url, '_blank', 'noopener,noreferrer');
+            }
+          } catch (_) {
+            window.open(data.url, '_blank', 'noopener,noreferrer');
+          }
 
           addToast({
             title: 'Sessão do Stripe Aberta!',
@@ -552,13 +530,14 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
       }
     }
 
-    onConfirm(orderPayload);
+    onConfirm({
+      ...orderPayload,
+      isPaid: false,
+      paymentStatus: 'pendente'
+    });
   };
 
-  const showOnlineSection = paymentSettings.onlinePaymentsEnabled && (
-    paymentSettings.pix.enabled || 
-    (paymentSettings.cardOnline.enabled && (paymentSettings.cardOnline.acceptCredit || paymentSettings.cardOnline.acceptDebit))
-  );
+  const showOnlineSection = true;
 
   return (
     <AnimatePresence>
@@ -632,11 +611,21 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
 
                     <button
                       type="button"
-                      onClick={handleForceApproveStripe}
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-wider py-3.5 px-4 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-[0.98]"
+                      onClick={handleCheckStripePaymentManually}
+                      disabled={isCheckingStripePayment}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-wider py-3.5 px-4 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-[0.98] disabled:opacity-60"
                     >
-                      <Check size={16} className="text-white stroke-[3]" />
-                      <span>Confirmar Pagamento e Avançar para o Minigame</span>
+                      {isCheckingStripePayment ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                          <span>Consultando confirmação no Stripe...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check size={16} className="text-white stroke-[3]" />
+                          <span>Já realizei o pagamento (Verificar e Avançar)</span>
+                        </>
+                      )}
                     </button>
 
                     <button
@@ -654,25 +643,6 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                     >
                       <Copy size={15} />
                       <span>Copiar Link de Pagamento</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleCheckStripePaymentManually}
-                      disabled={isCheckingStripePayment}
-                      className="w-full bg-white hover:bg-stone-50 border border-stone-300 text-stone-800 font-bold uppercase tracking-wider py-3 px-4 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-60"
-                    >
-                      {isCheckingStripePayment ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-stone-500 border-t-stone-800 rounded-full animate-spin" />
-                          <span>Consultando Stripe...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Check size={16} className="text-green-600 stroke-[3]" />
-                          <span>Já realizei o pagamento (Verificar)</span>
-                        </>
-                      )}
                     </button>
 
                     <button
@@ -958,40 +928,9 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                       <h3 className="font-black uppercase text-stone-900 text-sm">
                         Forma de Pagamento
                       </h3>
-                      <p className="text-xs text-stone-500 font-medium">Modo de teste ativo: pagamento pulado automaticamente</p>
+                      <p className="text-xs text-stone-500 font-medium">Escolha sua forma preferida de pagamento</p>
                     </div>
-                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase px-2.5 py-1 rounded-full">
-                      Sem Checkout
-                    </span>
                   </div>
-
-                  {/* Opção Principal em Destaque: Pular Pagamento (Teste Completo) */}
-                  <label 
-                    onClick={() => { setPaymentMethod('teste_pagamento'); setErrorMessage(''); }}
-                    className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                      paymentMethod === 'teste_pagamento'
-                        ? 'border-emerald-500 bg-emerald-50/90 shadow-sm'
-                        : 'border-stone-200 hover:border-emerald-300 bg-stone-50/50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        paymentMethod === 'teste_pagamento' ? 'border-emerald-600 bg-white' : 'border-stone-300 bg-white'
-                      }`}>
-                        {paymentMethod === 'teste_pagamento' && <div className="w-2.5 h-2.5 rounded-full bg-emerald-600" />}
-                      </div>
-                      <div className={`p-2 rounded-lg ${paymentMethod === 'teste_pagamento' ? 'bg-emerald-600 text-white font-bold' : 'bg-emerald-100 text-emerald-800'}`}>
-                        <CheckCircle2 size={18} />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-black text-sm text-stone-900 block">⚡ Pular Pagamento (Teste sem Checkout)</span>
-                          <span className="bg-emerald-600 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded-md">Ativo</span>
-                        </div>
-                        <span className="text-xs text-stone-600 font-medium block">Finaliza o pedido direto sem cobrança para testar comanda, painel e minigame</span>
-                      </div>
-                    </div>
-                  </label>
 
                   {/* 1. SEÇÃO DE PAGAMENTOS ONLINE / ANTECIPADO */}
                   {showOnlineSection && (
@@ -1310,34 +1249,6 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
 
                   {/* 2. OUTRAS OPÇÕES */}
                   <div className="space-y-3 pt-2">
-                    {/* Opção de Teste de Pagamento / Pedido Ilusório */}
-                    <label 
-                      onClick={() => { setPaymentMethod('teste_pagamento'); setErrorMessage(''); }}
-                      className={`flex items-center justify-between p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
-                        paymentMethod === 'teste_pagamento'
-                          ? 'border-amber-500 bg-amber-50/80 shadow-xs'
-                          : 'border-stone-200 hover:border-amber-300 bg-stone-50/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                          paymentMethod === 'teste_pagamento' ? 'border-amber-600 bg-white' : 'border-stone-300 bg-white'
-                        }`}>
-                          {paymentMethod === 'teste_pagamento' && <div className="w-2.5 h-2.5 rounded-full bg-amber-600" />}
-                        </div>
-                        <div className={`p-2 rounded-lg ${paymentMethod === 'teste_pagamento' ? 'bg-amber-500 text-stone-900 font-bold' : 'bg-amber-100 text-amber-800'}`}>
-                          <Sparkles size={18} />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-sm text-stone-900 block">🧪 Teste de Pagamento (Pedido Ilusório)</span>
-                            <span className="bg-amber-100 text-amber-800 text-[10px] font-black uppercase px-2 py-0.5 rounded-md">Simulação</span>
-                          </div>
-                          <span className="text-xs text-stone-500 font-medium block">Valida o caminho completo do pedido sem cobrar nada</span>
-                        </div>
-                      </div>
-                    </label>
-
                     {/* Fiado Prank */}
                     <label 
                       onClick={() => setShowFiadoPrank(true)}
@@ -1457,11 +1368,6 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                       <>
                         <CreditCard size={22} className="shrink-0 text-amber-300" />
                         <span>Pagar com Stripe (R$ {currentFinalTotal.toFixed(2).replace('.', ',')})</span>
-                      </>
-                    ) : paymentMethod === 'teste_pagamento' ? (
-                      <>
-                        <Sparkles size={22} className="shrink-0 text-amber-300 animate-pulse" />
-                        <span>Finalizar Pedido de Teste (Ao Vivo)</span>
                       </>
                     ) : (
                       <>
