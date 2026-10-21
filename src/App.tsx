@@ -27,10 +27,10 @@ import CartDrawer from './components/CartDrawer';
 import CheckoutModal from './components/CheckoutModal';
 import IntroPresentation from './components/IntroPresentation';
 import { useToast } from './components/Toast';
-import { isStoreClosedMonday, getStoreStatus, STORE_CLOSED_MESSAGE } from './lib/storeHours';
+import { isStoreClosedMonday, getStoreStatus, STORE_CLOSED_MESSAGE, StoreHoursSettings, DEFAULT_STORE_HOURS } from './lib/storeHours';
 import { auth, signInWithGoogle, signOut, getNextOrderNumber } from './lib/firebase';
 import { User as FirebaseUser } from 'firebase/auth';
-import { subscribeToOrder, getLatestOrders, subscribeToProducts, subscribeToPromos, seedDatabase, createUserProfile, getUserProfile, addXpToUser, saveOrder, UserProfile, Order, getPrinterSettings, subscribeToAllOrders } from './lib/db';
+import { subscribeToOrder, getLatestOrders, subscribeToProducts, subscribeToPromos, subscribeToStoreHours, seedDatabase, createUserProfile, getUserProfile, addXpToUser, saveOrder, UserProfile, Order, getPrinterSettings, subscribeToAllOrders } from './lib/db';
 import { playSound } from './lib/audio';
 
 export default function App() {
@@ -71,10 +71,14 @@ export default function App() {
   const [showLastOrdersState, setShowLastOrdersState] = useState(false);
   const [menuItems, setMenuItems] = useState<Product[]>(MENU_ITEMS);
   const [discountCodes, setDiscountCodes] = useState<Record<string, number>>({});
+  const [, setStoreHoursConfig] = useState<StoreHoursSettings>(DEFAULT_STORE_HOURS);
+  const [, setClockTick] = useState(0);
 
   useEffect(() => {
     seedDatabase(MENU_ITEMS, DISCOUNT_CODES);
     const unsubProducts = subscribeToProducts(setMenuItems);
+    const unsubStoreHours = subscribeToStoreHours(setStoreHoursConfig);
+    const clockInterval = setInterval(() => setClockTick((t) => t + 1), 30000);
     const unsubPromos = subscribeToPromos((promos) => {
       const codeMap = promos.reduce((acc, curr) => ({ ...acc, [curr.code]: curr.discount }), {});
       setDiscountCodes(codeMap);
@@ -87,6 +91,8 @@ export default function App() {
     });
     return () => {
       unsubProducts();
+      unsubStoreHours();
+      clearInterval(clockInterval);
       unsubPromos();
     };
   }, []);
@@ -450,6 +456,15 @@ export default function App() {
   };
 
   const handleProductClick = (product: Product) => {
+    if (product.paused) {
+      playSound('error');
+      addToast({
+        title: 'Item Indisponível Hoje',
+        message: `${product.name} está temporariamente pausado no cardápio.`,
+        type: 'warning',
+      });
+      return;
+    }
     openProduct(product);
   };
 
@@ -729,16 +744,21 @@ export default function App() {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6 pb-6">
         {items.map((item, index) => {
+          const isPaused = Boolean(item.paused);
           let badge = null;
-          if (index === 0) badge = <span className="bg-[#4E2A84] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Bestseller</span>;
+          if (isPaused) {
+            badge = <span className="bg-red-600 text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Indisponível</span>;
+          } else if (index === 0) badge = <span className="bg-[#4E2A84] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Bestseller</span>;
           else if (index === 1) badge = <span className="bg-[#F28B20] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Popular</span>;
           else if (index === 2) badge = <span className="bg-[#4E2A84] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Save 15%</span>;
 
           return (
             <motion.div
               key={item.id}
-              whileHover={{ y: -5 }}
-              className="bg-white rounded-2xl md:rounded-3xl p-3 md:p-5 flex flex-col justify-between shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative cursor-pointer border border-stone-100"
+              whileHover={isPaused ? undefined : { y: -5 }}
+              className={`bg-white rounded-2xl md:rounded-3xl p-3 md:p-5 flex flex-col justify-between shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative border ${
+                isPaused ? 'opacity-70 grayscale-[45%] cursor-not-allowed border-stone-200' : 'cursor-pointer border-stone-100'
+              }`}
               onClick={() => handleProductClick(item)}
             >
               {badge}
@@ -753,11 +773,18 @@ export default function App() {
               
               <div className="h-44 w-full bg-[#FCF9F5] rounded-[24px] mb-5 flex items-center justify-center relative overflow-hidden group">
                  {item.image ? (
-                   <img loading="lazy" decoding="async"  src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                   <img loading="lazy" decoding="async"  src={item.image} alt={item.name} className={`w-full h-full object-cover transition-transform duration-300 ${isPaused ? '' : 'group-hover:scale-105'}`} />
                  ) : (
-                   <span className="text-8xl group-hover:scale-110 transition-transform duration-300 drop-shadow-xl translate-y-2">
+                   <span className={`text-8xl transition-transform duration-300 drop-shadow-xl translate-y-2 ${isPaused ? '' : 'group-hover:scale-110'}`}>
                       {item.emoji}
                    </span>
+                 )}
+                 {isPaused && (
+                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                     <span className="bg-black/80 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border border-white/20">
+                       Pausado Hoje
+                     </span>
+                   </div>
                  )}
               </div>
               
@@ -771,7 +798,12 @@ export default function App() {
                   </span>
                   <button 
                     onClick={(e) => { e.stopPropagation(); handleProductClick(item); }}
-                    className="w-8 h-8 md:w-10 md:h-10 bg-[#F28B20] text-white rounded-full flex items-center justify-center hover:bg-orange-500 transition-transform hover:scale-105 shadow-[0_4px_15px_rgba(242,139,32,0.4)]"
+                    disabled={isPaused}
+                    className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-transform ${
+                      isPaused
+                        ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
+                        : 'bg-[#F28B20] text-white hover:bg-orange-500 hover:scale-105 shadow-[0_4px_15px_rgba(242,139,32,0.4)]'
+                    }`}
                   >
                     <Plus size={16} strokeWidth={3} className="md:w-5 md:h-5" />
                   </button>

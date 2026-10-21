@@ -2,6 +2,7 @@ export interface Extra {
   id: string;
   name: string;
   price: number;
+  paused?: boolean;
 }
 
 export interface Product {
@@ -19,6 +20,7 @@ export interface Product {
   choiceName?: string;
   badge?: string;
   freeShipping?: boolean;
+  paused?: boolean;
 }
 
 export interface CartItem extends Product {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Printer, CheckSquare, Lock, LogOut, X, Plus, Trash2, Edit2, Package, Tag, Clock, Save, Eye, EyeOff, Settings, List, Check, ArrowRight, ImagePlus, ChevronLeft, ChevronRight, RefreshCw, XCircle, Grid, Image as ImageIcon, Send, CreditCard, QrCode, ExternalLink, Volume2, Zap, Download } from 'lucide-react';
-import { Order, getProducts, saveProduct, deleteProduct, getPromos, savePromo, deletePromo, getAllOrders, updateOrderStatus, PromoCode, subscribeToAllOrders, Banner, getBanners, saveBanner, deleteBanner, subscribeToProducts, subscribeToPromos, subscribeToBanners, deleteOrder, saveOrderAdmin, subscribeToPaymentSettings, PaymentSettings, PrinterSettings, DEFAULT_PRINTER_SETTINGS, savePrinterSettings, subscribeToPrinterSettings } from '../lib/db';
+import { Printer, CheckSquare, Lock, LogOut, X, Plus, Trash2, Edit2, Package, Tag, Clock, Save, Eye, EyeOff, Settings, List, Check, ArrowRight, ImagePlus, ChevronLeft, ChevronRight, RefreshCw, XCircle, Grid, Image as ImageIcon, Send, CreditCard, QrCode, ExternalLink, Volume2, Zap, Download, Users, PauseCircle, PlayCircle, Search, Calendar, Phone, MapPin, ShoppingBag } from 'lucide-react';
+import { Order, getProducts, saveProduct, toggleProductPause, deleteProduct, getPromos, savePromo, deletePromo, getAllOrders, updateOrderStatus, PromoCode, subscribeToAllOrders, Banner, getBanners, saveBanner, deleteBanner, subscribeToProducts, subscribeToPromos, subscribeToBanners, deleteOrder, saveOrderAdmin, subscribeToPaymentSettings, PaymentSettings, PrinterSettings, DEFAULT_PRINTER_SETTINGS, savePrinterSettings, subscribeToPrinterSettings, subscribeToStoreHours, saveStoreHoursSettings } from '../lib/db';
 import { Product, Extra } from '../types';
 import { useToast } from './Toast';
 import { playSound } from '../lib/audio';
@@ -13,11 +13,13 @@ import PrintModal from './PrintModal';
 import AutoPrintApp from './AutoPrintApp';
 import { getConnectedUsbPrinter, sendRawToUsbPrinter, buildReceiptEscPos } from '../lib/escpos';
 import { executeUniversalPrint } from '../lib/printerService';
-import { isStoreClosedMonday, getStoreStatus } from '../lib/storeHours';
+import { isStoreClosedMonday, getStoreStatus, StoreHoursSettings, DEFAULT_STORE_HOURS, getSaoPauloNow } from '../lib/storeHours';
+
+type AdminTab = 'orders' | 'history' | 'autoprint' | 'products' | 'hours' | 'promos' | 'banners' | 'payments' | 'settings';
 
 interface AdminPanelProps {
   onClose: () => void;
-  initialTab?: 'orders' | 'autoprint' | 'products' | 'promos' | 'banners' | 'payments' | 'settings';
+  initialTab?: AdminTab;
   standaloneAutoPrint?: boolean;
 }
 
@@ -43,13 +45,14 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
   });
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState<'orders' | 'autoprint' | 'products' | 'promos' | 'banners' | 'payments' | 'settings'>(initialTab);
+  const [activeTab, setActiveTab] = useState<AdminTab>(initialTab);
   
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [promos, setPromos] = useState<PromoCode[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
   const [paymentSettings, setPaymentSettings] = useState<PaymentSettings | undefined>(undefined);
+  const [storeHours, setStoreHours] = useState<StoreHoursSettings>(DEFAULT_STORE_HOURS);
   
   const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
   const [modalOrderToPrint, setModalOrderToPrint] = useState<Order | null>(null);
@@ -151,6 +154,7 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
       const unsubPromos = subscribeToPromos(setPromos);
       const unsubBanners = subscribeToBanners(setBanners);
       const unsubPaymentSettings = subscribeToPaymentSettings(setPaymentSettings);
+      const unsubStoreHours = subscribeToStoreHours(setStoreHours);
 
       return () => {
         unsubOrders();
@@ -158,6 +162,7 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
         unsubPromos();
         unsubBanners();
         unsubPaymentSettings();
+        unsubStoreHours();
       };
     }
   }, [isAuthenticated]);
@@ -258,11 +263,14 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
     );
   }
 
+  const currentStoreStatus = getStoreStatus(storeHours);
+  const pausedProductsCount = products.filter(p => p.paused).length;
+
   return (
     <div className="min-h-screen bg-stone-100 flex flex-col md:flex-row print:bg-white print:block">
       {/* Sidebar */}
       <div className="w-full md:w-64 bg-black text-white p-6 flex flex-col print:hidden shadow-2xl z-20">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-6">
           <div className="text-2xl font-display text-yellow-400 flex flex-col leading-none">
             <span>NICKEL</span>
             <span className="text-white text-lg">ADMIN</span>
@@ -270,8 +278,9 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
           <button onClick={onClose} className="text-white hover:text-yellow-400 md:hidden"><X size={24}/></button>
         </div>
         
-        <nav className="flex flex-col gap-2 flex-1 overflow-y-auto">
+        <nav className="flex flex-col gap-1.5 flex-1 overflow-y-auto">
           <TabButton icon={<CheckSquare size={20}/>} label="Pedidos" active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
+          <TabButton icon={<Users size={20}/>} label="Histórico Clientes" active={activeTab === 'history'} onClick={() => setActiveTab('history')} />
           <button
             type="button"
             onClick={() => setActiveTab('autoprint')}
@@ -291,15 +300,35 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
               APP
             </span>
           </button>
-          <TabButton icon={<Package size={20}/>} label="Produtos" active={activeTab === 'products'} onClick={() => setActiveTab('products')} />
+          <button
+            type="button"
+            onClick={() => setActiveTab('products')}
+            className={`flex items-center justify-between gap-2 px-4 py-3 font-bold uppercase tracking-widest rounded-lg transition-all cursor-pointer ${
+              activeTab === 'products'
+                ? 'bg-yellow-400 text-black shadow-lg translate-x-2'
+                : 'text-zinc-400 hover:text-white hover:bg-stone-900'
+            }`}
+          >
+            <span className="flex items-center gap-3">
+              <Package size={20}/> Produtos
+            </span>
+            {pausedProductsCount > 0 && (
+              <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${
+                activeTab === 'products' ? 'bg-red-600 text-white' : 'bg-red-500/20 text-red-400 border border-red-500/30'
+              }`}>
+                {pausedProductsCount} pausado{pausedProductsCount > 1 ? 's' : ''}
+              </span>
+            )}
+          </button>
+          <TabButton icon={<Clock size={20}/>} label="Horários" active={activeTab === 'hours'} onClick={() => setActiveTab('hours')} />
           <TabButton icon={<Tag size={20}/>} label="Cupons" active={activeTab === 'promos'} onClick={() => setActiveTab('promos')} />
           <TabButton icon={<ImageIcon size={20}/>} label="Banners" active={activeTab === 'banners'} onClick={() => setActiveTab('banners')} />
           <TabButton icon={<CreditCard size={20}/>} label="Pagamentos" active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} />
-          <div className="my-4 border-t border-stone-800"></div>
+          <div className="my-2 border-t border-stone-800"></div>
           <TabButton icon={<Printer size={20}/>} label="Impressora" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
         </nav>
 
-        <div className="mt-8 pt-4 border-t border-stone-800 flex flex-col items-center gap-2 text-xs text-stone-500 font-bold uppercase tracking-widest text-center">
+        <div className="mt-6 pt-4 border-t border-stone-800 flex flex-col items-center gap-2 text-xs text-stone-500 font-bold uppercase tracking-widest text-center">
           <a
             href="/painel-admin"
             target="_blank"
@@ -308,40 +337,43 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
           >
             Abrir em Nova Aba <ExternalLink size={13} />
           </a>
-          <span>Versão 2.2.0</span>
+          <span>Versão 2.3.0</span>
 
-          <div className="pt-2 w-full space-y-1">
+          <div className="pt-2 w-full space-y-1.5">
             <button
               type="button"
-              onClick={() => {
-                const status = getStoreStatus();
-                if (!status.isOpen) {
-                  localStorage.setItem('nickel_simular_segunda', 'false');
-                  try {
-                    const url = new URL(window.location.href);
-                    url.searchParams.delete('simular_segunda');
-                    url.searchParams.delete('segunda');
-                    url.searchParams.delete('fechado');
-                    window.history.replaceState({}, document.title, url.pathname + url.search);
-                  } catch (_) {}
-                } else {
-                  localStorage.setItem('nickel_simular_segunda', 'true');
-                }
-                window.location.reload();
+              onClick={async () => {
+                const nextMode = currentStoreStatus.isOpen ? 'closed' : 'open';
+                const updated: StoreHoursSettings = {
+                  ...storeHours,
+                  mode: nextMode,
+                };
+                setStoreHours(updated);
+                try {
+                  await saveStoreHoursSettings(updated);
+                  addToast({
+                    message: nextMode === 'open' ? 'Loja aberta para pedidos!' : 'Loja fechada temporariamente!',
+                    type: nextMode === 'open' ? 'success' : 'warning',
+                  });
+                } catch {}
               }}
-              className={`w-full text-[10px] py-1.5 px-2 rounded font-bold uppercase tracking-normal transition-all shadow-xs ${
-                !getStoreStatus().isOpen
+              className={`w-full text-[10px] py-2 px-2 rounded-lg font-bold uppercase tracking-normal transition-all shadow-xs cursor-pointer ${
+                !currentStoreStatus.isOpen
                   ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                  : 'bg-stone-800 hover:bg-stone-700 text-stone-300'
+                  : 'bg-red-600/90 hover:bg-red-700 text-white'
               }`}
             >
-              {!getStoreStatus().isOpen
-                ? '🟢 Forçar Abertura da Loja'
-                : '🔴 Forçar Fechamento (Teste)'}
+              {!currentStoreStatus.isOpen
+                ? 'Abrir Loja Agora'
+                : 'Fechar Loja Temporariamente'}
             </button>
-            <span className="text-[9px] text-stone-400 block text-center font-mono">
-              Status Real: {getStoreStatus().badgeText}
-            </span>
+            <button
+              type="button"
+              onClick={() => setActiveTab('hours')}
+              className="w-full text-[10px] py-1.5 px-2 rounded-lg bg-stone-900 hover:bg-stone-800 text-stone-300 border border-stone-800 font-bold uppercase tracking-normal transition-colors cursor-pointer"
+            >
+              Status: {currentStoreStatus.badgeText}
+            </button>
 
             <button
               type="button"
@@ -351,7 +383,7 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
                 setPassword('');
                 onClose();
               }}
-              className="w-full mt-3 py-2 px-3 bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 text-red-300 hover:text-red-100 rounded-lg font-bold uppercase tracking-wider text-[11px] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              className="w-full mt-2 py-2 px-3 bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 text-red-300 hover:text-red-100 rounded-lg font-bold uppercase tracking-wider text-[11px] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <LogOut size={13} /> Sair do Painel
             </button>
@@ -370,6 +402,13 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
             onOpenAutoPrintApp={() => setActiveTab('autoprint')}
           />
         )}
+        {activeTab === 'history' && (
+          <CustomerOrderHistory
+            orders={orders}
+            printSettings={printSettings}
+            setOrderToPrint={setOrderToPrint}
+          />
+        )}
         {activeTab === 'autoprint' && (
           <AutoPrintApp
             orders={orders}
@@ -379,6 +418,15 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
           />
         )}
         {activeTab === 'products' && <ProductEditor products={products} />}
+        {activeTab === 'hours' && (
+          <StoreHoursEditor
+            settings={storeHours}
+            onSave={async (updated) => {
+              await saveStoreHoursSettings(updated);
+              setStoreHours(updated);
+            }}
+          />
+        )}
         {activeTab === 'promos' && <PromoEditor promos={promos} />}
         {activeTab === 'banners' && <BannerEditor banners={banners} />}
         {activeTab === 'payments' && <PaymentSettingsEditor initialSettings={paymentSettings} />}
@@ -807,7 +855,7 @@ function OrderEditModal({ order, onClose, onSave, onPrint }: any) {
 }
 
 // ----------------------------------------------------------------------
-// PRODUCT EDITOR (Enhanced)
+// PRODUCT EDITOR (Enhanced with Pause / Resume Controls)
 // ----------------------------------------------------------------------
 function ProductEditor({ products }: { products: Product[] }) {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -817,6 +865,10 @@ function ProductEditor({ products }: { products: Product[] }) {
   const [promptExtraName, setPromptExtraName] = useState(false);
   const [promptExtraPrice, setPromptExtraPrice] = useState(false);
   const [tempExtraName, setTempExtraName] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const { addToast } = useToast();
   
   const handleEdit = (p: Product) => {
@@ -826,16 +878,35 @@ function ProductEditor({ products }: { products: Product[] }) {
   
   const handleAdd = () => {
     setEditingId('new');
-    setFormData({ name: '', description: '', price: 0, points: 0, emoji: '🍔', category: 'lanches', images: [], productExtras: [] });
+    setFormData({ name: '', description: '', price: 0, points: 0, emoji: '🍔', category: 'lanches', images: [], productExtras: [], paused: false });
   };
   
   const handleSave = async () => {
     try {
       await saveProduct(formData as Product, editingId === 'new' ? undefined : editingId!);
-      addToast({ message: 'Produto salvo!', type: 'success' });
+      addToast({ message: 'Produto salvo com sucesso!', type: 'success' });
       setEditingId(null);
     } catch (e) {
-      addToast({ message: 'Erro ao salvar', type: 'error' as any });
+      addToast({ message: 'Erro ao salvar produto', type: 'error' as any });
+    }
+  };
+
+  const handleQuickTogglePause = async (p: Product) => {
+    if (!p.id) return;
+    setTogglingId(p.id);
+    const nextPaused = !p.paused;
+    try {
+      await toggleProductPause(p, nextPaused);
+      addToast({
+        message: nextPaused
+          ? `"${p.name}" foi PAUSADO no cardápio.`
+          : `"${p.name}" está ATIVO novamente no cardápio!`,
+        type: nextPaused ? 'warning' : 'success',
+      });
+    } catch (e) {
+      addToast({ message: 'Erro ao alterar status do item', type: 'error' as any });
+    } finally {
+      setTogglingId(null);
     }
   };
   
@@ -870,9 +941,18 @@ function ProductEditor({ products }: { products: Product[] }) {
       const price = parseFloat(priceStr.replace(',', '.'));
       setFormData(prev => ({
         ...prev, 
-        productExtras: [...(prev.productExtras || []), { id: Math.random().toString(), name: tempExtraName, price }]
+        productExtras: [...(prev.productExtras || []), { id: Math.random().toString(), name: tempExtraName, price, paused: false }]
       }));
     }
+  };
+
+  const toggleExtraPaused = (extraId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      productExtras: (prev.productExtras || []).map(e =>
+        e.id === extraId ? { ...e, paused: !e.paused } : e
+      )
+    }));
   };
 
   const removeExtra = (id: string) => {
@@ -882,15 +962,98 @@ function ProductEditor({ products }: { products: Product[] }) {
     }));
   };
 
+  const activeCount = products.filter(p => !p.paused).length;
+  const pausedCount = products.filter(p => p.paused).length;
+
+  const filteredProducts = products.filter(p => {
+    if (statusFilter === 'active' && p.paused) return false;
+    if (statusFilter === 'paused' && !p.paused) return false;
+    if (categoryFilter !== 'all' && p.category !== categoryFilter) return false;
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase();
+      return (
+        (p.name || '').toLowerCase().includes(q) ||
+        (p.description || '').toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+
   return (
     <div>
-      <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-stone-200">
-        <h2 className="text-2xl font-display uppercase font-bold flex items-center gap-2 text-stone-800">
-          <Package size={24} className="text-yellow-500" /> Gerenciar Produtos
-        </h2>
-        <button onClick={handleAdd} className="bg-stone-900 text-yellow-400 px-4 py-2 rounded-lg font-bold border-2 border-stone-900 flex items-center gap-2 hover:bg-stone-800 shadow-sm uppercase tracking-widest text-sm">
-          <Plus size={18} /> Novo Produto
-        </button>
+      <div className="flex flex-col gap-4 mb-6 bg-white p-5 rounded-xl shadow-sm border border-stone-200">
+        <div className="flex justify-between items-center flex-wrap gap-4">
+          <div>
+            <h2 className="text-2xl font-display uppercase font-bold flex items-center gap-2 text-stone-800">
+              <Package size={24} className="text-yellow-500" /> Gerenciar Produtos & Pausar Itens
+            </h2>
+            <p className="text-xs text-stone-500 font-medium mt-0.5">
+              Pause qualquer lanche, porção ou bebida com 1 clique quando faltar ingrediente na cozinha.
+            </p>
+          </div>
+          <button onClick={handleAdd} className="bg-stone-900 text-yellow-400 px-4 py-2.5 rounded-lg font-bold border-2 border-stone-900 flex items-center gap-2 hover:bg-stone-800 shadow-sm uppercase tracking-widest text-xs cursor-pointer">
+            <Plus size={18} /> Novo Produto
+          </button>
+        </div>
+
+        {/* Filtros de Status, Categoria e Busca */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-stone-100">
+          <div className="flex items-center gap-1.5 bg-stone-100 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setStatusFilter('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-colors cursor-pointer ${
+                statusFilter === 'all' ? 'bg-stone-900 text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              Todos ({products.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('active')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-colors cursor-pointer ${
+                statusFilter === 'active' ? 'bg-emerald-600 text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              Ativos ({activeCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('paused')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-colors cursor-pointer ${
+                statusFilter === 'paused' ? 'bg-red-600 text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              Pausados ({pausedCount})
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 flex-1 max-w-xl">
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="border border-stone-200 rounded-xl px-3 py-2 text-xs font-bold uppercase text-stone-700 bg-stone-50 outline-none focus:border-stone-400"
+            >
+              <option value="all">Todas Categorias</option>
+              <option value="lanches">Lanches</option>
+              <option value="combos">Combos</option>
+              <option value="porcoes">Porções</option>
+              <option value="bebidas">Bebidas</option>
+              <option value="doces">Doces</option>
+            </select>
+
+            <div className="relative flex-1">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar produto por nome ou ingrediente..."
+                className="w-full pl-9 pr-3 py-2 border border-stone-200 rounded-xl text-xs font-bold text-stone-800 bg-stone-50 outline-none focus:border-stone-400"
+              />
+            </div>
+          </div>
+        </div>
       </div>
       
       {editingId && (
@@ -926,14 +1089,32 @@ function ProductEditor({ products }: { products: Product[] }) {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Categoria</label>
-                  <select value={formData.category || 'lanches'} onChange={e => setFormData({...formData, category: e.target.value as any})} className="w-full border-2 border-stone-200 p-3 rounded-lg font-bold bg-white">
-                    <option value="lanches">Lanches</option>
-                    <option value="porcoes">Porções</option>
-                    <option value="bebidas">Bebidas</option>
-                    <option value="doces">Doces</option>
-                  </select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Categoria</label>
+                    <select value={formData.category || 'lanches'} onChange={e => setFormData({...formData, category: e.target.value as any})} className="w-full border-2 border-stone-200 p-3 rounded-lg font-bold bg-white">
+                      <option value="lanches">Lanches</option>
+                      <option value="combos">Combos</option>
+                      <option value="porcoes">Porções</option>
+                      <option value="bebidas">Bebidas</option>
+                      <option value="doces">Doces</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Disponibilidade</label>
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, paused: !prev.paused }))}
+                      className={`w-full p-3 rounded-lg font-bold uppercase text-xs flex items-center justify-center gap-2 border-2 transition-colors cursor-pointer ${
+                        formData.paused
+                          ? 'bg-red-50 border-red-300 text-red-700'
+                          : 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                      }`}
+                    >
+                      {formData.paused ? <PauseCircle size={16} /> : <PlayCircle size={16} />}
+                      {formData.paused ? 'Item Pausado (Indisponível)' : 'Item Ativo no Cardápio'}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
@@ -971,10 +1152,22 @@ function ProductEditor({ products }: { products: Product[] }) {
                   </div>
                   <div className="space-y-2">
                     {(formData.productExtras || []).map((ex) => (
-                      <div key={ex.id} className="flex justify-between items-center bg-stone-50 p-2 rounded-lg border border-stone-200">
-                        <span className="font-bold">{ex.name}</span>
-                        <div className="flex items-center gap-3">
-                          <span className="text-green-600 font-bold">+R$ {ex.price.toFixed(2)}</span>
+                      <div key={ex.id} className={`flex justify-between items-center p-2 rounded-lg border ${ex.paused ? 'bg-red-50/60 border-red-200 opacity-75' : 'bg-stone-50 border-stone-200'}`}>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-bold text-sm ${ex.paused ? 'line-through text-stone-400' : 'text-stone-800'}`}>{ex.name}</span>
+                          {ex.paused && <span className="text-[9px] font-black uppercase bg-red-100 text-red-700 px-1.5 py-0.5 rounded">Pausado</span>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-green-600 font-bold text-xs">+R$ {ex.price.toFixed(2)}</span>
+                          <button
+                            type="button"
+                            onClick={() => toggleExtraPaused(ex.id)}
+                            className={`text-[10px] font-bold uppercase px-2 py-1 rounded transition-colors cursor-pointer ${
+                              ex.paused ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                            }`}
+                          >
+                            {ex.paused ? 'Ativar' : 'Pausar'}
+                          </button>
                           <button onClick={() => removeExtra(ex.id)} className="text-red-500 hover:bg-red-100 p-1 rounded"><Trash2 size={16}/></button>
                         </div>
                       </div>
@@ -996,36 +1189,973 @@ function ProductEditor({ products }: { products: Product[] }) {
       )}
       
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {products.map(p => (
-          <div key={p.id} className="bg-white p-5 rounded-2xl border-2 border-stone-200 shadow-sm flex flex-col justify-between hover:border-yellow-400 transition-colors group">
-            <div>
-              <div className="flex justify-between items-start mb-3">
-                <div className="text-4xl">{p.emoji}</div>
-                <div className="bg-stone-100 px-2 py-1 rounded text-xs font-bold uppercase text-stone-500">{p.category}</div>
+        {filteredProducts.map(p => {
+          const isPaused = Boolean(p.paused);
+          return (
+            <div
+              key={p.id}
+              className={`bg-white p-5 rounded-2xl border-2 shadow-sm flex flex-col justify-between transition-all group ${
+                isPaused
+                  ? 'border-red-300 bg-red-50/20'
+                  : 'border-stone-200 hover:border-yellow-400'
+              }`}
+            >
+              <div>
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-center gap-3">
+                    {p.image ? (
+                      <img src={p.image} alt={p.name} className={`w-12 h-12 rounded-xl object-cover border border-stone-200 ${isPaused ? 'grayscale opacity-60' : ''}`} />
+                    ) : (
+                      <div className={`text-4xl ${isPaused ? 'grayscale opacity-60' : ''}`}>{p.emoji}</div>
+                    )}
+                    <div>
+                      <span className="bg-stone-100 px-2 py-0.5 rounded text-[10px] font-bold uppercase text-stone-500 block w-fit">
+                        {p.category}
+                      </span>
+                      <span className={`mt-1 inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded ${
+                        isPaused
+                          ? 'bg-red-100 text-red-700 border border-red-200'
+                          : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                      }`}>
+                        {isPaused ? 'Pausado no Cardápio' : 'Ativo no Cardápio'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <h4 className={`font-black text-xl leading-tight mb-2 ${isPaused ? 'text-stone-500 line-through' : 'text-stone-900'}`}>{p.name}</h4>
+                <p className="text-sm text-stone-500 font-medium mb-3 line-clamp-2">{p.description}</p>
+                <div className="flex gap-2 flex-wrap mb-4">
+                  {(p.productExtras || []).map(ex => (
+                    <span key={ex.id} className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${ex.paused ? 'bg-red-50 text-red-600 border-red-200 line-through' : 'bg-yellow-100 text-yellow-800 border-yellow-200'}`}>+{ex.name}</span>
+                  ))}
+                </div>
+                <div className="flex justify-between items-center font-black tabular-nums">
+                  <span className="text-lg text-green-600">R$ {p.price.toFixed(2).replace('.', ',')}</span>
+                  <span className="text-yellow-600 bg-yellow-50 px-2 py-1 rounded border border-yellow-100 text-xs">+{p.points} XP</span>
+                </div>
               </div>
-              <h4 className="font-black text-xl leading-tight mb-2">{p.name}</h4>
-              <p className="text-sm text-stone-500 font-medium mb-3 line-clamp-2">{p.description}</p>
-              <div className="flex gap-2 flex-wrap mb-4">
-                {(p.productExtras || []).map(ex => (
-                  <span key={ex.id} className="text-[10px] font-bold uppercase bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded border border-yellow-200">+{ex.name}</span>
-                ))}
-              </div>
-              <div className="flex justify-between items-center font-black">
-                <span className="text-lg text-green-600">R$ {p.price.toFixed(2)}</span>
-                <span className="text-yellow-500 bg-yellow-50 px-2 py-1 rounded border border-yellow-100 text-sm">+{p.points} XP</span>
+              <div className="flex gap-2 mt-4 pt-4 border-t-2 border-stone-100">
+                <button
+                  type="button"
+                  disabled={togglingId === p.id}
+                  onClick={() => handleQuickTogglePause(p)}
+                  className={`flex-1 py-2.5 px-3 rounded-lg flex items-center justify-center font-bold uppercase tracking-wider text-xs gap-1.5 transition-colors cursor-pointer ${
+                    isPaused
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                      : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
+                  }`}
+                >
+                  {isPaused ? <PlayCircle size={15} /> : <PauseCircle size={15} />}
+                  {isPaused ? 'Ativar Item' : 'Pausar Item'}
+                </button>
+                <button onClick={() => handleEdit(p)} className="px-3.5 py-2.5 bg-stone-900 text-yellow-400 rounded-lg flex items-center justify-center font-bold uppercase tracking-wider text-xs gap-1.5 hover:bg-stone-800 transition-colors cursor-pointer"><Edit2 size={14}/> Editar</button>
+                <button onClick={() => handleDelete(p.id!)} className="w-10 bg-red-50 text-red-500 rounded-lg flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors cursor-pointer"><Trash2 size={16}/></button>
               </div>
             </div>
-            <div className="flex gap-2 mt-4 pt-4 border-t-2 border-stone-100">
-              <button onClick={() => handleEdit(p)} className="flex-1 py-2 bg-stone-900 text-yellow-400 rounded-lg flex items-center justify-center font-bold uppercase tracking-widest text-sm gap-2 hover:bg-stone-800 transition-colors"><Edit2 size={16}/> Editar</button>
-              <button onClick={() => handleDelete(p.id!)} className="w-12 bg-red-50 text-red-500 rounded-lg flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors"><Trash2 size={18}/></button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <ConfirmModal isOpen={!!deleteId} message="Tem certeza? Removerá o produto para sempre." onConfirm={performDeleteProd} onCancel={() => setDeleteId(null)} />
       <PromptModal isOpen={promptImage} title="URL da Imagem" onConfirm={performAddImage} onCancel={() => setPromptImage(false)} />
       <PromptModal isOpen={promptExtraName} title="Nome do Adicional" onConfirm={performAddExtraName} onCancel={() => setPromptExtraName(false)} />
       <PromptModal isOpen={promptExtraPrice} title="Preço do Adicional" onConfirm={performAddExtraPrice} onCancel={() => setPromptExtraPrice(false)} />
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------
+// STORE HOURS EDITOR (Horário de Funcionamento Alterável)
+// ----------------------------------------------------------------------
+function StoreHoursEditor({
+  settings,
+  onSave,
+}: {
+  settings: StoreHoursSettings;
+  onSave: (updated: StoreHoursSettings) => Promise<void>;
+}) {
+  const [formData, setFormData] = useState<StoreHoursSettings>(settings);
+  const [isSaving, setIsSaving] = useState(false);
+  const [spClock, setSpClock] = useState(() => getSaoPauloNow());
+  const { addToast } = useToast();
+
+  useEffect(() => {
+    setFormData(settings);
+  }, [settings]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSpClock(getSaoPauloNow());
+    }, 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const liveStatus = getStoreStatus(formData);
+
+  const handleDayChange = (dayOfWeek: number, field: 'enabled' | 'openTime' | 'closeTime', value: any) => {
+    setFormData((prev) => ({
+      ...prev,
+      schedule: prev.schedule.map((d) =>
+        d.dayOfWeek === dayOfWeek ? { ...d, [field]: value } : d
+      ),
+    }));
+  };
+
+  const applyTimeToAllEnabledDays = (openTime: string, closeTime: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      schedule: prev.schedule.map((d) => (d.enabled ? { ...d, openTime, closeTime } : d)),
+    }));
+    addToast({
+      message: `Horário ${openTime} às ${closeTime} copiado para todos os dias ativos! Clique em Salvar para confirmar.`,
+      type: 'info',
+    });
+  };
+
+  const handleSaveHours = async (customSettings?: StoreHoursSettings) => {
+    const toSave = customSettings || formData;
+    setIsSaving(true);
+    try {
+      await onSave(toSave);
+      addToast({
+        title: 'Horário Atualizado!',
+        message: 'As configurações de horário de funcionamento foram salvas em tempo real.',
+        type: 'success',
+      });
+    } catch {
+      addToast({ message: 'Erro ao salvar horário de funcionamento', type: 'error' as any });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="max-w-5xl space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-xl shadow-sm border border-stone-200">
+        <div>
+          <h2 className="text-2xl font-display uppercase font-bold flex items-center gap-2 text-stone-900">
+            <Clock size={24} className="text-yellow-500" /> Horário de Funcionamento
+          </h2>
+          <p className="text-xs text-stone-500 font-medium mt-0.5">
+            Defina os dias e horários de abertura do delivery ou abra/feche a loja manualmente a qualquer momento.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="bg-stone-100 border border-stone-200 px-3.5 py-2 rounded-xl text-right">
+            <span className="text-[10px] font-bold uppercase text-stone-500 block">Horário Passo Fundo / RS</span>
+            <span className="font-mono font-black text-sm text-stone-900 tabular-nums">{spClock.timeString}</span>
+          </div>
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={() => handleSaveHours()}
+            className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold uppercase tracking-wider text-xs px-5 py-3 rounded-xl shadow-sm flex items-center gap-2 transition-colors cursor-pointer"
+          >
+            <Save size={16} />
+            {isSaving ? 'Salvando...' : 'Salvar Horários'}
+          </button>
+        </div>
+      </div>
+
+      {/* Modo de Operação e Status Atual */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 space-y-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-stone-100">
+          <div>
+            <h3 className="font-black uppercase text-base text-stone-900">Modo de Operação da Loja</h3>
+            <p className="text-xs text-stone-500 font-medium">
+              Escolha se o site deve seguir a tabela de horários automaticamente ou ficar aberto/fechado manualmente.
+            </p>
+          </div>
+          <div className={`px-4 py-2 rounded-xl font-black text-xs uppercase tracking-wider border ${
+            liveStatus.isOpen
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              : 'bg-red-50 border-red-200 text-red-700'
+          }`}>
+            Status no Site Agora: {liveStatus.badgeText}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              const updated = { ...formData, mode: 'auto' as const };
+              setFormData(updated);
+              handleSaveHours(updated);
+            }}
+            className={`p-4 rounded-xl border-2 text-left transition-all cursor-pointer ${
+              formData.mode === 'auto'
+                ? 'border-yellow-400 bg-yellow-50/50 shadow-sm'
+                : 'border-stone-200 hover:border-stone-300 bg-white'
+            }`}
+          >
+            <div className="font-black uppercase text-sm text-stone-900 mb-1 flex items-center justify-between">
+              <span>Seguir Tabela de Horários</span>
+              {formData.mode === 'auto' && <Check size={16} className="text-yellow-600 stroke-[3]" />}
+            </div>
+            <p className="text-xs text-stone-500 font-medium">
+              Abre e fecha automaticamente conforme os dias e horários configurados na tabela abaixo.
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              const updated = { ...formData, mode: 'open' as const };
+              setFormData(updated);
+              handleSaveHours(updated);
+            }}
+            className={`p-4 rounded-xl border-2 text-left transition-all cursor-pointer ${
+              formData.mode === 'open'
+                ? 'border-emerald-500 bg-emerald-50/50 shadow-sm'
+                : 'border-stone-200 hover:border-stone-300 bg-white'
+            }`}
+          >
+            <div className="font-black uppercase text-sm text-emerald-800 mb-1 flex items-center justify-between">
+              <span>Sempre Aberto (Liberado)</span>
+              {formData.mode === 'open' && <Check size={16} className="text-emerald-600 stroke-[3]" />}
+            </div>
+            <p className="text-xs text-stone-500 font-medium">
+              Mantém as vendas liberadas 24h no site independente do dia ou horário.
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              const updated = { ...formData, mode: 'closed' as const };
+              setFormData(updated);
+              handleSaveHours(updated);
+            }}
+            className={`p-4 rounded-xl border-2 text-left transition-all cursor-pointer ${
+              formData.mode === 'closed'
+                ? 'border-red-500 bg-red-50/50 shadow-sm'
+                : 'border-stone-200 hover:border-stone-300 bg-white'
+            }`}
+          >
+            <div className="font-black uppercase text-sm text-red-700 mb-1 flex items-center justify-between">
+              <span>Fechar Loja Agora (Pausa)</span>
+              {formData.mode === 'closed' && <Check size={16} className="text-red-600 stroke-[3]" />}
+            </div>
+            <p className="text-xs text-stone-500 font-medium">
+              Pausa imediatamente novos pedidos e exibe o aviso de loja fechada no cardápio.
+            </p>
+          </button>
+        </div>
+      </div>
+
+      {/* Tabela de Horários por Dia da Semana */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-stone-100">
+          <div>
+            <h3 className="font-black uppercase text-base text-stone-900">Horários por Dia da Semana</h3>
+            <p className="text-xs text-stone-500 font-medium">
+              Ative os dias de atendimento e ajuste o horário de início e término (suporta virada de meia-noite, ex: 18:30 às 00:30).
+            </p>
+          </div>
+          {formData.schedule.find((d) => d.enabled) && (
+            <button
+              type="button"
+              onClick={() => {
+                const firstEnabled = formData.schedule.find((d) => d.enabled);
+                if (firstEnabled) {
+                  applyTimeToAllEnabledDays(firstEnabled.openTime, firstEnabled.closeTime);
+                }
+              }}
+              className="text-xs font-bold uppercase px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 transition-colors cursor-pointer shrink-0"
+            >
+              Repetir 1º horário em todos os dias ativos
+            </button>
+          )}
+        </div>
+
+        <div className="divide-y divide-stone-100">
+          {formData.schedule.map((day) => {
+            const isToday = day.dayOfWeek === spClock.dayOfWeek;
+            return (
+              <div
+                key={day.dayOfWeek}
+                className={`py-3.5 px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl transition-colors ${
+                  isToday ? 'bg-amber-50/50' : ''
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-[200px]">
+                  <button
+                    type="button"
+                    onClick={() => handleDayChange(day.dayOfWeek, 'enabled', !day.enabled)}
+                    className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 ${
+                      day.enabled ? 'bg-emerald-500' : 'bg-stone-300'
+                    }`}
+                  >
+                    <div
+                      className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${
+                        day.enabled ? 'left-7' : 'left-1'
+                      }`}
+                    />
+                  </button>
+                  <div>
+                    <span className="font-bold text-sm text-stone-900 flex items-center gap-2">
+                      {day.label}
+                      {isToday && (
+                        <span className="text-[10px] font-black uppercase bg-yellow-400 text-black px-2 py-0.5 rounded">
+                          Hoje
+                        </span>
+                      )}
+                    </span>
+                    <span className={`text-xs font-bold ${day.enabled ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {day.enabled ? 'Aberto para pedidos' : 'Fechado / Folga'}
+                    </span>
+                  </div>
+                </div>
+
+                {day.enabled ? (
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-stone-400 mb-0.5">Abre às</label>
+                      <input
+                        type="time"
+                        value={day.openTime}
+                        onChange={(e) => handleDayChange(day.dayOfWeek, 'openTime', e.target.value)}
+                        className="border-2 border-stone-200 rounded-lg px-3 py-1.5 font-mono font-bold text-sm text-stone-900 bg-white focus:border-yellow-400 outline-none tabular-nums"
+                      />
+                    </div>
+                    <span className="text-stone-400 font-bold mt-4">até</span>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-stone-400 mb-0.5">Fecha às</label>
+                      <input
+                        type="time"
+                        value={day.closeTime}
+                        onChange={(e) => handleDayChange(day.dayOfWeek, 'closeTime', e.target.value)}
+                        className="border-2 border-stone-200 rounded-lg px-3 py-1.5 font-mono font-bold text-sm text-stone-900 bg-white focus:border-yellow-400 outline-none tabular-nums"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <span className="text-xs font-bold uppercase text-stone-400 italic">
+                    Loja fechada neste dia
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Mensagens de Loja Fechada */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 space-y-4">
+        <h3 className="font-black uppercase text-base text-stone-900 pb-2 border-b border-stone-100">
+          Mensagens Exibidas Quando a Loja Estiver Fechada
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Título do Aviso</label>
+            <input
+              type="text"
+              value={formData.closedTitle || ''}
+              onChange={(e) => setFormData({ ...formData, closedTitle: e.target.value })}
+              placeholder="Ex: Loja Fechada no Momento"
+              className="w-full border-2 border-stone-200 rounded-xl p-3 font-bold text-sm text-stone-900"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Texto da Faixa no Topo do Site</label>
+            <input
+              type="text"
+              value={formData.bannerText || ''}
+              onChange={(e) => setFormData({ ...formData, bannerText: e.target.value })}
+              placeholder="Ex: ⏰ LOJA FECHADA NO MOMENTO • ABRE ÀS 18:30"
+              className="w-full border-2 border-stone-200 rounded-xl p-3 font-bold text-sm text-stone-900"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Mensagem Explicativa na Sacola / Checkout</label>
+          <textarea
+            rows={2}
+            value={formData.closedDescription || ''}
+            onChange={(e) => setFormData({ ...formData, closedDescription: e.target.value })}
+            placeholder="Ex: Nosso delivery atende de Terça a Domingo das 18:30 às 23:45."
+            className="w-full border-2 border-stone-200 rounded-xl p-3 font-bold text-sm text-stone-900"
+          />
+        </div>
+        <div className="flex justify-end pt-2">
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={() => handleSaveHours()}
+            className="bg-stone-900 hover:bg-black text-yellow-400 font-bold uppercase tracking-wider text-xs px-6 py-3 rounded-xl shadow-md flex items-center gap-2 transition-colors cursor-pointer"
+          >
+            <Save size={16} />
+            {isSaving ? 'Salvando...' : 'Salvar Todas as Configurações'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------
+// CUSTOMER ORDER HISTORY (Histórico de Pedidos dos Clientes)
+// ----------------------------------------------------------------------
+interface CustomerSummary {
+  key: string;
+  name: string;
+  whatsapp: string;
+  address: string;
+  region: string;
+  ordersCount: number;
+  totalSpent: number;
+  lastOrderDate: Date;
+  favoriteItem: string;
+  orders: Order[];
+}
+
+function CustomerOrderHistory({
+  orders,
+  printSettings,
+  setOrderToPrint,
+}: {
+  orders: Order[];
+  printSettings: PrinterSettings;
+  setOrderToPrint: (o: Order | null) => void;
+}) {
+  const { addToast } = useToast();
+  const [subView, setSubView] = useState<'customers' | 'all_orders'>('customers');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | '7d' | '30d'>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerSummary | null>(null);
+  const [inspectingOrder, setInspectingOrder] = useState<Order | null>(null);
+
+  const getOrderDate = (o: Order): Date => {
+    if (o.createdAt?.toDate) return o.createdAt.toDate();
+    if (o.createdAt?.seconds) return new Date(o.createdAt.seconds * 1000);
+    if (o.createdAt) return new Date(o.createdAt);
+    return new Date(0);
+  };
+
+  // Filtra pedidos por período e status
+  const periodFilteredOrders = React.useMemo(() => {
+    const now = Date.now();
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    return orders.filter((o) => {
+      const d = getOrderDate(o);
+      if (periodFilter === 'today' && d.getTime() < startOfToday.getTime()) return false;
+      if (periodFilter === '7d' && now - d.getTime() > 7 * 24 * 60 * 60 * 1000) return false;
+      if (periodFilter === '30d' && now - d.getTime() > 30 * 24 * 60 * 60 * 1000) return false;
+      if (statusFilter !== 'all' && (o.status || 'recebido') !== statusFilter) return false;
+      return true;
+    });
+  }, [orders, periodFilter, statusFilter]);
+
+  // Agrupa pedidos por cliente
+  const customers = React.useMemo(() => {
+    const map = new Map<string, CustomerSummary>();
+
+    periodFilteredOrders.forEach((order) => {
+      const rawPhone = (order.whatsapp || '').replace(/\D/g, '');
+      const rawName = (order.userName || 'Cliente Anônimo').trim();
+      const key = rawPhone.length >= 8 ? `phone_${rawPhone}` : `name_${rawName.toLowerCase()}`;
+
+      const existing = map.get(key);
+      const orderDate = getOrderDate(order);
+
+      if (!existing) {
+        map.set(key, {
+          key,
+          name: rawName,
+          whatsapp: order.whatsapp || '',
+          address: order.address || '',
+          region: order.region || '',
+          ordersCount: 1,
+          totalSpent: Number(order.totalPrice || 0),
+          lastOrderDate: orderDate,
+          favoriteItem: order.items?.[0]?.name || '-',
+          orders: [order],
+        });
+      } else {
+        existing.ordersCount += 1;
+        existing.totalSpent += Number(order.totalPrice || 0);
+        if (orderDate > existing.lastOrderDate) {
+          existing.lastOrderDate = orderDate;
+          if (rawName && rawName !== 'Anônimo') existing.name = rawName;
+          if (order.address) existing.address = order.address;
+          if (order.whatsapp) existing.whatsapp = order.whatsapp;
+        }
+        existing.orders.push(order);
+      }
+    });
+
+    // Calcula o lanche mais pedido de cada cliente
+    const list = Array.from(map.values()).map((c) => {
+      const itemCounts = new Map<string, number>();
+      c.orders.forEach((o) => {
+        (o.items || []).forEach((it: any) => {
+          const name = it.name || 'Item';
+          itemCounts.set(name, (itemCounts.get(name) || 0) + Number(it.quantity || 1));
+        });
+      });
+      let fav = '-';
+      let max = 0;
+      itemCounts.forEach((qty, name) => {
+        if (qty > max) {
+          max = qty;
+          fav = `${name} (${qty}x)`;
+        }
+      });
+      c.favoriteItem = fav;
+      c.orders.sort((a, b) => getOrderDate(b).getTime() - getOrderDate(a).getTime());
+      return c;
+    });
+
+    return list.sort((a, b) => b.lastOrderDate.getTime() - a.lastOrderDate.getTime());
+  }, [periodFilteredOrders]);
+
+  const filteredCustomers = customers.filter((c) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      c.name.toLowerCase().includes(q) ||
+      c.whatsapp.toLowerCase().includes(q) ||
+      c.address.toLowerCase().includes(q) ||
+      c.orders.some((o) => String(o.orderNumber || '').includes(q) || (o.id || '').toLowerCase().includes(q))
+    );
+  });
+
+  const filteredOrdersList = periodFilteredOrders.filter((o) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      (o.userName || '').toLowerCase().includes(q) ||
+      (o.whatsapp || '').toLowerCase().includes(q) ||
+      (o.address || '').toLowerCase().includes(q) ||
+      String(o.orderNumber || '').includes(q) ||
+      (o.id || '').toLowerCase().includes(q) ||
+      (o.items || []).some((it: any) => (it.name || '').toLowerCase().includes(q))
+    );
+  });
+
+  const totalRevenue = periodFilteredOrders.reduce((acc, o) => acc + Number(o.totalPrice || 0), 0);
+  const avgTicket = periodFilteredOrders.length > 0 ? totalRevenue / periodFilteredOrders.length : 0;
+
+  return (
+    <div className="space-y-6">
+      {/* Header + Resumo */}
+      <div className="bg-white p-5 rounded-xl shadow-sm border border-stone-200 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-display uppercase font-bold flex items-center gap-2 text-stone-900">
+              <Users size={24} className="text-yellow-500" /> Histórico de Pedidos dos Clientes
+            </h2>
+            <p className="text-xs text-stone-500 font-medium mt-0.5">
+              Consulte todos os clientes, veja quantos pedidos cada um já fez, o que pediu e reimprima qualquer comanda antiga.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-stone-100 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setSubView('customers')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold uppercase transition-colors cursor-pointer ${
+                subView === 'customers' ? 'bg-stone-900 text-yellow-400 shadow-xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              Por Cliente ({customers.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSubView('all_orders')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold uppercase transition-colors cursor-pointer ${
+                subView === 'all_orders' ? 'bg-stone-900 text-yellow-400 shadow-xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              Todos os Pedidos ({periodFilteredOrders.length})
+            </button>
+          </div>
+        </div>
+
+        {/* KPIs */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
+          <div className="bg-stone-50 border border-stone-200 rounded-xl p-3.5">
+            <span className="text-[10px] font-bold uppercase text-stone-500 block">Clientes Únicos</span>
+            <span className="text-2xl font-black text-stone-900 tabular-nums">{customers.length}</span>
+          </div>
+          <div className="bg-stone-50 border border-stone-200 rounded-xl p-3.5">
+            <span className="text-[10px] font-bold uppercase text-stone-500 block">Total de Pedidos</span>
+            <span className="text-2xl font-black text-stone-900 tabular-nums">{periodFilteredOrders.length}</span>
+          </div>
+          <div className="bg-stone-50 border border-stone-200 rounded-xl p-3.5">
+            <span className="text-[10px] font-bold uppercase text-stone-500 block">Volume em Pedidos</span>
+            <span className="text-2xl font-black text-emerald-600 tabular-nums">
+              R$ {totalRevenue.toFixed(2).replace('.', ',')}
+            </span>
+          </div>
+          <div className="bg-stone-50 border border-stone-200 rounded-xl p-3.5">
+            <span className="text-[10px] font-bold uppercase text-stone-500 block">Ticket Médio</span>
+            <span className="text-2xl font-black text-stone-900 tabular-nums">
+              R$ {avgTicket.toFixed(2).replace('.', ',')}
+            </span>
+          </div>
+        </div>
+
+        {/* Filtros de Busca e Período */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-stone-100">
+          <div className="flex items-center gap-1.5 bg-stone-100 p-1 rounded-xl">
+            {[
+              { id: 'all', label: 'Todo Período' },
+              { id: 'today', label: 'Hoje' },
+              { id: '7d', label: 'Últimos 7 Dias' },
+              { id: '30d', label: 'Últimos 30 Dias' },
+            ].map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setPeriodFilter(p.id as any)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-colors cursor-pointer ${
+                  periodFilter === p.id ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2 flex-1 max-w-xl">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="border border-stone-200 rounded-xl px-3 py-2 text-xs font-bold uppercase text-stone-700 bg-stone-50 outline-none"
+            >
+              <option value="all">Todos Status</option>
+              <option value="recebido">Recebidos</option>
+              <option value="preparando">Em Preparo</option>
+              <option value="a_caminho">A Caminho</option>
+              <option value="entregue">Entregues</option>
+            </select>
+
+            <div className="relative flex-1">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar por nome do cliente, WhatsApp, endereço ou Nº pedido..."
+                className="w-full pl-9 pr-3 py-2 border border-stone-200 rounded-xl text-xs font-bold text-stone-800 bg-stone-50 outline-none focus:border-stone-400"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Visão 1: Carteira de Clientes */}
+      {subView === 'customers' ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
+          {filteredCustomers.length === 0 ? (
+            <div className="p-12 text-center text-stone-400 font-bold">
+              Nenhum cliente encontrado para os filtros selecionados.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-stone-50 border-b border-stone-200 text-[11px] font-black uppercase text-stone-500 tracking-wider">
+                    <th className="py-3.5 px-4">Cliente</th>
+                    <th className="py-3.5 px-4">WhatsApp</th>
+                    <th className="py-3.5 px-4">Endereço Principal</th>
+                    <th className="py-3.5 px-4">Item Mais Pedido</th>
+                    <th className="py-3.5 px-4 text-center">Pedidos</th>
+                    <th className="py-3.5 px-4 text-right">Total Gasto</th>
+                    <th className="py-3.5 px-4 text-right">Último Pedido</th>
+                    <th className="py-3.5 px-4 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100 text-sm">
+                  {filteredCustomers.map((c) => {
+                    const cleanDigits = c.whatsapp.replace(/\D/g, '');
+                    const waUrl = cleanDigits
+                      ? `https://wa.me/${cleanDigits.startsWith('55') ? cleanDigits : `55${cleanDigits}`}`
+                      : null;
+                    return (
+                      <tr key={c.key} className="hover:bg-stone-50/80 transition-colors">
+                        <td className="py-3.5 px-4 font-black text-stone-900">{c.name}</td>
+                        <td className="py-3.5 px-4 font-mono text-xs font-bold text-stone-600 tabular-nums">
+                          {waUrl ? (
+                            <a
+                              href={waUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-emerald-700 hover:underline"
+                            >
+                              <Phone size={12} /> {c.whatsapp}
+                            </a>
+                          ) : (
+                            c.whatsapp || '-'
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 text-xs text-stone-600 font-medium max-w-[220px] truncate" title={c.address}>
+                          {c.address || 'Retirada no Balcão'}
+                        </td>
+                        <td className="py-3.5 px-4 text-xs font-bold text-stone-700 max-w-[180px] truncate">
+                          {c.favoriteItem}
+                        </td>
+                        <td className="py-3.5 px-4 text-center font-mono font-black text-stone-900 tabular-nums">
+                          {c.ordersCount}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono font-black text-emerald-600 tabular-nums">
+                          R$ {c.totalSpent.toFixed(2).replace('.', ',')}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono text-xs text-stone-500 tabular-nums">
+                          {c.lastOrderDate.getTime() > 0
+                            ? `${c.lastOrderDate.toLocaleDateString('pt-BR')} ${c.lastOrderDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                            : '-'}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCustomer(c)}
+                            className="px-3 py-1.5 bg-stone-900 hover:bg-black text-yellow-400 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap"
+                          >
+                            Ver Histórico ({c.ordersCount})
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Visão 2: Lista Completa de Todos os Pedidos */
+        <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
+          {filteredOrdersList.length === 0 ? (
+            <div className="p-12 text-center text-stone-400 font-bold">
+              Nenhum pedido encontrado para os filtros selecionados.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-stone-50 border-b border-stone-200 text-[11px] font-black uppercase text-stone-500 tracking-wider">
+                    <th className="py-3.5 px-4">Pedido</th>
+                    <th className="py-3.5 px-4">Data / Hora</th>
+                    <th className="py-3.5 px-4">Cliente</th>
+                    <th className="py-3.5 px-4">Itens do Pedido</th>
+                    <th className="py-3.5 px-4">Pagamento</th>
+                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-4 text-right">Total</th>
+                    <th className="py-3.5 px-4 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100 text-sm">
+                  {filteredOrdersList.map((order) => {
+                    const d = getOrderDate(order);
+                    const itemsText = (order.items || [])
+                      .map((it: any) => `${it.quantity}x ${it.name}`)
+                      .join(', ');
+                    return (
+                      <tr key={order.id} className="hover:bg-stone-50/80 transition-colors">
+                        <td className="py-3.5 px-4 font-mono font-black text-stone-900 tabular-nums">
+                          {order.orderNumber ? `#${order.orderNumber}` : `#${(order.id || '').substring(0, 6).toUpperCase()}`}
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-xs text-stone-600 tabular-nums whitespace-nowrap">
+                          {d.getTime() > 0
+                            ? `${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                            : '-'}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="font-bold text-stone-900">{order.userName || 'Anônimo'}</div>
+                          <div className="text-xs text-stone-500 font-mono">{order.whatsapp || ''}</div>
+                        </td>
+                        <td className="py-3.5 px-4 text-xs text-stone-700 font-medium max-w-[260px] truncate" title={itemsText}>
+                          {itemsText}
+                        </td>
+                        <td className="py-3.5 px-4 text-xs font-bold text-stone-600">
+                          {order.paymentMethod || '-'}
+                        </td>
+                        <td className="py-3.5 px-4 text-xs font-black uppercase text-stone-700">
+                          {order.status || 'recebido'}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono font-black text-emerald-600 tabular-nums whitespace-nowrap">
+                          R$ {Number(order.totalPrice || 0).toFixed(2).replace('.', ',')}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setInspectingOrder(order)}
+                              className="px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-bold uppercase transition-colors cursor-pointer"
+                            >
+                              Detalhes
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => executePrintOrder(order, printSettings, setOrderToPrint, addToast, { force: true })}
+                              className="p-1.5 bg-stone-900 hover:bg-black text-yellow-400 rounded-lg transition-colors cursor-pointer"
+                              title="Reimprimir Comanda"
+                            >
+                              <Printer size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Modal de Histórico Individual de um Cliente */}
+      <AnimatePresence>
+        {selectedCustomer && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col"
+            >
+              <div className="p-6 border-b border-stone-200 flex justify-between items-start bg-stone-900 text-white">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-yellow-400 block mb-1">
+                    Ficha & Histórico do Cliente
+                  </span>
+                  <h3 className="text-2xl font-black uppercase">{selectedCustomer.name}</h3>
+                  <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-stone-300 font-medium">
+                    {selectedCustomer.whatsapp && (
+                      <span className="flex items-center gap-1">
+                        <Phone size={13} className="text-yellow-400" /> {selectedCustomer.whatsapp}
+                      </span>
+                    )}
+                    {selectedCustomer.address && (
+                      <span className="flex items-center gap-1">
+                        <MapPin size={13} className="text-yellow-400" /> {selectedCustomer.address}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedCustomer(null)}
+                  className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4 p-4 bg-stone-50 border-b border-stone-200 text-center">
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-stone-500 block">Pedidos Realizados</span>
+                  <span className="text-xl font-black text-stone-900 tabular-nums">{selectedCustomer.ordersCount}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-stone-500 block">Total Acumulado</span>
+                  <span className="text-xl font-black text-emerald-600 tabular-nums">
+                    R$ {selectedCustomer.totalSpent.toFixed(2).replace('.', ',')}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-stone-500 block">Preferido</span>
+                  <span className="text-sm font-black text-stone-800 truncate block">{selectedCustomer.favoriteItem}</span>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {selectedCustomer.orders.map((order) => {
+                  const d = getOrderDate(order);
+                  return (
+                    <div
+                      key={order.id}
+                      className="border border-stone-200 rounded-xl p-4 hover:border-stone-300 transition-all bg-white shadow-2xs"
+                    >
+                      <div className="flex flex-wrap justify-between items-center gap-2 pb-3 mb-3 border-b border-stone-100">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono font-black text-base text-stone-900">
+                            {order.orderNumber ? `PEDIDO #${order.orderNumber}` : `#${(order.id || '').substring(0, 6).toUpperCase()}`}
+                          </span>
+                          <span className="text-xs font-mono text-stone-500 tabular-nums">
+                            {d.getTime() > 0
+                              ? `${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                              : ''}
+                          </span>
+                          <span className="text-xs font-bold uppercase text-stone-600">
+                            · {order.status || 'recebido'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-black text-base text-emerald-600 tabular-nums">
+                            R$ {Number(order.totalPrice || 0).toFixed(2).replace('.', ',')}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => executePrintOrder(order, printSettings, setOrderToPrint, addToast, { force: true })}
+                            className="px-3 py-1.5 bg-stone-900 hover:bg-black text-yellow-400 rounded-lg text-xs font-bold uppercase flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <Printer size={14} /> Reimprimir
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5 text-xs">
+                        {(order.items || []).map((item: any, idx: number) => (
+                          <div key={idx} className="flex justify-between items-start text-stone-700">
+                            <div>
+                              <span className="font-bold text-stone-900">{item.quantity}x {item.name}</span>
+                              {item.extras && item.extras.length > 0 && (
+                                <span className="text-stone-500 ml-1">
+                                  (+ {item.extras.map((e: any) => e.name).join(', ')})
+                                </span>
+                              )}
+                              {item.observation && (
+                                <span className="text-red-600 font-semibold italic ml-2">
+                                  Obs: {item.observation}
+                                </span>
+                              )}
+                            </div>
+                            <span className="font-mono font-semibold text-stone-600 tabular-nums">
+                              R$ {((item.price + (item.extras?.reduce((s: number, e: any) => s + (e.price || 0), 0) || 0)) * item.quantity).toFixed(2).replace('.', ',')}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-3 pt-2 border-t border-dashed border-stone-200 flex flex-wrap justify-between gap-2 text-[11px] text-stone-500 font-medium">
+                        <span>Pagamento: <strong className="text-stone-700">{order.paymentMethod || 'Não informado'}</strong></span>
+                        <span>Entrega: <strong className="text-stone-700">{order.address || 'Retirada no Balcão'}</strong></span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Edição / Detalhes de um Pedido Individual */}
+      <AnimatePresence>
+        {inspectingOrder && (
+          <OrderEditModal
+            order={inspectingOrder}
+            onClose={() => setInspectingOrder(null)}
+            onSave={async (updates: any) => {
+              await saveOrderAdmin(inspectingOrder.id!, updates);
+              addToast({ message: 'Pedido atualizado com sucesso!', type: 'success' });
+              setInspectingOrder(null);
+            }}
+            onPrint={() => {
+              executePrintOrder(inspectingOrder, printSettings, setOrderToPrint, addToast, { force: true });
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

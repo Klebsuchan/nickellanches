@@ -115,7 +115,7 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
   };
 
   const isBeverage = product.category?.toLowerCase() === "bebidas" || (product.name || '').toLowerCase().includes('água') || (product.name || '').toLowerCase().includes('refri');
-  const rawExtras = (product.productExtras && product.productExtras.length > 0) ? product.productExtras : AVAILABLE_EXTRAS;
+  const rawExtras = ((product.productExtras && product.productExtras.length > 0) ? product.productExtras : AVAILABLE_EXTRAS).filter(ex => !ex.paused);
   
   // Garante que a cebola seja apresentada nos 2 modelos: caramelizada e normal
   const displayExtras: Extra[] = [];
@@ -304,31 +304,41 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }: 
 
             {/* Footer with Add to Cart */}
             <div className="p-4 md:p-6 border-t border-stone-200 bg-white shrink-0">
-              <div className="flex gap-4">
-                <div className="flex items-center justify-between bg-stone-100 rounded-xl px-4 py-2 w-1/3">
+              {product.paused ? (
+                <button
+                  type="button"
+                  disabled
+                  className="w-full py-4 bg-stone-200 text-stone-500 rounded-xl font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-not-allowed"
+                >
+                  <span>Item Temporariamente Indisponível</span>
+                </button>
+              ) : (
+                <div className="flex gap-4">
+                  <div className="flex items-center justify-between bg-stone-100 rounded-xl px-4 py-2 w-1/3">
+                    <button 
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      className="w-8 h-8 flex items-center justify-center text-stone-600 hover:text-black active:scale-95 transition-transform"
+                    >
+                      <Minus size={20} />
+                    </button>
+                    <span className="text-xl font-bold">{quantity}</span>
+                    <button 
+                      onClick={() => setQuantity(quantity + 1)}
+                      className="w-8 h-8 flex items-center justify-center text-[#F28B20] hover:text-orange-600 active:scale-95 transition-transform"
+                    >
+                      <Plus size={20} strokeWidth={3} />
+                    </button>
+                  </div>
+                  
                   <button 
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-8 h-8 flex items-center justify-center text-stone-600 hover:text-black active:scale-95 transition-transform"
+                    onClick={handleAddToCart}
+                    className="flex-1 bg-[#F28B20] text-white rounded-xl font-bold uppercase tracking-wide flex items-center justify-between px-6 shadow-md hover:bg-orange-500 active:scale-95 transition-all"
                   >
-                    <Minus size={20} />
-                  </button>
-                  <span className="text-xl font-bold">{quantity}</span>
-                  <button 
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="w-8 h-8 flex items-center justify-center text-[#F28B20] hover:text-orange-600 active:scale-95 transition-transform"
-                  >
-                    <Plus size={20} strokeWidth={3} />
+                    <span>Adicionar</span>
+                    <span>R$ {totalPrice.toFixed(2).replace('.', ',')}</span>
                   </button>
                 </div>
-                
-                <button 
-                  onClick={handleAddToCart}
-                  className="flex-1 bg-[#F28B20] text-white rounded-xl font-bold uppercase tracking-wide flex items-center justify-between px-6 shadow-md hover:bg-orange-500 active:scale-95 transition-all"
-                >
-                  <span>Adicionar</span>
-                  <span>R$ {totalPrice.toFixed(2).replace('.', ',')}</span>
-                </button>
-              </div>
+              )}
             </div>
 
           </motion.div>

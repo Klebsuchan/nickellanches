@@ -169,10 +169,19 @@ export const getProducts = async (): Promise<Product[]> => {
 
 export const saveProduct = async (product: Omit<Product, 'id'>, id?: string) => {
   if (id) {
-    await updateDoc(doc(db, "products", id), product as any);
+    await setDoc(doc(db, "products", id), product as any, { merge: true });
   } else {
     await addDoc(collection(db, "products"), product);
   }
+};
+
+export const toggleProductPause = async (product: Product, paused: boolean) => {
+  if (!product.id) return;
+  await setDoc(
+    doc(db, "products", product.id),
+    { ...product, paused },
+    { merge: true }
+  );
 };
 
 export const deleteProduct = async (id: string) => {
@@ -199,7 +208,7 @@ export const deletePromo = async (id: string) => {
 
 export const getAllOrders = async (): Promise<Order[]> => {
   const ordersRef = collection(db, "global_orders");
-  const q = query(ordersRef, orderBy("createdAt", "desc"), limit(50));
+  const q = query(ordersRef, orderBy("createdAt", "desc"), limit(300));
   const snap = await getDocs(q);
   return snap.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Order[];
 };
@@ -211,6 +220,68 @@ export const updateOrderStatus = async (orderId: string, status: string) => {
 
 import { onSnapshot } from "firebase/firestore";
 import { MENU_ITEMS } from "../data";
+import {
+  StoreHoursSettings,
+  DEFAULT_STORE_HOURS,
+  setCachedStoreHours,
+  getCachedStoreHours,
+} from "./storeHours";
+
+export const getStoreHoursSettings = async (): Promise<StoreHoursSettings> => {
+  try {
+    const docRef = doc(db, "settings", "store_hours");
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const merged = { ...DEFAULT_STORE_HOURS, ...snap.data() } as StoreHoursSettings;
+      setCachedStoreHours(merged);
+      return merged;
+    }
+  } catch (e) {
+    console.error("Erro ao buscar horário de funcionamento:", e);
+  }
+  return getCachedStoreHours();
+};
+
+export const saveStoreHoursSettings = async (settings: StoreHoursSettings) => {
+  const payload: StoreHoursSettings = {
+    ...settings,
+    updatedAtMs: Date.now(),
+  };
+  setCachedStoreHours(payload);
+  try {
+    localStorage.setItem("nickel_simular_segunda", payload.mode === "closed" ? "true" : "false");
+  } catch {}
+  try {
+    const docRef = doc(db, "settings", "store_hours");
+    await setDoc(docRef, payload, { merge: true });
+  } catch (e) {
+    console.error("Erro ao salvar horário de funcionamento:", e);
+    throw e;
+  }
+};
+
+export const subscribeToStoreHours = (callback: (settings: StoreHoursSettings) => void) => {
+  const docRef = doc(db, "settings", "store_hours");
+  return onSnapshot(
+    docRef,
+    (snap) => {
+      if (snap.exists()) {
+        const data = { ...DEFAULT_STORE_HOURS, ...snap.data() } as StoreHoursSettings;
+        setCachedStoreHours(data);
+        try {
+          localStorage.setItem("nickel_simular_segunda", data.mode === "closed" ? "true" : "false");
+        } catch {}
+        callback(data);
+      } else {
+        const cached = getCachedStoreHours();
+        callback(cached);
+      }
+    },
+    () => {
+      callback(getCachedStoreHours());
+    }
+  );
+};
 
 export const subscribeToProducts = (callback: (products: Product[]) => void) => {
   const productsRef = collection(db, "products");
@@ -221,16 +292,16 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
     }
     const firestoreMap = new Map(snap.docs.map(d => [d.id, { ...d.data(), id: d.id } as Product]));
     
-    // Combine MENU_ITEMS preserving canonical order, updating with Firestore data
+    // Combine MENU_ITEMS preserving canonical order, updating with Firestore data (including paused state, price, description, extras)
     const merged = MENU_ITEMS.map(item => {
       const fromDb = firestoreMap.get(item.id!);
       if (!fromDb) return item;
       return {
-        ...fromDb,
         ...item,
-        // Canonical images and prices from MENU_ITEMS take priority
-        image: item.image || fromDb.image,
-        price: item.price ?? fromDb.price
+        ...fromDb,
+        image: fromDb.image || item.image,
+        price: fromDb.price ?? item.price,
+        paused: Boolean(fromDb.paused),
       };
     });
 
@@ -275,7 +346,7 @@ export const subscribeToOrder = (orderId: string, callback: (order: Order) => vo
 
 export const subscribeToAllOrders = (callback: (orders: Order[]) => void) => {
   const ordersRef = collection(db, "global_orders");
-  const q = query(ordersRef, orderBy("createdAt", "desc"), limit(50));
+  const q = query(ordersRef, orderBy("createdAt", "desc"), limit(300));
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Order[]);
   });
@@ -289,9 +360,10 @@ export const seedDatabase = async (initialProducts: Product[], initialPromos: { 
     
     const metaSnap = await getDoc(metaRef);
     const currentVersion = metaSnap.exists() ? metaSnap.data().seedVersion : 0;
-    const TARGET_VERSION = 23; // Increment this to force re-seed
+    const TARGET_VERSION = 24;
   
     const productsSnap = await getDocs(productsRef);
+    const existingDocs = new Map(productsSnap.docs.map(d => [d.id, d.data()]));
     
     // Ensure obsolete test product is removed
     try {
@@ -300,11 +372,12 @@ export const seedDatabase = async (initialProducts: Product[], initialPromos: { 
       // ignore
     }
 
-    // Always force seed to ensure prices are updated
-    if (true) {
+    if (currentVersion < TARGET_VERSION || productsSnap.empty) {
       for (const p of initialProducts) {
         try {
-          await setDoc(doc(db, "products", p.id!), p);
+          const existing = existingDocs.get(p.id!);
+          const preservedPaused = existing && typeof existing.paused === 'boolean' ? existing.paused : false;
+          await setDoc(doc(db, "products", p.id!), { ...p, paused: preservedPaused }, { merge: true });
         } catch (e) {
           console.error("Failed to seed product:", p.id, p, e);
         }
