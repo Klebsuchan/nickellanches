@@ -17,28 +17,51 @@ export default function DeliveryInfoModal({ onClose }: { onClose: () => void }) 
             <X size={24} />
           </button>
 
-          <div className="h-48 md:h-64 relative bg-[#4E2A84] flex items-center justify-center overflow-hidden">
-            <div className="absolute inset-0 opacity-40 mix-blend-overlay bg-[url('https://images.unsplash.com/photo-1583337130417-3346a1be7dee?q=80&w=1200&auto=format&fit=crop')] bg-cover bg-center"></div>
-            <div className="relative z-10 text-center">
-              <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tighter text-white mb-2">Nosso Delivery</h2>
-              <p className="text-[#F28B20] font-black tracking-widest uppercase text-sm md:text-base">Feito com carinho para você</p>
+          <div className="h-44 md:h-52 relative bg-gradient-to-r from-[#381B66] via-[#4E2A84] to-[#5C329C] flex items-center justify-center overflow-hidden">
+            <div className="relative z-10 text-center px-4">
+              <span className="inline-block bg-[#F28B20] text-white text-[11px] font-black uppercase tracking-widest px-3.5 py-1 rounded-full mb-3 shadow-sm">
+                Entrega Rápida & Quentinha
+              </span>
+              <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-white mb-2">Nosso Delivery</h2>
+              <p className="text-amber-200 font-medium tracking-wide text-sm md:text-base">Preparado na hora e levado até você com todo cuidado</p>
             </div>
           </div>
 
           <div className="p-6 md:p-10">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-              <div>
-                <h3 className="text-2xl font-black uppercase text-stone-900 mb-4 tracking-tight">Cuidado em cada detalhe</h3>
-                <p className="text-stone-600 font-medium leading-relaxed">
-                  A nossa cozinha é o nosso templo. Cada pedido que sai daqui é montado pensando em proporcionar a melhor experiência no conforto da sua casa. Nós sabemos que a fome não espera, por isso otimizamos cada etapa e garantimos itens frescos.
-                </p>
-                <div className="mt-6 inline-flex bg-stone-100 text-stone-700 px-4 py-2 rounded-full font-bold text-sm items-center gap-2">
-                  <span className="text-xl">❤️</span> Fazemos os lanches com muito carinho
+            <div className="bg-[#FCF9F5] rounded-3xl p-6 md:p-8 border border-stone-200 mb-8">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                <h3 className="text-2xl md:text-3xl font-black uppercase text-stone-900 tracking-tight">
+                  Cuidado em cada detalhe ✨
+                </h3>
+                <div className="inline-flex self-start md:self-auto bg-amber-100 text-amber-900 px-4 py-1.5 rounded-full font-bold text-xs md:text-sm items-center gap-2 border border-amber-200">
+                  <span>❤️</span> Feito com muito carinho
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1572656306390-40a9fc3899f7?q=80&w=400&auto=format&fit=crop" className="w-full h-32 md:h-48 object-cover rounded-2xl" alt="Ingredientes frescos" referrerPolicy="no-referrer" />
-                <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=400&auto=format&fit=crop" className="w-full h-32 md:h-48 object-cover rounded-2xl" alt="Chapa de lanches" referrerPolicy="no-referrer" />
+              <p className="text-stone-600 font-medium leading-relaxed text-base md:text-lg mb-6">
+                A nossa cozinha é o nosso templo. Cada pedido que sai daqui é montado pensando em proporcionar a melhor experiência no conforto da sua casa. Nós sabemos que a fome não espera, por isso otimizamos cada etapa e garantimos itens frescos preparados na hora.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-white rounded-2xl p-4 border border-stone-200 flex items-center gap-3 shadow-sm">
+                  <span className="text-2xl">🔥</span>
+                  <div>
+                    <p className="font-black text-xs uppercase text-stone-900">Chapa Quente</p>
+                    <p className="text-stone-500 text-xs">Ponto perfeito e suculento</p>
+                  </div>
+                </div>
+                <div className="bg-white rounded-2xl p-4 border border-stone-200 flex items-center gap-3 shadow-sm">
+                  <span className="text-2xl">⚡</span>
+                  <div>
+                    <p className="font-black text-xs uppercase text-stone-900">Agilidade</p>
+                    <p className="text-stone-500 text-xs">Preparo rápido e sem demora</p>
+                  </div>
+                </div>
+                <div className="bg-white rounded-2xl p-4 border border-stone-200 flex items-center gap-3 shadow-sm">
+                  <span className="text-2xl">🛵</span>
+                  <div>
+                    <p className="font-black text-xs uppercase text-stone-900">Chega Quentinho</p>
+                    <p className="text-stone-500 text-xs">Embalagens térmicas seladas</p>
+                  </div>
+                </div>
               </div>
             </div>
 

@@ -477,7 +477,7 @@ export const INITIAL_100_FEEDBACKS: Feedback[] = [
     userId: 'u-44',
     userName: 'Renan Castilho',
     userAvatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80',
-    text: 'Cemuche nota 5! Já virei cliente fiel desde o primeiro pedido.',
+    text: 'Cemuche nota 5! Já virei cliente fiel logo no primeiro pedido.',
     location: 'Vera Cruz - Passo Fundo, RS',
     rating: 5,
     foodPhoto: '/images/xiscemuche-1.jpg',

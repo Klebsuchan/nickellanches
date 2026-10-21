@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Printer, CheckSquare, Lock, LogOut, X, Plus, Trash2, Edit2, Package, Tag, Clock, Save, Eye, EyeOff, Settings, List, Check, ArrowRight, ImagePlus, ChevronLeft, ChevronRight, RefreshCw, XCircle, Grid, Image as ImageIcon, Send, CreditCard, QrCode, ExternalLink, Volume2, Sparkles } from 'lucide-react';
-import { Order, getProducts, saveProduct, deleteProduct, getPromos, savePromo, deletePromo, getAllOrders, updateOrderStatus, PromoCode, subscribeToAllOrders, Banner, getBanners, saveBanner, deleteBanner, subscribeToProducts, subscribeToPromos, subscribeToBanners, deleteOrder, saveOrderAdmin, subscribeToPaymentSettings, PaymentSettings, PrinterSettings, DEFAULT_PRINTER_SETTINGS, savePrinterSettings, subscribeToPrinterSettings, saveOrder } from '../lib/db';
+import { Printer, CheckSquare, Lock, LogOut, X, Plus, Trash2, Edit2, Package, Tag, Clock, Save, Eye, EyeOff, Settings, List, Check, ArrowRight, ImagePlus, ChevronLeft, ChevronRight, RefreshCw, XCircle, Grid, Image as ImageIcon, Send, CreditCard, QrCode, ExternalLink, Volume2, Zap, Download } from 'lucide-react';
+import { Order, getProducts, saveProduct, deleteProduct, getPromos, savePromo, deletePromo, getAllOrders, updateOrderStatus, PromoCode, subscribeToAllOrders, Banner, getBanners, saveBanner, deleteBanner, subscribeToProducts, subscribeToPromos, subscribeToBanners, deleteOrder, saveOrderAdmin, subscribeToPaymentSettings, PaymentSettings, PrinterSettings, DEFAULT_PRINTER_SETTINGS, savePrinterSettings, subscribeToPrinterSettings } from '../lib/db';
 import { Product, Extra } from '../types';
 import { useToast } from './Toast';
 import { playSound } from '../lib/audio';
@@ -10,34 +10,40 @@ import PaymentSettingsEditor from './PaymentSettingsEditor';
 import PrintSettingsEditor from './PrintSettingsEditor';
 import PrintableReceipt from './PrintableReceipt';
 import PrintModal from './PrintModal';
+import AutoPrintApp from './AutoPrintApp';
 import { getConnectedUsbPrinter, sendRawToUsbPrinter, buildReceiptEscPos } from '../lib/escpos';
 import { executeUniversalPrint } from '../lib/printerService';
 import { isStoreClosedMonday, getStoreStatus } from '../lib/storeHours';
 
 interface AdminPanelProps {
   onClose: () => void;
+  initialTab?: 'orders' | 'autoprint' | 'products' | 'promos' | 'banners' | 'payments' | 'settings';
+  standaloneAutoPrint?: boolean;
 }
 
 
 // ----------------------------------------------------------------------
-// SAFE PRINT HELPER (SPOOLER & WEBUSB DIRECT)
+// SAFE PRINT HELPER (WINDOWS BRIDGE, WEBUSB & SPOOLER DIRECT)
 // ----------------------------------------------------------------------
 export const executePrintOrder = async (
   order: Order,
   settings: PrinterSettings,
   setOrderToPrint: (o: Order | null) => void,
-  addToast: any
+  addToast: any,
+  options?: { force?: boolean }
 ) => {
   setOrderToPrint(order);
-  await executeUniversalPrint(order, settings, addToast);
+  await executeUniversalPrint(order, settings, addToast, options);
 };
 
-export default function AdminPanel({ onClose }: AdminPanelProps) {
-  // Acesso estritamente protegido pela senha nickellanches123
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+export default function AdminPanel({ onClose, initialTab = 'orders', standaloneAutoPrint = false }: AdminPanelProps) {
+  // Acesso estritamente protegido pela senha nickellanches123 (permite janela filha autenticada na mesma sessão)
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return sessionStorage.getItem('nickel_admin_session_auth') === 'nickellanches123_ok';
+  });
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'promos' | 'banners' | 'payments' | 'settings'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'autoprint' | 'products' | 'promos' | 'banners' | 'payments' | 'settings'>(initialTab);
   
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -46,6 +52,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
   const [paymentSettings, setPaymentSettings] = useState<PaymentSettings | undefined>(undefined);
   
   const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
+  const [modalOrderToPrint, setModalOrderToPrint] = useState<Order | null>(null);
   const [printSettings, setPrintSettings] = useState<PrinterSettings>(() => {
     const cached = localStorage.getItem('nickel_printer_settings');
     if (cached) {
@@ -57,16 +64,20 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
   });
 
   const autoPrintRef = useRef(printSettings.autoPrint);
+  const printSettingsRef = useRef(printSettings);
   const printedOrders = useRef<Set<string>>(new Set(JSON.parse(localStorage.getItem('printed_orders') || '[]')));
+  const knownOrderIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     autoPrintRef.current = printSettings.autoPrint;
-  }, [printSettings.autoPrint]);
+    printSettingsRef.current = printSettings;
+  }, [printSettings]);
 
   useEffect(() => {
     const unsubPrinter = subscribeToPrinterSettings((s) => {
       setPrintSettings(s);
       autoPrintRef.current = s.autoPrint;
+      printSettingsRef.current = s;
     });
     return () => unsubPrinter();
   }, []);
@@ -81,6 +92,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
       cleanPass.toLowerCase() === 'nickellanches123' ||
       ((import.meta as any).env?.VITE_ADMIN_PASSWORD && cleanPass === (import.meta as any).env?.VITE_ADMIN_PASSWORD)
     ) {
+      sessionStorage.setItem('nickel_admin_session_auth', 'nickellanches123_ok');
       setIsAuthenticated(true);
       playSound('coin');
       addToast({ message: 'Login efetuado com sucesso!', type: 'success' });
@@ -95,40 +107,45 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
   useEffect(() => {
     if (isAuthenticated) {
       const unsubOrders = subscribeToAllOrders((newOrders) => {
-        setOrders(prev => {
-          const freshPrinted = new Set<string>(JSON.parse(localStorage.getItem('printed_orders') || '[]'));
-          
-          if (isInitialLoadRef.current) {
-            // Na primeira carga da página, registra os IDs existentes como conhecidos para evitar disparar impressão em massa de pedidos antigos
-            newOrders.forEach(o => {
-              if (o.id) freshPrinted.add(o.id);
-            });
-            localStorage.setItem('printed_orders', JSON.stringify(Array.from(freshPrinted)));
-            isInitialLoadRef.current = false;
-            return newOrders;
-          }
+        const freshPrinted = new Set<string>(JSON.parse(localStorage.getItem('printed_orders') || '[]'));
 
-          const currentIds = new Set(prev.map(o => o.id));
-          let hasNewLiveOrder = false;
-
-          newOrders.forEach(order => {
-            if (order.status === 'recebido' && order.id && !currentIds.has(order.id)) {
-              hasNewLiveOrder = true;
-              if (autoPrintRef.current && !freshPrinted.has(order.id)) {
-                freshPrinted.add(order.id);
-                printedOrders.current.add(order.id);
-                localStorage.setItem('printed_orders', JSON.stringify(Array.from(freshPrinted)));
-                executePrintOrder(order, printSettings, setOrderToPrint, addToast);
-              }
+        if (isInitialLoadRef.current) {
+          // Na primeira carga da página, registra os IDs existentes como conhecidos para evitar disparar impressão em massa de pedidos antigos
+          newOrders.forEach(o => {
+            if (o.id) {
+              freshPrinted.add(o.id);
+              knownOrderIdsRef.current.add(o.id);
             }
           });
+          localStorage.setItem('printed_orders', JSON.stringify(Array.from(freshPrinted)));
+          isInitialLoadRef.current = false;
+          setOrders(newOrders);
+          return;
+        }
 
-          if (hasNewLiveOrder) {
-            playSound('order_alert');
+        const newlyArrivedOrders: Order[] = [];
+        newOrders.forEach(order => {
+          if (order.id && !knownOrderIdsRef.current.has(order.id)) {
+            knownOrderIdsRef.current.add(order.id);
+            if (!order.status || order.status === 'recebido') {
+              newlyArrivedOrders.push(order);
+            }
           }
-
-          return newOrders;
         });
+
+        setOrders(newOrders);
+
+        if (newlyArrivedOrders.length > 0) {
+          playSound('order_alert');
+          newlyArrivedOrders.forEach(order => {
+            if (autoPrintRef.current && order.id && !freshPrinted.has(order.id)) {
+              freshPrinted.add(order.id);
+              printedOrders.current.add(order.id);
+              localStorage.setItem('printed_orders', JSON.stringify(Array.from(freshPrinted)));
+              executePrintOrder(order, printSettingsRef.current, setOrderToPrint, addToast, { force: false });
+            }
+          });
+        }
       });
       const unsubProducts = subscribeToProducts(setProducts);
       const unsubPromos = subscribeToPromos(setPromos);
@@ -169,10 +186,12 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
           </div>
           
           <h2 className="text-2xl font-display font-bold text-center text-stone-900 mb-1 uppercase tracking-wide">
-            Acesso Restrito
+            {standaloneAutoPrint ? 'Impressão Automática' : 'Acesso Restrito'}
           </h2>
           <p className="text-center text-stone-500 text-xs mb-6 font-medium">
-            Digite a senha de administrador para gerenciar pedidos, cardápio e impressora.
+            {standaloneAutoPrint
+              ? 'Digite a senha de administrador para abrir o aplicativo Impressão Automática de Comandas.'
+              : 'Digite a senha de administrador para gerenciar pedidos, cardápio e impressora.'}
           </p>
           
           <div className="relative mb-5">
@@ -204,6 +223,41 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
     );
   }
 
+  if (standaloneAutoPrint) {
+    return (
+      <div className="min-h-screen bg-stone-950 text-white print:bg-white print:text-black">
+        <div className="print:hidden">
+          <AutoPrintApp
+            orders={orders}
+            settings={printSettings}
+            onUpdateSettings={setPrintSettings}
+            onPrintOrder={(order) => executePrintOrder(order, printSettings, setOrderToPrint, addToast, { force: true })}
+            isStandaloneWindow={true}
+          />
+        </div>
+        <div
+          id="printable-command"
+          className={`hidden print:block mx-auto text-black font-mono leading-tight bg-white ${
+            printSettings.printerType === 'thermal_58'
+              ? 'thermal-58'
+              : printSettings.printerType === 'normal'
+              ? 'normal-a4'
+              : 'thermal-80'
+          }`}
+        >
+          {orderToPrint && (
+            <PrintableReceipt
+              order={orderToPrint}
+              settings={printSettings}
+              viaTitle={undefined}
+              isKitchenOnly={false}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-stone-100 flex flex-col md:flex-row print:bg-white print:block">
       {/* Sidebar */}
@@ -218,6 +272,25 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
         
         <nav className="flex flex-col gap-2 flex-1 overflow-y-auto">
           <TabButton icon={<CheckSquare size={20}/>} label="Pedidos" active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
+          <button
+            type="button"
+            onClick={() => setActiveTab('autoprint')}
+            className={`flex items-center justify-between gap-2 px-4 py-3 font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+              activeTab === 'autoprint'
+                ? 'bg-emerald-400 text-stone-950 shadow-lg translate-x-2'
+                : 'bg-stone-900/90 text-emerald-400 border border-emerald-500/30 hover:bg-stone-800'
+            }`}
+          >
+            <span className="flex items-center gap-2.5 text-xs">
+              <Zap size={18} className={activeTab === 'autoprint' ? 'fill-stone-950' : 'fill-emerald-400'} />
+              Imp. Automática
+            </span>
+            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${
+              activeTab === 'autoprint' ? 'bg-stone-950 text-emerald-400' : 'bg-emerald-500 text-stone-950'
+            }`}>
+              APP
+            </span>
+          </button>
           <TabButton icon={<Package size={20}/>} label="Produtos" active={activeTab === 'products'} onClick={() => setActiveTab('products')} />
           <TabButton icon={<Tag size={20}/>} label="Cupons" active={activeTab === 'promos'} onClick={() => setActiveTab('promos')} />
           <TabButton icon={<ImageIcon size={20}/>} label="Banners" active={activeTab === 'banners'} onClick={() => setActiveTab('banners')} />
@@ -235,7 +308,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
           >
             Abrir em Nova Aba <ExternalLink size={13} />
           </a>
-          <span>Versão 2.1.0</span>
+          <span>Versão 2.2.0</span>
 
           <div className="pt-2 w-full space-y-1">
             <button
@@ -273,6 +346,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
             <button
               type="button"
               onClick={() => {
+                sessionStorage.removeItem('nickel_admin_session_auth');
                 setIsAuthenticated(false);
                 setPassword('');
                 onClose();
@@ -287,7 +361,23 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
 
       {/* Main Content */}
       <div className="flex-1 h-screen overflow-y-auto p-4 md:p-8 relative print:hidden">
-        {activeTab === 'orders' && <OrdersKanban orders={orders} setOrderToPrint={setOrderToPrint} printSettings={printSettings} setPrintSettings={setPrintSettings} />}
+        {activeTab === 'orders' && (
+          <OrdersKanban
+            orders={orders}
+            setOrderToPrint={setOrderToPrint}
+            printSettings={printSettings}
+            setPrintSettings={setPrintSettings}
+            onOpenAutoPrintApp={() => setActiveTab('autoprint')}
+          />
+        )}
+        {activeTab === 'autoprint' && (
+          <AutoPrintApp
+            orders={orders}
+            settings={printSettings}
+            onUpdateSettings={setPrintSettings}
+            onPrintOrder={(order) => executePrintOrder(order, printSettings, setOrderToPrint, addToast, { force: true })}
+          />
+        )}
         {activeTab === 'products' && <ProductEditor products={products} />}
         {activeTab === 'promos' && <PromoEditor promos={promos} />}
         {activeTab === 'banners' && <BannerEditor banners={banners} />}
@@ -300,6 +390,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
               await savePrinterSettings(updated);
               setPrintSettings(updated);
             }}
+            onOpenAutoPrintApp={() => setActiveTab('autoprint')}
             onTestPrint={() => {
               const testOrder: Order = {
                 id: 'TESTE-101',
@@ -334,7 +425,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                   }
                 ]
               };
-              executePrintOrder(testOrder, printSettings, setOrderToPrint, addToast);
+              executePrintOrder(testOrder, printSettings, setOrderToPrint, addToast, { force: true });
             }}
           />
         )}
@@ -381,12 +472,12 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
         )}
       </div>
 
-      {/* Print Modal with USB Diagnostics & 1-Click Print */}
-      {orderToPrint && (
+      {/* Print Modal only when explicitly requested */}
+      {modalOrderToPrint && (
         <PrintModal
-          order={orderToPrint}
+          order={modalOrderToPrint}
           settings={printSettings}
-          onClose={() => setOrderToPrint(null)}
+          onClose={() => setModalOrderToPrint(null)}
         />
       )}
       
@@ -408,7 +499,7 @@ function TabButton({ icon, label, active, onClick }: { icon: React.ReactNode, la
 // ----------------------------------------------------------------------
 // ORDERS KANBAN
 // ----------------------------------------------------------------------
-function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings }: any) {
+function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings, onOpenAutoPrintApp }: any) {
   const { addToast } = useToast();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
@@ -441,7 +532,7 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
     let delay = 0;
     selectedOrders.forEach((order: Order) => {
       setTimeout(() => {
-        executePrintOrder(order, printSettings, setOrderToPrint, addToast);
+        executePrintOrder(order, printSettings, setOrderToPrint, addToast, { force: true });
       }, delay);
       delay += 2500;
     });
@@ -460,45 +551,6 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
     setSelectedIds(new Set());
   };
 
-  const handleCreateLiveTestOrder = async () => {
-    try {
-      const randomOrderNum = Math.floor(100 + Math.random() * 900);
-      const testOrderPayload: Omit<Order, 'createdAt' | 'id'> = {
-        orderNumber: randomOrderNum,
-        userName: `Cliente Teste #${randomOrderNum} (Ilusório)`,
-        whatsapp: '(54) 99999-8888',
-        address: 'Rua de Teste, 100 - Centro, Passo Fundo',
-        region: 'Passo Fundo',
-        paymentMethod: 'Pix na Entrega (Teste Ilusório)',
-        receiptNotes: 'Teste de sincronização em tempo real, som de 3s e impressão.',
-        deliveryFee: 6.00,
-        totalPrice: 45.00,
-        totalPoints: 50,
-        status: 'recebido',
-        items: [
-          {
-            name: 'Xis Espetacular (Pedido de Teste)',
-            price: 39.00,
-            quantity: 1,
-            extras: [{ name: 'Mussarela Extra', price: 0 }],
-            observation: 'Teste sem pagamento efetuado'
-          }
-        ]
-      };
-
-      await saveOrder('guest', testOrderPayload);
-      playSound('coin');
-      addToast({
-        title: 'Pedido de Teste Criado!',
-        message: 'O pedido foi enviado ao vivo ao banco de dados. O alerta de 3s e a impressão serão acionados!',
-        type: 'success'
-      });
-    } catch (err) {
-      console.error(err);
-      addToast({ message: 'Erro ao criar pedido de teste', type: 'error' as any });
-    }
-  };
-
   const columns = [
     { id: 'recebido', title: 'Recebidos', color: 'bg-stone-200 border-stone-300 text-stone-700' },
     { id: 'preparando', title: 'Em Preparo', color: 'bg-yellow-100 border-yellow-300 text-yellow-800' },
@@ -513,9 +565,26 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
           <CheckSquare size={24} className="text-yellow-500" /> Painel de Pedidos
         </h2>
         <div className="flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={onOpenAutoPrintApp}
+            className="flex items-center gap-2 bg-stone-950 hover:bg-stone-800 text-emerald-400 border border-emerald-500/40 px-3.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all shadow-sm cursor-pointer"
+            title="Abrir e instalar o aplicativo Impressão Automática no Windows"
+          >
+            <Zap size={14} className="fill-emerald-400" />
+            App Impressão Automática
+          </button>
+
           <div className="flex items-center gap-2 bg-stone-100 px-3 py-1.5 rounded-lg border border-stone-200">
             <span className="text-xs font-bold uppercase text-stone-500">Imp. Auto</span>
-            <button onClick={() => setPrintSettings({...printSettings, autoPrint: !printSettings.autoPrint})} className={`w-10 h-5 rounded-full transition-colors relative ${printSettings.autoPrint ? 'bg-green-500' : 'bg-stone-300'}`}>
+            <button
+              onClick={async () => {
+                const updated = { ...printSettings, autoPrint: !printSettings.autoPrint };
+                setPrintSettings(updated);
+                try { await savePrinterSettings(updated); } catch {}
+              }}
+              className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer ${printSettings.autoPrint ? 'bg-green-500' : 'bg-stone-300'}`}
+            >
               <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-[3px] transition-transform ${printSettings.autoPrint ? 'left-6' : 'left-1'}`}></div>
             </button>
           </div>
@@ -524,18 +593,9 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
             type="button"
             onClick={() => playSound('order_alert')}
             className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-stone-900 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all shadow-xs cursor-pointer"
-            title="Testar o alarme de novo pedido (3 segundos contínuos)"
+            title="Testar áudio de alerta de novo pedido"
           >
-            <Volume2 size={15} /> Testar Alerta (3s)
-          </button>
-
-          <button
-            type="button"
-            onClick={handleCreateLiveTestOrder}
-            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all shadow-xs cursor-pointer"
-            title="Criar um pedido de teste ao vivo no banco sem pagamento"
-          >
-            <Sparkles size={15} /> Criar Pedido Teste
+            <Volume2 size={15} /> Testar Alerta
           </button>
           
           <button onClick={selectAll} className="text-sm font-bold uppercase text-stone-600 hover:text-black">

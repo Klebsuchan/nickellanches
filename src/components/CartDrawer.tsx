@@ -182,24 +182,24 @@ export default function CartDrawer({
                       <ShieldCheck size={13} className="text-emerald-600" /> Formas de Pagamento
                     </span>
                     <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-bold">
-                      Na Entrega ou Online
+                      100% pelo Site
                     </span>
                   </div>
                   <div className="grid grid-cols-3 gap-1.5 pt-0.5 text-center">
                     <div className="bg-white border border-stone-200 rounded-xl py-1.5 px-1 flex flex-col items-center justify-center shadow-2xs">
                       <QrCode size={14} className="text-emerald-600 mb-0.5" />
                       <span className="text-[10px] font-black text-stone-800 leading-tight">PIX</span>
-                      <span className="text-[8px] text-stone-400 font-medium">Imediato</span>
+                      <span className="text-[8px] text-stone-400 font-medium">Pelo Site</span>
                     </div>
                     <div className="bg-white border border-stone-200 rounded-xl py-1.5 px-1 flex flex-col items-center justify-center shadow-2xs">
                       <CreditCard size={14} className="text-[#4E2A84] mb-0.5" />
-                      <span className="text-[10px] font-black text-stone-800 leading-tight">Cartões</span>
-                      <span className="text-[8px] text-stone-400 font-medium">Crédito/Débito</span>
+                      <span className="text-[10px] font-black text-stone-800 leading-tight">Crédito</span>
+                      <span className="text-[8px] text-stone-400 font-medium">Pelo Site</span>
                     </div>
                     <div className="bg-white border border-stone-200 rounded-xl py-1.5 px-1 flex flex-col items-center justify-center shadow-2xs">
-                      <Banknote size={14} className="text-amber-600 mb-0.5" />
-                      <span className="text-[10px] font-black text-stone-800 leading-tight">Dinheiro</span>
-                      <span className="text-[8px] text-stone-400 font-medium">Com Troco</span>
+                      <CreditCard size={14} className="text-blue-600 mb-0.5" />
+                      <span className="text-[10px] font-black text-stone-800 leading-tight">Débito</span>
+                      <span className="text-[8px] text-stone-400 font-medium">Pelo Site</span>
                     </div>
                   </div>
                 </div>
@@ -227,7 +227,7 @@ export default function CartDrawer({
                 ) : (
                   <button 
                     onClick={onCheckout}
-                    className="w-full py-4 bg-yellow-400 border-2 border-black text-black font-display tracking-widest uppercase rounded-xl hover:bg-yellow-500 shadow-[4px_4px_0px_#000] hover:shadow-[6px_6px_0px_#000] hover:-translate-y-1 transition-all flex items-center justify-center gap-2 text-lg"
+                    className="w-full py-4 bg-yellow-400 border-2 border-black text-black font-display tracking-widest uppercase rounded-xl hover:bg-yellow-500 shadow-[4px_4px_0px_#000] hover:shadow-[6px_6px_0px_#000] hover:-translate-y-1 transition-all flex items-center justify-center gap-2 text-lg cursor-pointer"
                   >
                     Finalizar Pedido
                   </button>

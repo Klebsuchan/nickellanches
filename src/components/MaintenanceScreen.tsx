@@ -157,7 +157,7 @@ export default function MaintenanceScreen({ onAdminAccess }: MaintenanceScreenPr
 
       {/* Rodapé discreto */}
       <footer className="relative z-10 w-full max-w-5xl mx-auto px-4 py-6 border-t border-stone-900 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-stone-500">
-        <p>© {new Date().getFullYear()} Nickel Lanches. Todos os direitos reservados.</p>
+        <p>© Nickel Lanches. Todos os direitos reservados.</p>
         
         {/* Acesso discreto ao painel administrativo se o dono precisar gerenciar */}
         <a 

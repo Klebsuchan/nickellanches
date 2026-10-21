@@ -17,6 +17,7 @@ interface PrintSettingsEditorProps {
   setSettings: (s: PrinterSettings) => void;
   onSaveSettings: (s: PrinterSettings) => Promise<void>;
   onTestPrint: () => void;
+  onOpenAutoPrintApp?: () => void;
 }
 
 const SAMPLE_TEST_ORDER: Order = {
@@ -52,7 +53,7 @@ const SAMPLE_TEST_ORDER: Order = {
   ]
 };
 
-export default function PrintSettingsEditor({ settings, setSettings, onSaveSettings, onTestPrint }: PrintSettingsEditorProps) {
+export default function PrintSettingsEditor({ settings, setSettings, onSaveSettings, onTestPrint, onOpenAutoPrintApp }: PrintSettingsEditorProps) {
   const { addToast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [activePreviewVia, setActivePreviewVia] = useState<'cozinha' | 'entrega' | 'unica'>('unica');
@@ -404,31 +405,41 @@ export default function PrintSettingsEditor({ settings, setSettings, onSaveSetti
             </div>
 
             {/* BANNER MODO IFOOD - IMPRESSÃO SILENCIOSA E AUTOMÁTICA */}
-            <div className="bg-amber-400 text-stone-950 p-4 rounded-xl border-2 border-amber-300 shadow-lg space-y-2">
-              <div className="flex items-center gap-2 font-black text-xs sm:text-sm uppercase tracking-wide text-stone-900">
-                <Zap size={18} className="fill-stone-900 stroke-stone-900 shrink-0" />
-                <span>Modo iFood: Impressão 100% Automática e Silenciosa (Sem janela de confirmação)</span>
+            <div className="bg-amber-400 text-stone-950 p-4 rounded-xl border-2 border-amber-300 shadow-lg space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2 font-black text-xs sm:text-sm uppercase tracking-wide text-stone-900">
+                  <Zap size={18} className="fill-stone-900 stroke-stone-900 shrink-0" />
+                  <span>Aplicativo Impressão Automática (Igual iFood e 99)</span>
+                </div>
+                {onOpenAutoPrintApp && (
+                  <button
+                    type="button"
+                    onClick={onOpenAutoPrintApp}
+                    className="px-3.5 py-2 bg-stone-950 hover:bg-stone-900 text-yellow-400 rounded-lg font-black uppercase text-xs flex items-center gap-1.5 shadow-md cursor-pointer shrink-0"
+                  >
+                    <Zap size={14} className="fill-yellow-400" />
+                    Abrir App Impressão Automática
+                  </button>
+                )}
               </div>
               <p className="text-xs font-semibold text-stone-900 leading-relaxed">
-                Para o sistema imprimir <strong>direto na impressora sem você precisar apertar em "Imprimir"</strong> na janela do navegador:
+                Para as comandas saírem <strong>direto na impressora configurada no Windows automaticamente</strong> sem você precisar apertar em "Imprimir":
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-medium text-stone-950 pt-1">
                 <div className="bg-white/95 p-3 rounded-lg border border-amber-500/30">
                   <div className="font-bold text-stone-900 text-xs mb-1 flex items-center gap-1">
-                    <span>1.</span> Ativar Impressão Silenciosa no Chrome
+                    <span>1.</span> Usar o App "Impressão Automática" no Windows
                   </div>
-                  <ol className="list-decimal list-inside space-y-1 text-[11px] text-stone-800">
-                    <li>Clique com o botão direito no atalho do Chrome -&gt; <strong>Propriedades</strong>.</li>
-                    <li>No campo <strong>Destino</strong>, adicione <code className="bg-amber-100 border border-amber-300 px-1 py-0.5 rounded font-mono font-bold text-black"> --kiosk-printing</code> no final.</li>
-                    <li>Clique em <strong>OK</strong>. Pronto! O Chrome enviará todas as impressões direto para a impressora padrão.</li>
-                  </ol>
+                  <p className="text-[11px] leading-relaxed text-stone-800">
+                    Acesse a aba <strong>"Imp. Automática (APP)"</strong> aqui no menu lateral do painel, baixe o aplicativo para Windows e deixe-o aberto. Ele conecta direto nas comandas e imprime sozinho!
+                  </p>
                 </div>
                 <div className="bg-white/95 p-3 rounded-lg border border-amber-500/30">
                   <div className="font-bold text-stone-900 text-xs mb-1 flex items-center gap-1">
                     <span>2.</span> Ou Conectar via Cabo USB Direto (ESC/POS)
                   </div>
                   <p className="text-[11px] leading-relaxed text-stone-800">
-                    Clique no botão <strong>"Conectar Cabo USB"</strong> acima e selecione sua impressora PS-80 / POS-80. O sistema enviará os dados direto para o cabo USB da impressora sem abrir caixas de diálogo!
+                    Clique no botão <strong>"Conectar Cabo USB"</strong> acima e selecione sua impressora PS-80 / POS-80 no Chrome.
                   </p>
                 </div>
               </div>

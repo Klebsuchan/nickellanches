@@ -132,7 +132,7 @@ export default function Footer({ onOpenModal, onOpenAdmin }: FooterProps) {
               <QrCode size={16} className="text-emerald-400" />
               <div className="text-left">
                 <span className="text-xs font-bold text-white block leading-none">PIX</span>
-                <span className="text-[9px] text-stone-400">Na hora ou entrega</span>
+                <span className="text-[9px] text-stone-400">Pelo site</span>
               </div>
             </div>
 
@@ -141,7 +141,7 @@ export default function Footer({ onOpenModal, onOpenAdmin }: FooterProps) {
               <CreditCard size={16} className="text-purple-400" />
               <div className="text-left">
                 <span className="text-xs font-bold text-white block leading-none">Cartão de Crédito</span>
-                <span className="text-[9px] text-stone-400">Visa, Master, Elo, Hiper</span>
+                <span className="text-[9px] text-stone-400">Pelo site</span>
               </div>
             </div>
 
@@ -150,16 +150,7 @@ export default function Footer({ onOpenModal, onOpenAdmin }: FooterProps) {
               <CreditCard size={16} className="text-blue-400" />
               <div className="text-left">
                 <span className="text-xs font-bold text-white block leading-none">Cartão de Débito</span>
-                <span className="text-[9px] text-stone-400">Maquininha na entrega</span>
-              </div>
-            </div>
-
-            {/* Dinheiro */}
-            <div className="flex items-center gap-1.5 bg-stone-900 border border-stone-700 px-3 py-2 rounded-xl">
-              <Banknote size={16} className="text-amber-400" />
-              <div className="text-left">
-                <span className="text-xs font-bold text-white block leading-none">Dinheiro em Espécie</span>
-                <span className="text-[9px] text-stone-400">Levamos troco</span>
+                <span className="text-[9px] text-stone-400">Pelo site</span>
               </div>
             </div>
 
@@ -177,7 +168,7 @@ export default function Footer({ onOpenModal, onOpenAdmin }: FooterProps) {
       
       {/* Footer Bottom Centered com Botão do Painel ADM */}
       <div className="max-w-7xl mx-auto border-t border-stone-800 pt-8 flex flex-col sm:flex-row items-center justify-between text-stone-500 text-xs font-medium gap-4">
-        <p>&copy; {new Date().getFullYear()} <NickelText /> Lanches. Todos os direitos reservados.</p>
+        <p>&copy; <NickelText /> Lanches. Todos os direitos reservados.</p>
         
         {onOpenAdmin && (
           <button

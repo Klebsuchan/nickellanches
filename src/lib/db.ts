@@ -83,6 +83,16 @@ export const saveOrder = async (userId: string, orderData: Omit<Order, 'createdA
   if (userId !== 'guest') {
     await setDoc(doc(db, "users", userId, "orders", docRef.id), payload);
   }
+
+  // Notifica a fila de Impressão Automática na nuvem imediatamente
+  try {
+    await setDoc(doc(db, "settings", "print_signal"), {
+      latestOrderId: docRef.id,
+      orderNumber: orderData.orderNumber || 1,
+      updatedAtMs: Date.now()
+    }, { merge: true });
+  } catch (_) {}
+
   return docRef.id;
 };
 
@@ -658,4 +668,87 @@ export const subscribeToPrinterSettings = (callback: (settings: PrinterSettings)
     callback(DEFAULT_PRINTER_SETTINGS);
   });
 };
+
+export interface CloudBridgeStatus {
+  printerName: string;
+  printedCount: number;
+  lastSeenMs: number;
+  lastPrintedOrder?: string;
+  autoStartEnabled?: boolean;
+}
+
+export const getCloudBridgeStatus = async (): Promise<{
+  connected: boolean;
+  printerName?: string;
+  printedCount?: number;
+  lastSeenMs?: number;
+}> => {
+  try {
+    const snap = await getDoc(doc(db, 'settings', 'bridge_status'));
+    if (snap.exists()) {
+      const data = snap.data() as CloudBridgeStatus;
+      const lastSeen = Number(data.lastSeenMs || 0);
+      // Consider active if heartbeat was updated within the last 60 seconds
+      if (Date.now() - lastSeen < 60000) {
+        return {
+          connected: true,
+          printerName: data.printerName || 'Impressora Padrão do Windows',
+          printedCount: Number(data.printedCount || 0),
+          lastSeenMs: lastSeen,
+        };
+      }
+    }
+  } catch (_) {}
+  return { connected: false };
+};
+
+export const subscribeToBridgeStatus = (
+  callback: (status: { connected: boolean; printerName?: string; printedCount?: number }) => void
+) => {
+  const docRef = doc(db, 'settings', 'bridge_status');
+  return onSnapshot(
+    docRef,
+    (snap) => {
+      if (snap.exists()) {
+        const data = snap.data() as CloudBridgeStatus;
+        const lastSeen = Number(data.lastSeenMs || 0);
+        const isOnline = Date.now() - lastSeen < 60000;
+        callback({
+          connected: isOnline,
+          printerName: data.printerName || 'Impressora Padrão do Windows',
+          printedCount: Number(data.printedCount || 0),
+        });
+      } else {
+        callback({ connected: false });
+      }
+    },
+    () => {
+      callback({ connected: false });
+    }
+  );
+};
+
+export const enqueueCloudPrintJob = async (job: {
+  orderId: string;
+  orderNumber: string | number;
+  text: string;
+  force?: boolean;
+}): Promise<boolean> => {
+  try {
+    const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    await setDoc(doc(db, 'settings', 'print_queue'), {
+      jobId,
+      orderId: String(job.orderId || 'manual'),
+      orderNumber: String(job.orderNumber || '1'),
+      text: job.text,
+      force: Boolean(job.force),
+      createdAtMs: Date.now(),
+    });
+    return true;
+  } catch (e) {
+    console.warn('Erro ao enviar comanda para fila na nuvem:', e);
+    return false;
+  }
+};
+
 

@@ -143,8 +143,6 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
             <div className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#F28B20]/15 border border-[#F28B20]/40 text-[#F28B20] text-[10px] sm:text-xs font-black tracking-widest uppercase shadow-[0_0_15px_rgba(242,139,32,0.2)]">
               <Sparkles size={12} className="text-amber-400 animate-spin" style={{ animationDuration: '6s' }} />
               <span>Passo Fundo • RS</span>
-              <span className="hidden sm:inline w-1 h-1 rounded-full bg-[#F28B20]" />
-              <span className="hidden sm:inline">Desde 2018</span>
             </div>
           </motion.div>
 

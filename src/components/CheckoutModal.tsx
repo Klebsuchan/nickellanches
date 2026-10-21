@@ -46,19 +46,20 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
   const [name, setName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [address, setAddress] = useState('');
+  const [addressNumber, setAddressNumber] = useState('');
+  const [neighborhood, setNeighborhood] = useState('');
+  const [submittedAttempt, setSubmittedAttempt] = useState(false);
   const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const addressContainerRef = useRef<HTMLDivElement>(null);
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Métodos de pagamento: PIX online, Cartão de Crédito Online, Cartão de Débito Online, Maquininha na entrega (crédito ou débito), PIX na entrega, Dinheiro
+  // Métodos de pagamento: inicia em 'teste_pagamento' para pular o checkout de pagamento no teste completo
   const [paymentMethod, setPaymentMethod] = useState<
-    'pix_online' | 'bank_transfer' | 'credit_online' | 'debit_online' | 'cartao_credito' | 'cartao_debito' | 'pix' | 'dinheiro' | 'fiado' | 'teste_pagamento'
-  >('pix_online');
+    'pix_online' | 'bank_transfer' | 'credit_online' | 'debit_online' | 'fiado' | 'teste_pagamento'
+  >('teste_pagamento');
 
-  const [changeOption, setChangeOption] = useState<'none' | 'need'>('none');
-  const [changeFor, setChangeFor] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [showFiadoPrank, setShowFiadoPrank] = useState(false);
   const [isProcessingStripe, setIsProcessingStripe] = useState(false);
@@ -240,8 +241,8 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
 
   // Análise e cálculo automático do frete através da rua/bairro digitado
   const detectedRegion = useMemo(() => {
-    return determineRegionFromAddress(address);
-  }, [address]);
+    return determineRegionFromAddress(`${address} ${neighborhood}`.trim());
+  }, [address, neighborhood]);
 
   // Se o carrinho contiver o produto de teste ou tiver frete grátis, isento o valor da taxa de entrega
   const isTestOrFreeShippingCart = useMemo(() => {
@@ -252,14 +253,15 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
     );
   }, [cart]);
 
-  const deliveryFee = isTestOrFreeShippingCart ? 0 : (address.trim() ? detectedRegion.fee : 15);
-  const regionLabel = isTestOrFreeShippingCart ? 'Frete Grátis (Produto Teste)' : (address.trim() ? detectedRegion.label : 'Passo Fundo');
+  const deliveryFee = isTestOrFreeShippingCart ? 0 : ((address.trim() || neighborhood.trim()) ? detectedRegion.fee : 15);
+  const regionLabel = isTestOrFreeShippingCart ? 'Frete Grátis (Produto Teste)' : ((address.trim() || neighborhood.trim()) ? detectedRegion.label : 'Passo Fundo');
   const detectedBairro = detectedRegion.detectedBairro;
   const currentFinalTotal = total + deliveryFee;
 
   // Busca inteligente de ruas em Passo Fundo
   const handleAddressChange = (val: string) => {
     setAddress(val);
+    if (errorMessage) setErrorMessage('');
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     if (val.trim().length >= 2) {
       searchDebounceRef.current = setTimeout(async () => {
@@ -281,10 +283,16 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
   };
 
   const handleSelectSuggestion = (sug: AddressSuggestion) => {
-    setAddress(`${sug.street}, `);
+    setAddress(sug.street);
+    if (sug.bairro && sug.bairro !== 'Passo Fundo') {
+      setNeighborhood(sug.bairro);
+    }
     setAddressSuggestions([]);
     setShowSuggestions(false);
     playSound('coin');
+    setTimeout(() => {
+      document.getElementById('input-address-number')?.focus();
+    }, 50);
   };
 
   // Fecha sugestões ao clicar fora
@@ -325,19 +333,57 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
   if (!isOpen) return null;
 
   const validateForm = () => {
+    setSubmittedAttempt(true);
     setErrorMessage('');
-    // Se o cliente não informou dados básicos de entrega, auto-preenche para não travar o avanço do pagamento/pedido
-    if (!name.trim()) {
-      setName('Cliente Nickel');
+
+    if (!name.trim() || name.trim().length < 2) {
+      const msg = 'Por favor, preencha seu Nome Completo obrigatório.';
+      setErrorMessage(msg);
+      playSound('error');
+      addToast({ title: 'Nome Obrigatório', message: msg, type: 'error' });
+      document.getElementById('input-name')?.focus();
+      return false;
     }
-    if (!whatsapp.trim()) {
-      setWhatsapp('(54) 99876-5432');
+
+    const cleanPhone = whatsapp.replace(/\D/g, '');
+    if (!whatsapp.trim() || cleanPhone.length < 8) {
+      const msg = 'Por favor, informe seu WhatsApp / Telefone de contato válido.';
+      setErrorMessage(msg);
+      playSound('error');
+      addToast({ title: 'Contato Obrigatório', message: msg, type: 'error' });
+      document.getElementById('input-whatsapp')?.focus();
+      return false;
     }
-    if (!address.trim()) {
-      setAddress('Rua Principal, 100 - Centro');
+
+    if (!address.trim() || address.trim().length < 3) {
+      const msg = 'Por favor, informe o nome da Rua / Avenida para entrega.';
+      setErrorMessage(msg);
+      playSound('error');
+      addToast({ title: 'Endereço Obrigatório', message: msg, type: 'error' });
+      document.getElementById('input-address')?.focus();
+      return false;
     }
+
+    if (!addressNumber.trim()) {
+      const msg = 'Por favor, informe o Número da residência (ou Complemento/Apto).';
+      setErrorMessage(msg);
+      playSound('error');
+      addToast({ title: 'Número Obrigatório', message: msg, type: 'error' });
+      document.getElementById('input-address-number')?.focus();
+      return false;
+    }
+
+    if (!neighborhood.trim() || neighborhood.trim().length < 2) {
+      const msg = 'Por favor, informe o Bairro para entrega.';
+      setErrorMessage(msg);
+      playSound('error');
+      addToast({ title: 'Bairro Obrigatório', message: msg, type: 'error' });
+      document.getElementById('input-neighborhood')?.focus();
+      return false;
+    }
+
     if (!paymentMethod) {
-      setPaymentMethod('credit_online');
+      setPaymentMethod('teste_pagamento');
     }
     return true;
   };
@@ -390,26 +436,19 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
     if (paymentMethod === 'teste_pagamento') {
       finalPaymentLabel = '🧪 Teste de Pagamento (Pedido Ilusório)';
       isOnline = false;
-    } else if (paymentMethod === 'pix_online' || paymentMethod === 'pix') {
-      finalPaymentLabel = paymentMethod === 'pix_online' 
-        ? 'PIX Imediato (WhatsApp: (54) 99959-8389)' 
-        : 'PIX na Entrega (WhatsApp: (54) 99959-8389)';
-      if (paymentMethod === 'pix_online') isOnline = true;
+    } else if (paymentMethod === 'pix_online') {
+      finalPaymentLabel = 'PIX Imediato (Site: (54) 99959-8389)';
+      isOnline = true;
     } else if (paymentMethod === 'bank_transfer') {
       const b = paymentSettings.bankAccount;
       finalPaymentLabel = `Transferência Bancária (${b?.bankName || 'Banco'} | Ag: ${b?.agency || ''} | Conta: ${b?.accountNumber || ''})`;
       isOnline = true;
-    } else if (paymentMethod === 'credit_online' || paymentMethod === 'cartao_credito') {
-      finalPaymentLabel = 'Cartão de Crédito Online (Stripe)';
-      if (paymentMethod === 'credit_online') isOnline = true;
-    } else if (paymentMethod === 'debit_online' || paymentMethod === 'cartao_debito') {
-      finalPaymentLabel = 'Cartão de Débito Online (Stripe)';
-      if (paymentMethod === 'debit_online') isOnline = true;
-    } else if (paymentMethod === 'dinheiro') {
-      finalPaymentLabel = 'Dinheiro';
-      if (changeOption === 'need' && changeFor.trim()) {
-        formattedChange = changeFor.trim();
-      }
+    } else if (paymentMethod === 'credit_online') {
+      finalPaymentLabel = 'Cartão de Crédito Online (Site)';
+      isOnline = true;
+    } else if (paymentMethod === 'debit_online') {
+      finalPaymentLabel = 'Cartão de Débito Online (Site)';
+      isOnline = true;
     }
 
     const now = new Date();
@@ -417,9 +456,9 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
     const formattedTime = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const receiptTimestamp = `${formattedDate} às ${formattedTime}`;
 
-    const effectiveName = name.trim() || 'Cliente Nickel';
-    const effectiveWhatsapp = whatsapp.trim() || '(54) 99876-5432';
-    const effectiveAddress = address.trim() || 'Rua Principal, 100 - Centro';
+    const effectiveName = name.trim();
+    const effectiveWhatsapp = whatsapp.trim();
+    const effectiveAddress = `${address.trim()}, Nº ${addressNumber.trim()} - Bairro ${neighborhood.trim()}`;
     const effectiveRegion = regionLabel || 'Outros bairros (Cidade)';
     const effectiveFee = deliveryFee;
 
@@ -439,8 +478,8 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
       receiptNotes: orderNotes.trim() || undefined
     };
 
-    // Se o pagamento for Cartão Online (Crédito ou Débito) -> Checkout Oficial Stripe
-    if (paymentMethod === 'credit_online' || paymentMethod === 'debit_online') {
+    // Modo de teste ativo: pula o checkout externo do Stripe para finalizar o pedido direto
+    if (false && (paymentMethod === 'credit_online' || paymentMethod === 'debit_online')) {
       setIsProcessingStripe(true);
       setErrorMessage('');
 
@@ -653,7 +692,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                       onClick={() => setStripeSession(null)}
                       className="text-xs text-stone-500 hover:text-stone-800 font-bold uppercase tracking-wider pt-1 block mx-auto transition-colors cursor-pointer"
                     >
-                      Voltar e escolher outra forma (PIX / Cartão / Maquininha)
+                      Voltar e escolher outra forma (PIX / Cartão)
                     </button>
                   </div>
                 </div>
@@ -747,51 +786,55 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                 {/* Dados do Cliente e Região */}
                 <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm space-y-4">
                   <div className="flex items-center justify-between border-b border-stone-100 pb-2 mb-2">
-                    <h3 className="font-black uppercase text-stone-900 text-sm">
-                      Dados para Entrega
-                    </h3>
-                    <button
-                      type="button"
-                      onClick={handleFillTestData}
-                      className="text-[11px] font-black text-purple-700 hover:text-purple-900 bg-purple-100 hover:bg-purple-200 px-2.5 py-1 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
-                    >
-                      <Sparkles size={12} />
-                      <span>Preenchimento Rápido (Teste)</span>
-                    </button>
+                    <div>
+                      <h3 className="font-black uppercase text-stone-900 text-sm">
+                        Dados Obrigatórios para Entrega
+                      </h3>
+                      <p className="text-[11px] text-stone-500 font-medium">Preencha todos os campos com * para concluir o pedido</p>
+                    </div>
+                    <span className="text-[10px] font-black uppercase bg-red-50 text-red-600 border border-red-200 px-2.5 py-1 rounded-full">
+                      Obrigatório *
+                    </span>
                   </div>
                   
                   <div>
                     <label className="flex items-center gap-2 text-xs font-bold text-stone-700 mb-1.5 uppercase">
-                      <UserIcon size={15} className="text-[#F28B20]" /> Nome Completo *
+                      <UserIcon size={15} className="text-[#F28B20]" /> Nome Completo <span className="text-red-500">*</span>
                     </label>
                     <input 
                       id="input-name"
                       type="text" 
+                      required
                       value={name} 
-                      onChange={e => setName(e.target.value)} 
+                      onChange={e => { setName(e.target.value); if (errorMessage) setErrorMessage(''); }} 
                       placeholder="Ex: João da Silva" 
-                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-medium outline-none focus:border-[#F28B20] focus:ring-4 focus:ring-orange-100 transition-all text-stone-900 text-sm"
+                      className={`w-full bg-stone-50 border rounded-xl px-4 py-3 font-medium outline-none focus:border-[#F28B20] focus:ring-4 focus:ring-orange-100 transition-all text-stone-900 text-sm ${
+                        submittedAttempt && name.trim().length < 2 ? 'border-red-500 ring-2 ring-red-100 bg-red-50/30' : 'border-stone-200'
+                      }`}
                     />
                   </div>
                   
                   <div>
                     <label className="flex items-center gap-2 text-xs font-bold text-stone-700 mb-1.5 uppercase">
-                      <Smartphone size={15} className="text-[#F28B20]" /> WhatsApp / Celular *
+                      <Smartphone size={15} className="text-[#F28B20]" /> WhatsApp / Telefone de Contato <span className="text-red-500">*</span>
                     </label>
                     <input 
                       id="input-whatsapp"
                       type="tel" 
+                      required
                       value={whatsapp} 
-                      onChange={e => setWhatsapp(e.target.value)} 
-                      placeholder="Ex: 54 99999-9999" 
-                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-medium outline-none focus:border-[#F28B20] focus:ring-4 focus:ring-orange-100 transition-all text-stone-900 text-sm"
+                      onChange={e => { setWhatsapp(e.target.value); if (errorMessage) setErrorMessage(''); }} 
+                      placeholder="Ex: (54) 99999-9999" 
+                      className={`w-full bg-stone-50 border rounded-xl px-4 py-3 font-medium outline-none focus:border-[#F28B20] focus:ring-4 focus:ring-orange-100 transition-all text-stone-900 text-sm ${
+                        submittedAttempt && whatsapp.replace(/\D/g, '').length < 8 ? 'border-red-500 ring-2 ring-red-100 bg-red-50/30' : 'border-stone-200'
+                      }`}
                     />
                   </div>
                   
                   <div ref={addressContainerRef} className="relative pt-1">
                     <div className="flex items-center justify-between text-xs font-bold text-stone-700 mb-1.5 uppercase">
                       <label className="flex items-center gap-2">
-                        <MapPin size={15} className="text-[#F28B20]" /> Endereço de Entrega Completo *
+                        <MapPin size={15} className="text-[#F28B20]" /> Rua / Avenida <span className="text-red-500">*</span>
                       </label>
                       <span className="text-[11px] font-semibold text-stone-600 bg-stone-100 px-2 py-0.5 rounded-full border border-stone-200">
                         Passo Fundo - RS
@@ -802,13 +845,16 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                       <input 
                         id="input-address"
                         type="text" 
+                        required
                         value={address} 
                         onChange={e => handleAddressChange(e.target.value)} 
                         onFocus={() => {
                           if (addressSuggestions.length > 0) setShowSuggestions(true);
                         }}
-                        placeholder="Digite o nome da rua (Ex: Rua Uruguai, Brasil, Lava Pés...)" 
-                        className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 pl-10 font-medium outline-none focus:border-[#F28B20] focus:ring-4 focus:ring-orange-100 transition-all text-stone-900 text-sm"
+                        placeholder="Digite o nome da rua (Ex: Rua Uruguai, Av. Brasil, Lava Pés...)" 
+                        className={`w-full bg-stone-50 border rounded-xl px-4 py-3 pl-10 font-medium outline-none focus:border-[#F28B20] focus:ring-4 focus:ring-orange-100 transition-all text-stone-900 text-sm ${
+                          submittedAttempt && address.trim().length < 3 ? 'border-red-500 ring-2 ring-red-100 bg-red-50/30' : 'border-stone-200'
+                        }`}
                         autoComplete="off"
                       />
                       <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
@@ -846,7 +892,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                                     {sug.street}
                                   </span>
                                   <span className="text-xs text-stone-500 block truncate">
-                                    Passo Fundo, RS
+                                    {sug.bairro ? `${sug.bairro} - ` : ''}Passo Fundo, RS
                                   </span>
                                 </div>
                               </div>
@@ -855,25 +901,97 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                         </motion.div>
                       )}
                     </AnimatePresence>
-
-                    {/* Confirmação simples do endereço */}
-                    {address.trim() && (
-                      <div className="mt-2.5 px-3 py-2 rounded-xl bg-stone-50 border border-stone-200/80 flex items-center gap-2 text-xs text-stone-600 font-medium">
-                        <CheckCircle2 size={15} className="text-green-600 shrink-0" />
-                        <span>Endereço de entrega confirmado em Passo Fundo</span>
-                      </div>
-                    )}
                   </div>
+
+                  {/* Número / Complemento e Bairro Obrigatórios */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="flex items-center gap-1.5 text-xs font-bold text-stone-700 mb-1.5 uppercase">
+                        <Building2 size={14} className="text-[#F28B20]" /> Número / Apto <span className="text-red-500">*</span>
+                      </label>
+                      <input 
+                        id="input-address-number"
+                        type="text" 
+                        required
+                        value={addressNumber} 
+                        onChange={e => { setAddressNumber(e.target.value); if (errorMessage) setErrorMessage(''); }} 
+                        placeholder="Ex: 500, Apto 302" 
+                        className={`w-full bg-stone-50 border rounded-xl px-4 py-3 font-medium outline-none focus:border-[#F28B20] focus:ring-4 focus:ring-orange-100 transition-all text-stone-900 text-sm ${
+                          submittedAttempt && !addressNumber.trim() ? 'border-red-500 ring-2 ring-red-100 bg-red-50/30' : 'border-stone-200'
+                        }`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="flex items-center gap-1.5 text-xs font-bold text-stone-700 mb-1.5 uppercase">
+                        <MapPin size={14} className="text-[#F28B20]" /> Bairro <span className="text-red-500">*</span>
+                      </label>
+                      <input 
+                        id="input-neighborhood"
+                        type="text" 
+                        required
+                        value={neighborhood} 
+                        onChange={e => { setNeighborhood(e.target.value); if (errorMessage) setErrorMessage(''); }} 
+                        placeholder="Ex: Centro, Petrópolis, Boqueirão..." 
+                        className={`w-full bg-stone-50 border rounded-xl px-4 py-3 font-medium outline-none focus:border-[#F28B20] focus:ring-4 focus:ring-orange-100 transition-all text-stone-900 text-sm ${
+                          submittedAttempt && neighborhood.trim().length < 2 ? 'border-red-500 ring-2 ring-red-100 bg-red-50/30' : 'border-stone-200'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Confirmação do endereço completo */}
+                  {address.trim() && addressNumber.trim() && neighborhood.trim() && (
+                    <div className="mt-1 px-3 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-xs text-emerald-800 font-semibold">
+                      <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                      <span>
+                        Entrega em: <strong>{address.trim()}, Nº {addressNumber.trim()} - {neighborhood.trim()}</strong> ({regionLabel})
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* FORMA DE PAGAMENTO */}
                 <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm space-y-4">
-                  <div className="border-b border-stone-100 pb-2">
-                    <h3 className="font-black uppercase text-stone-900 text-sm">
-                      Forma de Pagamento
-                    </h3>
-                    <p className="text-xs text-stone-500 font-medium">Escolha como prefere pagar o seu pedido</p>
+                  <div className="border-b border-stone-100 pb-2 flex items-center justify-between">
+                    <div>
+                      <h3 className="font-black uppercase text-stone-900 text-sm">
+                        Forma de Pagamento
+                      </h3>
+                      <p className="text-xs text-stone-500 font-medium">Modo de teste ativo: pagamento pulado automaticamente</p>
+                    </div>
+                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase px-2.5 py-1 rounded-full">
+                      Sem Checkout
+                    </span>
                   </div>
+
+                  {/* Opção Principal em Destaque: Pular Pagamento (Teste Completo) */}
+                  <label 
+                    onClick={() => { setPaymentMethod('teste_pagamento'); setErrorMessage(''); }}
+                    className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      paymentMethod === 'teste_pagamento'
+                        ? 'border-emerald-500 bg-emerald-50/90 shadow-sm'
+                        : 'border-stone-200 hover:border-emerald-300 bg-stone-50/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                        paymentMethod === 'teste_pagamento' ? 'border-emerald-600 bg-white' : 'border-stone-300 bg-white'
+                      }`}>
+                        {paymentMethod === 'teste_pagamento' && <div className="w-2.5 h-2.5 rounded-full bg-emerald-600" />}
+                      </div>
+                      <div className={`p-2 rounded-lg ${paymentMethod === 'teste_pagamento' ? 'bg-emerald-600 text-white font-bold' : 'bg-emerald-100 text-emerald-800'}`}>
+                        <CheckCircle2 size={18} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-black text-sm text-stone-900 block">⚡ Pular Pagamento (Teste sem Checkout)</span>
+                          <span className="bg-emerald-600 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded-md">Ativo</span>
+                        </div>
+                        <span className="text-xs text-stone-600 font-medium block">Finaliza o pedido direto sem cobrança para testar comanda, painel e minigame</span>
+                      </div>
+                    </div>
+                  </label>
 
                   {/* 1. SEÇÃO DE PAGAMENTOS ONLINE / ANTECIPADO */}
                   {showOnlineSection && (
@@ -1194,7 +1312,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                   <div className="space-y-3 pt-2">
                     {/* Opção de Teste de Pagamento / Pedido Ilusório */}
                     <label 
-                      onClick={() => { setPaymentMethod('teste_pagamento'); setChangeOption('none'); setChangeFor(''); setErrorMessage(''); }}
+                      onClick={() => { setPaymentMethod('teste_pagamento'); setErrorMessage(''); }}
                       className={`flex items-center justify-between p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
                         paymentMethod === 'teste_pagamento'
                           ? 'border-amber-500 bg-amber-50/80 shadow-xs'
