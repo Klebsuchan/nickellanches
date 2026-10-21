@@ -31,7 +31,10 @@ export default function PrintableReceipt({ order, settings, viaTitle, isKitchenO
   }, 0) || order.totalPrice;
 
   return (
-    <div className={`text-black font-mono bg-white ${fontClass}`}>
+    <div 
+      className={`text-black font-mono bg-white px-2 py-1 max-w-full overflow-hidden box-border ${fontClass}`}
+      style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+    >
       {/* Header */}
       <div className="text-center pb-2 border-b-2 border-black mb-2">
         <h2 className="font-black text-xl tracking-tight uppercase">{settings.printHeader}</h2>
@@ -68,14 +71,14 @@ export default function PrintableReceipt({ order, settings, viaTitle, isKitchenO
           {settings.showDeliveryAddress && (
             <div className="mt-1 text-xs">
               <span className="font-bold">Entrega: </span>
-              <span className="font-semibold">{order.address || 'Retirada no Balcão'}</span>
+              <span className="font-semibold break-words leading-snug">{order.address || 'Retirada no Balcão'}</span>
               {order.region && !order.address?.includes(order.region) && (
                 <span className="italic"> ({order.region})</span>
               )}
             </div>
           )}
           {order.receiptNotes && (
-            <div className="mt-1 p-1 bg-stone-100 border border-stone-400 text-xs">
+            <div className="mt-1 p-1 bg-stone-100 border border-stone-400 text-xs break-words">
               <span className="font-bold">Obs. Entrega: </span>{order.receiptNotes}
             </div>
           )}
@@ -94,30 +97,33 @@ export default function PrintableReceipt({ order, settings, viaTitle, isKitchenO
             const itemTotal = (item.price + extrasTotal) * item.quantity;
 
             return (
-              <div key={i} className="border-b border-dashed border-stone-300 pb-1.5">
-                <div className="flex justify-between items-start font-black text-sm">
-                  <span className="flex-1 pr-2">
+              <div key={i} className="border-b border-dashed border-stone-300 pb-2">
+                <div className="font-black text-sm">
+                  <div className="break-words leading-tight text-base">
                     {item.quantity}x {item.name}
-                  </span>
+                  </div>
                   {!isKitchenOnly && (
-                    <span className="whitespace-nowrap">
-                      R$ {itemTotal.toFixed(2).replace('.', ',')}
-                    </span>
+                    <div className="flex justify-between items-center text-xs mt-1 text-stone-700">
+                      <span className="font-semibold uppercase text-[10px] text-stone-500">Subtotal:</span>
+                      <span className="font-mono font-black text-black">
+                        R$ {itemTotal.toFixed(2).replace('.', ',')}
+                      </span>
+                    </div>
                   )}
                 </div>
 
                 {item.extras && item.extras.length > 0 && (
-                  <div className="pl-3 mt-1 space-y-0.5 text-xs">
-                    <div className="font-bold text-stone-900 uppercase text-[11px] tracking-wide">
+                  <div className="pl-2 mt-1.5 space-y-0.5 text-xs border-l-2 border-stone-400">
+                    <div className="font-bold text-stone-900 uppercase text-[10px] tracking-wide">
                       Adicionais:
                     </div>
                     {item.extras.map((e: any, exIdx: number) => (
-                      <div key={exIdx} className="flex justify-between text-stone-800 font-semibold pl-1">
-                        <span>• {e.name}</span>
-                        {!isKitchenOnly && (
-                          <span className="font-mono text-stone-700">
-                            {e.price > 0 ? `+ R$ ${Number(e.price).toFixed(2).replace('.', ',')}` : '(Incluso)'}
-                          </span>
+                      <div key={exIdx} className="text-stone-800 font-semibold pl-1">
+                        <div className="break-words leading-tight">• {e.name}</div>
+                        {!isKitchenOnly && e.price > 0 && (
+                          <div className="pl-3 font-mono text-stone-600 text-[10px]">
+                            + R$ {Number(e.price).toFixed(2).replace('.', ',')}
+                          </div>
                         )}
                       </div>
                     ))}
@@ -125,7 +131,7 @@ export default function PrintableReceipt({ order, settings, viaTitle, isKitchenO
                 )}
 
                 {settings.showItemObservations && item.observation && item.observation.trim() && (
-                  <div className="pl-3 mt-1 py-0.5 px-1 bg-stone-200 border-l-2 border-black text-xs font-black uppercase text-stone-900">
+                  <div className="mt-1.5 py-1 px-1.5 bg-stone-200 border-l-4 border-black text-xs font-black uppercase text-stone-900 break-words leading-snug">
                     ⚠ OBS: {item.observation.trim()}
                   </div>
                 )}

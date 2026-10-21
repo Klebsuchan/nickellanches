@@ -169,7 +169,7 @@ export function buildReceiptEscPos(
   viaTitle?: string
 ): Uint8Array {
   const b = new EscPosBuilder();
-  const width = settings.printerType === 'thermal_58' ? 32 : 48;
+  const width = settings.printerType === 'thermal_58' ? 30 : 40;
 
   // Header
   b.align('center').bold(true).textSize('title').textLine(settings.printHeader || 'NICKEL LANCHES');
@@ -231,9 +231,10 @@ export function buildReceiptEscPos(
     subtotal += itemTotal;
 
     const itemLabel = `${item.quantity}x ${item.name}`;
-    const priceLabel = !isKitchenOnly ? `R$ ${itemTotal.toFixed(2).replace('.', ',')}` : '';
-
-    b.bold(true).twoColumns(itemLabel, priceLabel, width).bold(false);
+    b.bold(true).textLine(itemLabel).bold(false);
+    if (!isKitchenOnly) {
+      b.textLine(`   Subtotal: R$ ${itemTotal.toFixed(2).replace('.', ',')}`);
+    }
 
     if (item.extras && item.extras.length > 0) {
       b.textLine('   Adicionais:');
