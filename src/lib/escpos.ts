@@ -169,10 +169,10 @@ export function buildReceiptEscPos(
   viaTitle?: string
 ): Uint8Array {
   const b = new EscPosBuilder();
-  const width = settings.printerType === 'thermal_58' ? 30 : 40;
+  const width = 32;
 
   // Header
-  b.align('center').bold(true).textSize('title').textLine(settings.printHeader || 'NICKEL LANCHES');
+  b.align('center').bold(true).textSize('large').textLine(settings.printHeader || 'NICKEL LANCHES');
   b.textSize('normal').bold(false);
   if (settings.printSubHeader) b.textLine(settings.printSubHeader);
   if (settings.printPhone) b.textLine(`Tel/WhatsApp: ${settings.printPhone}`);
@@ -189,8 +189,7 @@ export function buildReceiptEscPos(
   b.align('left');
   if (settings.showOrderNumber) {
     const num = order.orderNumber ? `#${order.orderNumber}` : `#${order.id ? order.id.substring(0, 4).toUpperCase() : '1'}`;
-    b.bold(true).textSize('large').twoColumns(`PEDIDO ${num}`, order.id ? `SENHA: ${order.id.substring(0, 4).toUpperCase()}` : '', width);
-    b.textSize('normal').bold(false);
+    b.bold(true).twoColumns(`PEDIDO ${num}`, order.id ? `SENHA: ${order.id.substring(0, 4).toUpperCase()}` : '', width).bold(false);
   }
 
   const timeStr = (() => {
@@ -204,8 +203,7 @@ export function buildReceiptEscPos(
 
   // Customer Details
   b.divider('-', width);
-  b.bold(true).textLine(`Cliente: ${order.userName || 'Cliente'}`);
-  b.bold(false);
+  b.bold(true).textLine(`Cliente: ${order.userName || 'Cliente'}`).bold(false);
   if (settings.showCustomerPhone && order.whatsapp) {
     b.textLine(`WhatsApp: ${order.whatsapp}`);
   }
@@ -221,26 +219,23 @@ export function buildReceiptEscPos(
 
   // Items
   b.divider('=', width);
-  b.align('center').bold(true).textLine(isKitchenOnly ? '--- PREPARO COZINHA ---' : '--- ITENS DO PEDIDO ---').align('left').bold(false);
+  b.align('center').bold(true).textLine(isKitchenOnly ? 'PREPARO DA COZINHA' : 'ITENS DO PEDIDO').align('left').bold(false);
   b.divider('-', width);
 
   let subtotal = 0;
   order.items?.forEach(item => {
-    const extrasTotal = item.extras?.reduce((s: number, e: any) => s + (e.price || 0), 0) || 0;
-    const itemTotal = (item.price + extrasTotal) * item.quantity;
+    const extrasTotal = item.extras?.reduce((s: number, e: any) => s + (Number(e.price) || 0), 0) || 0;
+    const itemTotal = (Number(item.price) + extrasTotal) * Number(item.quantity);
     subtotal += itemTotal;
 
-    const itemLabel = `${item.quantity}x ${item.name}`;
-    b.bold(true).textLine(itemLabel).bold(false);
-    if (!isKitchenOnly) {
-      b.textLine(`   Subtotal: R$ ${itemTotal.toFixed(2).replace('.', ',')}`);
-    }
+    const itemLabel = `${item.quantity}x ${(item.name || 'Item').toUpperCase()}`;
+    const priceLabel = !isKitchenOnly ? `R$ ${itemTotal.toFixed(2).replace('.', ',')}` : '';
+    b.bold(true).twoColumns(itemLabel, priceLabel, width).bold(false);
 
     if (item.extras && item.extras.length > 0) {
-      b.textLine('   Adicionais:');
       item.extras.forEach((e: any) => {
-        const extraName = `   • ${e.name}`;
-        const extraPrice = !isKitchenOnly && e.price > 0 ? `+ R$ ${Number(e.price).toFixed(2).replace('.', ',')}` : '(Incluso)';
+        const extraName = `  + ${e.name}`;
+        const extraPrice = !isKitchenOnly && Number(e.price) > 0 ? `+R$ ${Number(e.price).toFixed(2).replace('.', ',')}` : 'Incluso';
         if (!isKitchenOnly) {
           b.twoColumns(extraName, extraPrice, width);
         } else {
@@ -250,28 +245,37 @@ export function buildReceiptEscPos(
     }
 
     if (settings.showItemObservations && item.observation && item.observation.trim()) {
-      b.bold(true).textLine(`   ** OBS: ${item.observation.trim()} **`).bold(false);
+      b.bold(true).textLine(`  >> OBS: ${item.observation.trim().toUpperCase()}`).bold(false);
     }
-    b.emptyLine(1);
   });
 
   // Financials if not kitchen only
   if (!isKitchenOnly) {
-    b.divider('-', width);
-    if (order.deliveryFee && order.deliveryFee > 0) {
-      b.twoColumns('Subtotal:', `R$ ${subtotal.toFixed(2).replace('.', ',')}`, width);
-      b.twoColumns('Taxa de Entrega:', `R$ ${order.deliveryFee.toFixed(2).replace('.', ',')}`, width);
+    b.divider('=', width);
+    const fee = Number(order.deliveryFee) || 0;
+    const total = Number(order.totalPrice) || 0;
+    const discount = Math.max(0, (subtotal + fee) - total);
+
+    if (fee > 0 || discount > 0.01) {
+      b.twoColumns('Subtotal Itens:', `R$ ${subtotal.toFixed(2).replace('.', ',')}`, width);
     }
-    b.bold(true).textSize('large').twoColumns('TOTAL:', `R$ ${order.totalPrice.toFixed(2).replace('.', ',')}`, width).textSize('normal').bold(false);
+    if (discount > 0.01) {
+      b.twoColumns('Desconto:', `-R$ ${discount.toFixed(2).replace('.', ',')}`, width);
+    }
+    if (fee > 0) {
+      b.twoColumns('Taxa de Entrega:', `R$ ${fee.toFixed(2).replace('.', ',')}`, width);
+    }
+    b.divider('-', width);
+    b.bold(true).twoColumns('TOTAL DO PEDIDO:', `R$ ${total.toFixed(2).replace('.', ',')}`, width).bold(false);
 
     if (settings.showPaymentDetails) {
       b.divider('-', width);
-      b.textLine(`Forma de Pagamento: ${order.paymentMethod || 'A Confirmar'}`);
+      b.textLine(`Pagamento: ${order.paymentMethod || 'A Confirmar'}`);
       if (order.changeFor) {
         b.bold(true).textLine(`Troco para: R$ ${order.changeFor}`).bold(false);
       }
       if (order.receiptAuthCode) {
-        b.textLine(`Cod. Autenticacao: ${order.receiptAuthCode}`);
+        b.textLine(`Autenticacao: ${order.receiptAuthCode}`);
       }
     }
   }
@@ -282,7 +286,8 @@ export function buildReceiptEscPos(
   if (settings.printFooter) {
     b.textLine(settings.printFooter);
   }
-  b.textLine('*** SISTEMA NICKEL LANCHES ***');
+  b.textLine('ATE A PROXIMA!');
+  b.divider('=', width);
 
   // Cut paper and feed
   b.cut(settings.feedLines || 4);

@@ -5,8 +5,132 @@
 import { Order, PrinterSettings, getCloudBridgeStatus, enqueueCloudPrintJob } from './db';
 import { getConnectedUsbPrinter, checkAndAutoReconnectUsbPrinter, sendRawToUsbPrinter, buildReceiptEscPos } from './escpos';
 
+const RECEIPT_MAX_COLS = 32;
+const RECEIPT_LEFT_PAD = ' ';
+
 /**
- * Generates plain text comanda suitable for clipboard or raw logs
+ * Strips emojis and unsupported symbols that print as [] boxes on thermal printers,
+ * while preserving standard Portuguese characters and punctuation.
+ */
+export function sanitizeForThermal(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/[•●▪▸►]/g, '+')
+    .replace(/[⚠⚡]/g, '!')
+    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
+    .replace(/[\u2600-\u27BF]/g, '')
+    .replace(/[\uFE00-\uFE0F]/g, '')
+    .replace(/[^\x20-\x7E\xA0-\xFF\n\r]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Word-wraps any text so no line ever exceeds maxCols (default 32 columns).
+ */
+export function wrapReceiptLines(
+  rawText: string,
+  maxCols: number = RECEIPT_MAX_COLS,
+  continuationIndent: string = ''
+): string[] {
+  const clean = sanitizeForThermal(rawText);
+  if (!clean) return [];
+  if (clean.length <= maxCols) return [clean];
+
+  const words = clean.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (let word of words) {
+    if (!word) continue;
+    const prefix = lines.length === 0 ? '' : continuationIndent;
+
+    while (word.length > maxCols - prefix.length) {
+      const sliceLen = maxCols - (currentLine ? currentLine.length + 1 : prefix.length);
+      if (sliceLen > 4) {
+        currentLine = currentLine
+          ? `${currentLine} ${word.substring(0, sliceLen)}`
+          : `${prefix}${word.substring(0, sliceLen)}`;
+        lines.push(currentLine);
+        currentLine = '';
+        word = word.substring(sliceLen);
+      } else {
+        if (currentLine) {
+          lines.push(currentLine.replace(/\s+-\s*$/, ''));
+          currentLine = '';
+        }
+        const pfx = lines.length === 0 ? '' : continuationIndent;
+        const chunkLen = maxCols - pfx.length;
+        lines.push(`${pfx}${word.substring(0, chunkLen)}`);
+        word = word.substring(chunkLen);
+      }
+    }
+
+    if (!word) continue;
+
+    if (!currentLine) {
+      if (lines.length > 0 && (word === '-' || word === '–')) {
+        continue;
+      }
+      currentLine = `${prefix}${word}`;
+    } else if (currentLine.length + 1 + word.length <= maxCols) {
+      currentLine = `${currentLine} ${word}`;
+    } else {
+      lines.push(currentLine.replace(/\s+-\s*$/, ''));
+      if (word === '-' || word === '–') {
+        currentLine = '';
+      } else {
+        currentLine = `${continuationIndent}${word}`;
+      }
+    }
+  }
+
+  if (currentLine) {
+    lines.push(currentLine.replace(/\s+-\s*$/, ''));
+  }
+
+  return lines;
+}
+
+/**
+ * Wraps and centers text within maxCols (default 32 columns).
+ */
+export function centerReceiptLines(rawText: string, maxCols: number = RECEIPT_MAX_COLS): string[] {
+  const wrapped = wrapReceiptLines(rawText, maxCols, '');
+  return wrapped.map(line => {
+    const trimmed = line.trim();
+    if (trimmed.length >= maxCols) return trimmed.substring(0, maxCols);
+    const leftSpaces = Math.floor((maxCols - trimmed.length) / 2);
+    return ' '.repeat(leftSpaces) + trimmed;
+  });
+}
+
+/**
+ * Formats a label on the left and a value on the right connected by leader dots within maxCols.
+ * If the label is too long to fit on the same line, wraps the label first and aligns the value on the next line.
+ */
+export function formatDotRow(left: string, right: string, maxCols: number = RECEIPT_MAX_COLS): string[] {
+  const cleanLeft = sanitizeForThermal(left);
+  const cleanRight = sanitizeForThermal(right);
+  if (!cleanRight) {
+    return wrapReceiptLines(cleanLeft, maxCols, '  ');
+  }
+  if (cleanLeft.length + 2 + cleanRight.length <= maxCols) {
+    const dotsCount = maxCols - cleanLeft.length - cleanRight.length - 2;
+    const middle = dotsCount >= 1
+      ? ` ${'.'.repeat(dotsCount)} `
+      : ' '.repeat(maxCols - cleanLeft.length - cleanRight.length);
+    return [`${cleanLeft}${middle}${cleanRight}`];
+  }
+  const wrappedLeft = wrapReceiptLines(cleanLeft, maxCols, '  ');
+  const valLabel = '   Subtotal:';
+  const dotsCount = Math.max(1, maxCols - valLabel.length - cleanRight.length - 2);
+  wrappedLeft.push(`${valLabel} ${'.'.repeat(dotsCount)} ${cleanRight}`);
+  return wrappedLeft;
+}
+
+/**
+ * Generates a standardized, 32-column word-wrapped comanda that never cuts off on any 80mm or 58mm printer.
  */
 export function generateReceiptText(
   order: Order,
@@ -14,22 +138,48 @@ export function generateReceiptText(
   isKitchenOnly = false,
   viaTitle?: string
 ): string {
-  const line = '--------------------------------';
-  const dline = '================================';
-  const out: string[] = [];
+  const MAX_COLS = RECEIPT_MAX_COLS;
+  const PAD = RECEIPT_LEFT_PAD;
+  const line = '-'.repeat(MAX_COLS);
+  const dline = '='.repeat(MAX_COLS);
+  const rawLines: string[] = [];
 
-  out.push(dline);
-  out.push((settings.printHeader || 'NICKEL LANCHES').toUpperCase());
-  if (settings.printSubHeader) out.push(settings.printSubHeader.toUpperCase());
-  if (settings.printPhone) out.push(`Tel/WhatsApp: ${settings.printPhone}`);
-  if (settings.printAddress) out.push(settings.printAddress);
-  if (viaTitle) out.push(`[ ${viaTitle.toUpperCase()} ]`);
-  out.push(line);
+  const pushRaw = (s: string) => rawLines.push(`${PAD}${s.substring(0, MAX_COLS)}`);
+  const pushWrapped = (s: string, indent = '  ') => {
+    wrapReceiptLines(s, MAX_COLS, indent).forEach(l => pushRaw(l));
+  };
+  const pushCentered = (s: string) => {
+    centerReceiptLines(s, MAX_COLS).forEach(l => pushRaw(l));
+  };
+  const pushDotRow = (left: string, right: string) => {
+    formatDotRow(left, right, MAX_COLS).forEach(l => pushRaw(l));
+  };
 
+  // CABEÇALHO CENTRALIZADO
+  pushRaw(dline);
+  pushCentered((settings.printHeader || 'NICKEL LANCHES').toUpperCase());
+  if (settings.printSubHeader) {
+    pushCentered(settings.printSubHeader.toUpperCase());
+  }
+  if (settings.printPhone) {
+    pushCentered(`Tel/WhatsApp: ${settings.printPhone}`);
+  }
+  if (settings.printAddress) {
+    pushCentered(settings.printAddress);
+  }
+  if (viaTitle) {
+    pushRaw(line);
+    pushCentered(`[ ${viaTitle.toUpperCase()} ]`);
+  }
+  pushRaw(dline);
+
+  // IDENTIFICAÇÃO DO PEDIDO
   const orderNum = order.orderNumber || (order.id ? order.id.substring(0, 4).toUpperCase() : '1');
-  out.push(`PEDIDO #${orderNum}`);
-  if (settings.showPassword && order.id) {
-    out.push(`SENHA: ${order.id.substring(0, 4).toUpperCase()}`);
+  const passStr = settings.showPassword && order.id ? order.id.substring(0, 4).toUpperCase() : '';
+  if (passStr) {
+    pushDotRow(`PEDIDO #${orderNum}`, `SENHA: ${passStr}`);
+  } else {
+    pushCentered(`*** PEDIDO #${orderNum} ***`);
   }
 
   let dateStr = '';
@@ -39,69 +189,122 @@ export function generateReceiptText(
   } else if (typeof order.createdAt === 'string') {
     dateStr = order.createdAt;
   } else {
-    dateStr = new Date().toLocaleString('pt-BR');
+    const now = new Date();
+    dateStr = `${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
   }
-  out.push(`Data/Hora: ${dateStr}`);
-  out.push(`Cliente: ${(order.userName || 'Balcao / Cliente').toUpperCase()}`);
-  if (settings.showCustomerPhone && order.whatsapp) {
-    out.push(`WhatsApp: ${order.whatsapp}`);
-  }
-  if (settings.showDeliveryAddress && order.address) {
-    out.push(`Entrega: ${order.address}${order.region ? ` (${order.region})` : ''}`);
-  }
-  if (order.receiptNotes) {
-    out.push(`Obs. Entrega: ${order.receiptNotes}`);
-  }
-  out.push(line);
+  pushWrapped(`Data/Hora: ${dateStr}`, '  ');
 
-  out.push(isKitchenOnly ? '--- ITENS PARA PREPARO (COZINHA) ---' : '--- ITENS DO PEDIDO ---');
+  // DADOS DO CLIENTE E ENTREGA
+  pushRaw(line);
+  pushWrapped(`Cliente: ${(order.userName || 'Balcao / Cliente').toUpperCase()}`, '  ');
+  if (settings.showCustomerPhone && order.whatsapp) {
+    pushWrapped(`WhatsApp: ${order.whatsapp}`, '  ');
+  }
+  if (settings.showDeliveryAddress) {
+    const hasRegion = order.region && order.address && order.address.toLowerCase().includes(order.region.toLowerCase());
+    const fullAddr = order.address
+      ? `${order.address}${order.region && !hasRegion ? ` (${order.region})` : ''}`
+      : 'Retirada no Balcao';
+    pushWrapped(`Entrega: ${fullAddr}`, '  ');
+  }
+  if (order.receiptNotes && order.receiptNotes.trim()) {
+    pushWrapped(`Obs. Entrega: ${order.receiptNotes.trim()}`, '  ');
+  }
+
+  // ITENS DO PEDIDO
+  pushRaw(dline);
+  pushCentered(isKitchenOnly ? 'PREPARO DA COZINHA' : 'ITENS DO PEDIDO');
+  pushRaw(line);
+
+  let subtotal = 0;
   if (order.items && order.items.length > 0) {
     order.items.forEach((item, idx) => {
-      const extrasTotal = item.extras?.reduce((s: number, e: any) => s + (e.price || 0), 0) || 0;
-      const itemTotal = (item.price + extrasTotal) * item.quantity;
+      const extrasTotal = item.extras?.reduce((s: number, e: any) => s + (Number(e.price) || 0), 0) || 0;
+      const itemTotal = (Number(item.price) + extrasTotal) * Number(item.quantity);
+      subtotal += itemTotal;
+
+      const itemHeader = `${item.quantity}x ${(item.name || 'Item').toUpperCase()}`;
       if (isKitchenOnly) {
-        out.push(`${item.quantity}x ${item.name}`);
+        pushWrapped(itemHeader, '   ');
       } else {
-        out.push(`${item.quantity}x ${item.name}`);
-        out.push(`   Subtotal: R$ ${itemTotal.toFixed(2).replace('.', ',')}`);
+        const priceFormatted = `R$ ${itemTotal.toFixed(2).replace('.', ',')}`;
+        pushDotRow(itemHeader, priceFormatted);
       }
 
       if (item.extras && item.extras.length > 0) {
-        out.push(`   Adicionais:`);
         item.extras.forEach((e: any) => {
-          const extraPrice = !isKitchenOnly && e.price > 0 ? ` (+ R$ ${Number(e.price).toFixed(2).replace('.', ',')})` : ' (Incluso)';
-          out.push(`   • ${e.name}${extraPrice}`);
+          const eName = sanitizeForThermal(e.name || '');
+          if (!eName) return;
+          if (isKitchenOnly) {
+            pushWrapped(`  + ${eName}`, '    ');
+          } else {
+            const ePrice = Number(e.price) > 0 ? `+R$ ${Number(e.price).toFixed(2).replace('.', ',')}` : 'Incluso';
+            pushDotRow(`  + ${eName}`, ePrice);
+          }
         });
       }
+
       if (settings.showItemObservations && item.observation && item.observation.trim()) {
-        out.push(`   * OBS: ${item.observation.trim().toUpperCase()}`);
+        pushWrapped(`  >> OBS: ${item.observation.trim().toUpperCase()}`, '     ');
+      }
+
+      if (idx < order.items.length - 1) {
+        pushRaw(' - - - - - - - - - - - - - - - -');
       }
     });
   }
 
+  // TOTAIS E PAGAMENTO
   if (!isKitchenOnly) {
-    out.push(line);
-    if (order.deliveryFee !== undefined && order.deliveryFee > 0) {
-      out.push(`Taxa de Entrega: R$ ${order.deliveryFee.toFixed(2).replace('.', ',')}`);
+    pushRaw(dline);
+    const fee = Number(order.deliveryFee) || 0;
+    const total = Number(order.totalPrice) || 0;
+    const calcSub = subtotal > 0 ? subtotal : total - fee;
+    const discount = Math.max(0, (calcSub + fee) - total);
+
+    if (fee > 0 || discount > 0.01) {
+      pushDotRow('Subtotal Itens:', `R$ ${calcSub.toFixed(2).replace('.', ',')}`);
     }
-    out.push(`TOTAL DO PEDIDO: R$ ${order.totalPrice.toFixed(2).replace('.', ',')}`);
+    if (discount > 0.01) {
+      pushDotRow('Desconto:', `-R$ ${discount.toFixed(2).replace('.', ',')}`);
+    }
+    if (fee > 0) {
+      pushDotRow('Taxa de Entrega:', `R$ ${fee.toFixed(2).replace('.', ',')}`);
+    }
+    pushRaw(line);
+    pushDotRow('TOTAL DO PEDIDO:', `R$ ${total.toFixed(2).replace('.', ',')}`);
+
     if (settings.showPaymentDetails) {
-      out.push(`Forma de Pagamento: ${(order.paymentMethod || 'A Confirmar').toUpperCase()}`);
+      pushRaw(line);
+      const cleanPayment = sanitizeForThermal(order.paymentMethod || 'A Confirmar').toUpperCase();
+      pushWrapped(`Pagamento: ${cleanPayment}`, '  ');
       if (order.changeFor) {
-        out.push(`Troco para: R$ ${order.changeFor}`);
+        pushDotRow('Troco para:', `R$ ${order.changeFor}`);
       }
       if (order.receiptAuthCode) {
-        out.push(`Cod. Autenticacao: ${order.receiptAuthCode}`);
+        pushWrapped(`Autenticacao: ${order.receiptAuthCode}`, '  ');
       }
     }
   }
 
-  out.push(line);
-  if (settings.printFooter) out.push(settings.printFooter.toUpperCase());
-  out.push('ATE A PROXIMA!');
-  out.push(dline);
+  // RODAPÉ CENTRALIZADO
+  pushRaw(dline);
+  if (settings.printFooter) {
+    const footerParts = settings.printFooter
+      .split(/(?<=!)\s+/)
+      .map(p => p.trim())
+      .filter(Boolean);
+    footerParts.forEach(part => pushCentered(part.toUpperCase()));
+  }
+  pushCentered('ATE A PROXIMA!');
+  pushRaw(dline);
 
-  return out.join('\n');
+  const feedCount = Math.max(2, settings.feedLines || 3);
+  for (let i = 0; i < feedCount; i++) {
+    rawLines.push(' ');
+  }
+
+  return rawLines.join('\r\n');
 }
 
 /**
@@ -132,22 +335,27 @@ export function generateReceiptHtml(
 
   const orderNum = order.orderNumber || (order.id ? order.id.substring(0, 4).toUpperCase() : '1');
   const subtotal = order.items?.reduce((sum, item) => {
-    const extras = item.extras?.reduce((s: number, e: any) => s + (e.price || 0), 0) || 0;
-    return sum + ((item.price + extras) * item.quantity);
+    const extras = item.extras?.reduce((s: number, e: any) => s + (Number(e.price) || 0), 0) || 0;
+    return sum + ((Number(item.price) + extras) * Number(item.quantity));
   }, 0) || order.totalPrice;
+  const fee = Number(order.deliveryFee) || 0;
+  const total = Number(order.totalPrice) || 0;
+  const discount = Math.max(0, (subtotal + fee) - total);
+  const cleanPayment = sanitizeForThermal(order.paymentMethod || 'A Confirmar');
+  const hasRegion = order.region && order.address && order.address.toLowerCase().includes(order.region.toLowerCase());
 
   const itemsHtml = (order.items || []).map(item => {
-    const extrasTotal = item.extras?.reduce((s: number, e: any) => s + (e.price || 0), 0) || 0;
-    const itemTotal = (item.price + extrasTotal) * item.quantity;
+    const extrasTotal = item.extras?.reduce((s: number, e: any) => s + (Number(e.price) || 0), 0) || 0;
+    const itemTotal = (Number(item.price) + extrasTotal) * Number(item.quantity);
 
     const extrasSnippet = item.extras && item.extras.length > 0
       ? `
         <div style="padding-left: 8px; margin-top: 4px; font-size: 0.9em; border-left: 2px solid #888; margin-left: 2px; padding-bottom: 2px;">
           <div style="font-weight: 900; text-transform: uppercase; font-size: 0.82em; color: #444; margin-bottom: 2px;">Adicionais:</div>
           ${item.extras.map((e: any) => `
-            <div style="padding: 1px 0; font-weight: 600;">
-              <div>• ${e.name}</div>
-              ${!isKitchenOnly && e.price > 0 ? `<div style="padding-left: 10px; font-size: 0.9em; color: #555;">(+ R$ ${Number(e.price).toFixed(2).replace('.', ',')})</div>` : ''}
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; padding: 1px 0; font-weight: 600; gap: 6px;">
+              <span style="min-width: 0; word-break: break-word;">+ ${sanitizeForThermal(e.name || '')}</span>
+              ${!isKitchenOnly ? `<span style="font-family: monospace; white-space: nowrap; flex-shrink: 0;">${Number(e.price) > 0 ? `+R$ ${Number(e.price).toFixed(2).replace('.', ',')}` : 'Incluso'}</span>` : ''}
             </div>
           `).join('')}
         </div>
@@ -155,20 +363,15 @@ export function generateReceiptHtml(
       : '';
 
     const obsSnippet = settings.showItemObservations && item.observation && item.observation.trim()
-      ? `<div style="padding: 3px 6px; margin-top: 4px; font-weight: 900; background: #e5e5e5; border-left: 3px solid #000; text-transform: uppercase; font-size: 0.9em; word-break: break-word; line-height: 1.25;">⚠ OBS: ${item.observation.trim()}</div>`
+      ? `<div style="padding: 3px 6px; margin-top: 4px; font-weight: 900; background: #e5e5e5; border-left: 3px solid #000; text-transform: uppercase; font-size: 0.9em; word-break: break-word; line-height: 1.25;">>> OBS: ${sanitizeForThermal(item.observation.trim())}</div>`
       : '';
 
     return `
       <div style="border-bottom: 1px dashed #666; padding-bottom: 5px; margin-bottom: 5px; word-break: break-word;">
-        <div style="font-weight: 900; font-size: 1.05em; line-height: 1.25; word-break: break-word;">
-          ${item.quantity}x ${item.name}
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; font-weight: 900; font-size: 1.02em; gap: 6px;">
+          <span style="flex: 1; min-width: 0; word-break: break-word; line-height: 1.25; text-transform: uppercase;">${item.quantity}x ${sanitizeForThermal(item.name || 'Item')}</span>
+          ${!isKitchenOnly ? `<span style="font-family: monospace; white-space: nowrap; flex-shrink: 0;">R$ ${itemTotal.toFixed(2).replace('.', ',')}</span>` : ''}
         </div>
-        ${!isKitchenOnly ? `
-          <div style="display: flex; justify-content: space-between; align-items: center; font-weight: 900; margin-top: 2px; font-size: 0.95em;">
-            <span style="font-size: 0.82em; text-transform: uppercase; color: #555;">Subtotal:</span>
-            <span style="font-family: monospace; white-space: nowrap;">R$ ${itemTotal.toFixed(2).replace('.', ',')}</span>
-          </div>
-        ` : ''}
         ${extrasSnippet}
         ${obsSnippet}
       </div>
@@ -184,8 +387,8 @@ export function generateReceiptHtml(
       <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 6px;">
         <div style="font-weight: 900; font-size: 1.3em; text-transform: uppercase; letter-spacing: -0.5px;">${settings.printHeader || 'NICKEL LANCHES'}</div>
         ${settings.printSubHeader ? `<div style="font-weight: bold; font-size: 0.85em; text-transform: uppercase;">${settings.printSubHeader}</div>` : ''}
-        ${settings.printPhone ? `<div style="font-size: 0.85em; font-weight: bold; margin-top: 2px;">${settings.printPhone}</div>` : ''}
-        ${settings.printAddress ? `<div style="font-size: 0.75em; color: #333; margin-top: 1px;">${settings.printAddress}</div>` : ''}
+        ${settings.printPhone ? `<div style="font-size: 0.85em; font-weight: bold; margin-top: 2px;">Tel/WhatsApp: ${settings.printPhone}</div>` : ''}
+        ${settings.printAddress ? `<div style="font-size: 0.8em; color: #222; margin-top: 2px; word-break: break-word;">${settings.printAddress}</div>` : ''}
         ${viaTitle ? `<div style="display: inline-block; background: #000; color: #fff; font-weight: 900; font-size: 0.8em; padding: 2px 6px; margin-top: 4px; text-transform: uppercase;">${viaTitle}</div>` : ''}
       </div>
 
@@ -195,20 +398,20 @@ export function generateReceiptHtml(
           <span style="font-weight: 900; font-size: 1.15em;">PEDIDO #${orderNum}</span>
           ${settings.showPassword && order.id ? `<span style="border: 1px solid #000; padding: 1px 4px; font-weight: 900; font-size: 0.85em;">SENHA: ${order.id.substring(0, 4).toUpperCase()}</span>` : ''}
         </div>
-        <div style="font-size: 0.85em; color: #333;">Horário: ${dateStr}</div>
+        <div style="font-size: 0.85em; color: #222; font-weight: 600;">Data/Hora: ${dateStr}</div>
         
-        <div style="margin-top: 6px; padding-top: 4px; border-top: 1px dotted #888; font-size: 0.95em; line-height: 1.35;">
-          <div><span style="font-weight: bold; color: #444;">Cliente: </span><span style="font-weight: 900; text-transform: uppercase;">${order.userName || 'Balcão / Cliente'}</span></div>
-          ${settings.showCustomerPhone && order.whatsapp ? `<div style="margin-top: 2px;"><span style="font-weight: bold; color: #444;">WhatsApp: </span><span style="font-weight: bold;">${order.whatsapp}</span></div>` : ''}
+        <div style="margin-top: 6px; padding-top: 4px; border-top: 1px dotted #888; font-size: 0.92em; line-height: 1.35;">
+          <div style="word-break: break-word;"><span style="font-weight: bold; color: #333;">Cliente: </span><span style="font-weight: 900; text-transform: uppercase;">${sanitizeForThermal(order.userName || 'Balcão / Cliente')}</span></div>
+          ${settings.showCustomerPhone && order.whatsapp ? `<div style="margin-top: 2px;"><span style="font-weight: bold; color: #333;">WhatsApp: </span><span style="font-weight: bold;">${order.whatsapp}</span></div>` : ''}
           ${settings.showDeliveryAddress ? `
             <div style="margin-top: 4px; padding: 4px 6px; background: #f8f8f8; border: 1px dashed #aaa; border-radius: 2px;">
               <div style="font-weight: 900; text-transform: uppercase; font-size: 0.82em; color: #333;">Endereço de Entrega:</div>
-              <div style="font-weight: bold; word-break: break-word; margin-top: 1px;">${order.address || 'Retirada no Balcão'}${order.region ? ` (${order.region})` : ''}</div>
+              <div style="font-weight: bold; word-break: break-word; margin-top: 1px;">${order.address || 'Retirada no Balcão'}${order.region && !hasRegion ? ` (${order.region})` : ''}</div>
             </div>
           ` : ''}
           ${order.receiptNotes ? `
             <div style="margin-top: 4px; padding: 4px 6px; background: #f3f3f3; border-left: 3px solid #333; font-size: 0.9em; word-break: break-word;">
-              <strong>Obs. Entrega: </strong>${order.receiptNotes}
+              <strong>Obs. Entrega: </strong>${sanitizeForThermal(order.receiptNotes)}
             </div>
           ` : ''}
         </div>
@@ -227,29 +430,37 @@ export function generateReceiptHtml(
       <!-- TOTAIS E PAGAMENTO (Apenas se não for cozinha exclusiva) -->
       ${!isKitchenOnly ? `
         <div style="border-top: 2px solid #000; padding-top: 4px; margin-bottom: 6px;">
-          ${order.deliveryFee !== undefined && order.deliveryFee > 0 ? `
-            <div style="display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 2px;">
-              <span>Subtotal:</span>
-              <span>R$ ${subtotal.toFixed(2).replace('.', ',')}</span>
+          ${fee > 0 || discount > 0.01 ? `
+            <div style="display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 2px; font-weight: 600;">
+              <span>Subtotal Itens:</span>
+              <span style="font-family: monospace;">R$ ${subtotal.toFixed(2).replace('.', ',')}</span>
             </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 3px;">
+          ` : ''}
+          ${discount > 0.01 ? `
+            <div style="display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 2px; font-weight: 700;">
+              <span>Desconto:</span>
+              <span style="font-family: monospace;">-R$ ${discount.toFixed(2).replace('.', ',')}</span>
+            </div>
+          ` : ''}
+          ${fee > 0 ? `
+            <div style="display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 3px; font-weight: 600;">
               <span>Taxa de Entrega:</span>
-              <span>R$ ${order.deliveryFee.toFixed(2).replace('.', ',')}</span>
+              <span style="font-family: monospace;">R$ ${fee.toFixed(2).replace('.', ',')}</span>
             </div>
           ` : ''}
 
-          <div style="display: flex; justify-content: space-between; align-items: center; font-weight: 900; font-size: 1.25em; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 0; margin: 4px 0;">
-            <span>TOTAL:</span>
-            <span>R$ ${order.totalPrice.toFixed(2).replace('.', ',')}</span>
+          <div style="display: flex; justify-content: space-between; align-items: center; font-weight: 900; font-size: 1.2em; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 0; margin: 4px 0;">
+            <span>TOTAL DO PEDIDO:</span>
+            <span style="font-family: monospace;">R$ ${total.toFixed(2).replace('.', ',')}</span>
           </div>
 
           ${settings.showPaymentDetails ? `
-            <div style="font-size: 0.85em; margin-top: 4px;">
-              <div>Forma de Pagamento: <strong style="text-transform: uppercase;">${order.paymentMethod || 'A Confirmar'}</strong></div>
+            <div style="font-size: 0.88em; margin-top: 4px; line-height: 1.35;">
+              <div style="word-break: break-word;">Pagamento: <strong style="text-transform: uppercase;">${cleanPayment}</strong></div>
               ${order.changeFor ? `<div style="font-weight: 900; margin-top: 2px;">Troco para: R$ ${order.changeFor}</div>` : ''}
               ${order.receiptAuthCode ? `
-                <div style="margin-top: 3px; font-size: 0.8em; color: #444; border: 1px solid #ccc; padding: 2px 4px; background: #fafafa;">
-                  Autenticação: ${order.receiptAuthCode}
+                <div style="margin-top: 3px; font-size: 0.85em; color: #222; border: 1px solid #bbb; padding: 2px 4px; background: #fafafa; word-break: break-word;">
+                  Autenticação: <strong>${order.receiptAuthCode}</strong>
                 </div>
               ` : ''}
             </div>
@@ -259,7 +470,7 @@ export function generateReceiptHtml(
 
       <!-- RODAPÉ -->
       <div style="text-align: center; border-top: 1px dashed #000; padding-top: 6px; margin-top: 6px;">
-        ${settings.printFooter ? `<div style="font-weight: bold; font-size: 0.85em; text-transform: uppercase;">${settings.printFooter}</div>` : ''}
+        ${settings.printFooter ? `<div style="font-weight: bold; font-size: 0.85em; text-transform: uppercase; word-break: break-word;">${settings.printFooter}</div>` : ''}
         <div style="font-size: 0.85em; margin-top: 3px; font-weight: bold;">*** ATÉ A PRÓXIMA! ***</div>
       </div>
 
@@ -763,13 +974,122 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '$script:printedSessionCount = 0',
     '$script:currentPrintLines = @()',
     '',
+    'function Clean-ThermalText([string]$txt) {',
+    '  if (-not $txt) { return "" }',
+    '  $s = $txt -replace "[\\u2022\\u25CF\\u25AA\\u25B8\\u25BA]", "+"',
+    '  $s = $s -replace "[^\\x20-\\x7E\\xA0-\\xFF]", ""',
+    '  $s = ($s -replace "\\s+", " ").Trim()',
+    '  return $s',
+    '}',
+    '',
+    'function Wrap-Text32([string]$rawText, [int]$maxCols = 32, [string]$indent = "") {',
+    '  $res = New-Object System.Collections.Generic.List[string]',
+    '  $clean = Clean-ThermalText $rawText',
+    '  if (-not $clean) { return $res }',
+    '  if ($clean.Length -le $maxCols) {',
+    '    $res.Add($clean)',
+    '    return $res',
+    '  }',
+    '  $words = $clean -split " "',
+    '  $cur = ""',
+    '  foreach ($w in $words) {',
+    '    if (-not $w) { continue }',
+    '    $pfx = if ($res.Count -eq 0) { "" } else { $indent }',
+    '    while ($w.Length -gt ($maxCols - $pfx.Length)) {',
+    '      if ($cur) {',
+    '        $res.Add(($cur -replace "\\s+-\\s*$", ""))',
+    '        $cur = ""',
+    '      }',
+    '      $pfx = if ($res.Count -eq 0) { "" } else { $indent }',
+    '      $chunk = $maxCols - $pfx.Length',
+    '      $res.Add($pfx + $w.Substring(0, $chunk))',
+    '      $w = $w.Substring($chunk)',
+    '    }',
+    '    if (-not $w) { continue }',
+    '    if (-not $cur) {',
+    '      if ($res.Count -gt 0 -and $w -eq "-") { continue }',
+    '      $cur = $pfx + $w',
+    '    } elseif (($cur.Length + 1 + $w.Length) -le $maxCols) {',
+    '      $cur = $cur + " " + $w',
+    '    } else {',
+    '      $res.Add(($cur -replace "\\s+-\\s*$", ""))',
+    '      if ($w -eq "-") {',
+    '        $cur = ""',
+    '      } else {',
+    '        $cur = $indent + $w',
+    '      }',
+    '    }',
+    '  }',
+    '  if ($cur) {',
+    '    $res.Add(($cur -replace "\\s+-\\s*$", ""))',
+    '  }',
+    '  return $res',
+    '}',
+    '',
+    'function Center-Text32([string]$rawText, [int]$maxCols = 32) {',
+    '  $res = New-Object System.Collections.Generic.List[string]',
+    '  $lines = Wrap-Text32 $rawText $maxCols ""',
+    '  foreach ($ln in $lines) {',
+    '    $t = $ln.Trim()',
+    '    if ($t.Length -ge $maxCols) {',
+    '      $res.Add($t.Substring(0, $maxCols))',
+    '    } else {',
+    '      $pad = [int][Math]::Floor(($maxCols - $t.Length) / 2)',
+    '      $res.Add((" " * $pad) + $t)',
+    '    }',
+    '  }',
+    '  return $res',
+    '}',
+    '',
+    'function Format-DotRow32([string]$left, [string]$right, [int]$maxCols = 32) {',
+    '  $res = New-Object System.Collections.Generic.List[string]',
+    '  $cl = Clean-ThermalText $left',
+    '  $cr = Clean-ThermalText $right',
+    '  if (-not $cr) {',
+    '    foreach ($l in (Wrap-Text32 $cl $maxCols "  ")) { $res.Add($l) }',
+    '    return $res',
+    '  }',
+    '  if (($cl.Length + 2 + $cr.Length) -le $maxCols) {',
+    '    $dots = $maxCols - $cl.Length - $cr.Length - 2',
+    '    if ($dots -ge 1) {',
+    '      $res.Add($cl + " " + ("." * $dots) + " " + $cr)',
+    '    } else {',
+    '      $spaces = $maxCols - $cl.Length - $cr.Length',
+    '      $res.Add($cl + (" " * $spaces) + $cr)',
+    '    }',
+    '    return $res',
+    '  }',
+    '  foreach ($l in (Wrap-Text32 $cl $maxCols "  ")) { $res.Add($l) }',
+    '  $vLabel = "   Subtotal:"',
+    '  $dots = [Math]::Max(1, ($maxCols - $vLabel.Length - $cr.Length - 2))',
+    '  $res.Add($vLabel + " " + ("." * $dots) + " " + $cr)',
+    '  return $res',
+    '}',
+    '',
     'function Print-RawComanda([string]$comandaText) {',
     '  $targetPrinter = $script:selectedPrinter',
     '  $useTextOnly = ($targetPrinter -match "Generic|Text Only|Somente Texto")',
     '',
+    '  $safeLines = New-Object System.Collections.Generic.List[string]',
+    '  foreach ($rawLn in ($comandaText -split "\\r?\\n")) {',
+    '    if (-not $rawLn -or $rawLn.Trim().Length -eq 0) {',
+    '      $safeLines.Add(" ")',
+    '      continue',
+    '    }',
+    '    $trimmed = $rawLn.TrimEnd()',
+    '    if ($trimmed.Length -le 34) {',
+    '      $safeLines.Add($trimmed)',
+    '    } else {',
+    '      foreach ($wln in (Wrap-Text32 $trimmed.Trim() 32 "  ")) {',
+    '        $safeLines.Add(" " + $wln)',
+    '      }',
+    '    }',
+    '  }',
+    '  $finalText = ($safeLines -join [Environment]::NewLine)',
+    '',
     '  if ($useTextOnly) {',
     '    try {',
-    '      $comandaText | Out-Printer -Name $targetPrinter',
+    '      $finalText | Out-Printer -Name $targetPrinter',
     '      $script:printedSessionCount++',
     '      return $true',
     '    } catch {}',
@@ -784,10 +1104,9 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '    $doc.DefaultPageSettings.Margins = New-Object System.Drawing.Printing.Margins(0, 0, 0, 0)',
     '    $doc.PrintController = New-Object System.Drawing.Printing.StandardPrintController',
     '',
-    '    $script:currentPrintLines = $comandaText -split "\\r?\\n"',
+    '    $script:currentPrintLines = $safeLines',
     '    $doc.add_PrintPage({',
     '      param($sender, $ev)',
-    '      $is58 = ($targetPrinter -match "58|POS-58|Mini|58mm")',
     '      $fontFamily = "Consolas"',
     `      $testFont = New-Object System.Drawing.Font($fontFamily, ${fontSizePt}, [System.Drawing.FontStyle]::Bold)`,
     '      if ($testFont.Name -ne $fontFamily) {',
@@ -796,26 +1115,11 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '        $font = $testFont',
     '      }',
     '      $brush = [System.Drawing.Brushes]::Black',
-    '      $sf = New-Object System.Drawing.StringFormat',
-    '      $sf.Trimming = [System.Drawing.StringTrimming]::Word',
-    '      $sf.FormatFlags = [System.Drawing.StringFormatFlags]::LineLimit',
-    '',
-    '      $clipW = [int]($ev.Graphics.VisibleClipBounds.Width)',
-    '      $maxPrintW = if ($clipW -gt 20 -and $clipW -lt 400) { $clipW } else { if ($is58) { 180 } else { 260 } }',
-    '      $leftMargin = 12',
-    '      $usableWidth = [Math]::Max(160, $maxPrintW - ($leftMargin * 2))',
-    '',
     '      $y = 6',
+    '      $lineHeight = $font.GetHeight($ev.Graphics) + 1',
     '      foreach ($ln in $script:currentPrintLines) {',
-    '        if (-not $ln -or $ln.Trim().Length -eq 0) {',
-    '          $y += [int][Math]::Ceiling($font.GetHeight($ev.Graphics) * 0.7)',
-    '          continue',
-    '        }',
-    '        $sz = $ev.Graphics.MeasureString($ln, $font, [int]$usableWidth, $sf)',
-    '        $h = [int][Math]::Ceiling($sz.Height)',
-    '        $rect = New-Object System.Drawing.RectangleF($leftMargin, $y, $usableWidth, $h + 1)',
-    '        $ev.Graphics.DrawString($ln, $font, $brush, $rect, $sf)',
-    '        $y += $h + 1',
+    '        $ev.Graphics.DrawString($ln, $font, $brush, 4, $y)',
+    '        $y += $lineHeight',
     '      }',
     '      $ev.HasMorePages = $false',
     '    })',
@@ -825,9 +1129,9 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '  } catch {',
     '    try {',
     '      if ($targetPrinter -and $targetPrinter -ne "Impressora Padrao do Windows") {',
-    '        $comandaText | Out-Printer -Name $targetPrinter',
+    '        $finalText | Out-Printer -Name $targetPrinter',
     '      } else {',
-    '        $comandaText | Out-Printer',
+    '        $finalText | Out-Printer',
     '      }',
     '      $script:printedSessionCount++',
     '      return $true',
@@ -842,13 +1146,14 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '  $f = $docObj.fields',
     '  $docId = ($docObj.name -split "/")[-1]',
     '  $orderNum = if ($f.orderNumber.integerValue) { [string]$f.orderNumber.integerValue } elseif ($f.orderNumber.doubleValue) { [string]$f.orderNumber.doubleValue } else { $docId.Substring(0, [Math]::Min(4, $docId.Length)).ToUpper() }',
-    '  $userName = if ($f.userName.stringValue) { $f.userName.stringValue.ToUpper() } else { "CLIENTE / BALCAO" }',
-    '  $whatsapp = if ($f.whatsapp.stringValue) { $f.whatsapp.stringValue } else { "" }',
-    '  $address = if ($f.address.stringValue) { $f.address.stringValue } else { "Retirada no Balcao" }',
-    '  $region = if ($f.region.stringValue) { " (" + $f.region.stringValue + ")" } else { "" }',
-    '  $payment = if ($f.paymentMethod.stringValue) { $f.paymentMethod.stringValue.ToUpper() } else { "A CONFIRMAR" }',
-    '  $changeFor = if ($f.changeFor.stringValue) { $f.changeFor.stringValue } else { "" }',
-    '  $notes = if ($f.receiptNotes.stringValue) { $f.receiptNotes.stringValue } else { "" }',
+    '  $userName = if ($f.userName.stringValue) { (Clean-ThermalText $f.userName.stringValue).ToUpper() } else { "BALCAO / CLIENTE" }',
+    '  $whatsapp = if ($f.whatsapp.stringValue) { Clean-ThermalText $f.whatsapp.stringValue } else { "" }',
+    '  $address = if ($f.address.stringValue) { Clean-ThermalText $f.address.stringValue } else { "Retirada no Balcao" }',
+    '  $region = if ($f.region.stringValue) { Clean-ThermalText $f.region.stringValue } else { "" }',
+    '  $payment = if ($f.paymentMethod.stringValue) { (Clean-ThermalText $f.paymentMethod.stringValue).ToUpper() } else { "A CONFIRMAR" }',
+    '  $changeFor = if ($f.changeFor.stringValue) { Clean-ThermalText $f.changeFor.stringValue } else { "" }',
+    '  $authCode = if ($f.receiptAuthCode.stringValue) { Clean-ThermalText $f.receiptAuthCode.stringValue } else { "" }',
+    '  $notes = if ($f.receiptNotes.stringValue) { Clean-ThermalText $f.receiptNotes.stringValue } else { "" }',
     '  $totalPrice = if ($f.totalPrice.doubleValue) { [double]$f.totalPrice.doubleValue } elseif ($f.totalPrice.integerValue) { [double]$f.totalPrice.integerValue } else { 0 }',
     '  $deliveryFee = if ($f.deliveryFee.doubleValue) { [double]$f.deliveryFee.doubleValue } elseif ($f.deliveryFee.integerValue) { [double]$f.deliveryFee.integerValue } else { 0 }',
     '',
@@ -863,91 +1168,115 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '  $dline = "================================"',
     '  $line  = "--------------------------------"',
     '  $out = New-Object System.Collections.Generic.List[string]',
-    '  $out.Add($dline)',
-    `  $out.Add("${headerName}")`,
-    `  if ("${subHeader}") { $out.Add("${subHeader}") }`,
-    `  if ("${phoneStr}") { $out.Add("Tel/WhatsApp: ${phoneStr}") }`,
-    `  if ("${addressStr}") { $out.Add("${addressStr}") }`,
-    '  if ($viaLabel) { $out.Add("[ " + $viaLabel + " ]") }',
-    '  $out.Add($line)',
-    '  $out.Add("PEDIDO #" + $orderNum)',
-    '  $out.Add("Data/Hora: " + $dateStr)',
-    '  $out.Add($line)',
-    '  $out.Add("CLIENTE:")',
-    '  $out.Add("  " + $userName)',
-    '  if ($whatsapp) { $out.Add("WhatsApp: " + $whatsapp) }',
-    '  $out.Add("ENTREGA:")',
-    '  $out.Add("  " + $address + $region)',
-    '  if ($notes) {',
-    '    $out.Add("OBS. ENTREGA:")',
-    '    $out.Add("  " + $notes)',
+    '',
+    '  $out.Add(" " + $dline)',
+    `  foreach ($cl in (Center-Text32 "${headerName}" 32)) { $out.Add(" " + $cl) }`,
+    `  if ("${subHeader}") { foreach ($cl in (Center-Text32 "${subHeader}" 32)) { $out.Add(" " + $cl) } }`,
+    `  if ("${phoneStr}") { foreach ($cl in (Center-Text32 "Tel/WhatsApp: ${phoneStr}" 32)) { $out.Add(" " + $cl) } }`,
+    `  if ("${addressStr}") { foreach ($cl in (Center-Text32 "${addressStr}" 32)) { $out.Add(" " + $cl) } }`,
+    '  if ($viaLabel) {',
+    '    $out.Add(" " + $line)',
+    '    foreach ($cl in (Center-Text32 ("[ " + $viaLabel + " ]") 32)) { $out.Add(" " + $cl) }',
     '  }',
-    '  $out.Add($line)',
-    '  if ($isKitchen) {',
-    '    $out.Add("--- ITENS PARA PREPARO (COZINHA) ---")',
-    '  } else {',
-    '    $out.Add("--- ITENS DO PEDIDO ---")',
+    '  $out.Add(" " + $dline)',
+    '',
+    '  $passStr = $docId.Substring(0, [Math]::Min(4, $docId.Length)).ToUpper()',
+    '  foreach ($dl in (Format-DotRow32 ("PEDIDO #" + $orderNum) ("SENHA: " + $passStr) 32)) { $out.Add(" " + $dl) }',
+    '  foreach ($wl in (Wrap-Text32 ("Data/Hora: " + $dateStr) 32 "  ")) { $out.Add(" " + $wl) }',
+    '  $out.Add(" " + $line)',
+    '  foreach ($wl in (Wrap-Text32 ("Cliente: " + $userName) 32 "  ")) { $out.Add(" " + $wl) }',
+    '  if ($whatsapp) {',
+    '    foreach ($wl in (Wrap-Text32 ("WhatsApp: " + $whatsapp) 32 "  ")) { $out.Add(" " + $wl) }',
+    '  }',
+    '  $fullAddr = if ($region -and ($address.ToLower() -notmatch [Regex]::Escape($region.ToLower()))) { $address + " (" + $region + ")" } else { $address }',
+    '  foreach ($wl in (Wrap-Text32 ("Entrega: " + $fullAddr) 32 "  ")) { $out.Add(" " + $wl) }',
+    '  if ($notes) {',
+    '    foreach ($wl in (Wrap-Text32 ("Obs. Entrega: " + $notes) 32 "  ")) { $out.Add(" " + $wl) }',
     '  }',
     '',
+    '  $out.Add(" " + $dline)',
+    '  $secTitle = if ($isKitchen) { "PREPARO DA COZINHA" } else { "ITENS DO PEDIDO" }',
+    '  foreach ($cl in (Center-Text32 $secTitle 32)) { $out.Add(" " + $cl) }',
+    '  $out.Add(" " + $line)',
+    '',
+    '  $subtotalSum = 0',
     '  if ($f.items.arrayValue.values) {',
-    '    foreach ($itemVal in $f.items.arrayValue.values) {',
+    '    $itemsCount = $f.items.arrayValue.values.Count',
+    '    for ($idx = 0; $idx -lt $itemsCount; $idx++) {',
+    '      $itemVal = $f.items.arrayValue.values[$idx]',
     '      $im = $itemVal.mapValue.fields',
     '      $qty = if ($im.quantity.integerValue) { [int]$im.quantity.integerValue } elseif ($im.quantity.doubleValue) { [int]$im.quantity.doubleValue } else { 1 }',
-    '      $iname = if ($im.name.stringValue) { $im.name.stringValue } else { "Item" }',
+    '      $iname = if ($im.name.stringValue) { (Clean-ThermalText $im.name.stringValue).ToUpper() } else { "ITEM" }',
     '      $iprice = if ($im.price.doubleValue) { [double]$im.price.doubleValue } elseif ($im.price.integerValue) { [double]$im.price.integerValue } else { 0 }',
     '',
     '      $extrasSum = 0',
-    '      $extrasLines = New-Object System.Collections.Generic.List[string]',
+    '      $extrasList = New-Object System.Collections.Generic.List[string]',
     '      if ($im.extras.arrayValue.values) {',
     '        foreach ($exVal in $im.extras.arrayValue.values) {',
     '          $em = $exVal.mapValue.fields',
-    '          $ename = if ($em.name.stringValue) { $em.name.stringValue } else { "" }',
+    '          $ename = if ($em.name.stringValue) { Clean-ThermalText $em.name.stringValue } else { "" }',
     '          $eprice = if ($em.price.doubleValue) { [double]$em.price.doubleValue } elseif ($em.price.integerValue) { [double]$em.price.integerValue } else { 0 }',
     '          $extrasSum += $eprice',
     '          if ($ename) {',
     '            if ($isKitchen) {',
-    '              $extrasLines.Add("   + " + $ename)',
+    '              foreach ($wl in (Wrap-Text32 ("  + " + $ename) 32 "    ")) { $extrasList.Add(" " + $wl) }',
     '            } else {',
-    '              $epStr = if ($eprice -gt 0) { " (+ R$ " + $eprice.ToString("N2") + ")" } else { " (Incluso)" }',
-    '              $extrasLines.Add("   + " + $ename + $epStr)',
+    '              $epStr = if ($eprice -gt 0) { "+R$ " + $eprice.ToString("N2") } else { "Incluso" }',
+    '              foreach ($dl in (Format-DotRow32 ("  + " + $ename) $epStr 32)) { $extrasList.Add(" " + $dl) }',
     '            }',
     '          }',
     '        }',
     '      }',
     '',
     '      $lineTotal = ($iprice + $extrasSum) * $qty',
-    '      $out.Add([string]$qty + "x " + $iname)',
-    '      if (-not $isKitchen) {',
-    '        $out.Add("   Subtotal: R$ " + $lineTotal.ToString("N2"))',
+    '      $subtotalSum += $lineTotal',
+    '      $itemHead = [string]$qty + "x " + $iname',
+    '      if ($isKitchen) {',
+    '        foreach ($wl in (Wrap-Text32 $itemHead 32 "   ")) { $out.Add(" " + $wl) }',
+    '      } else {',
+    '        foreach ($dl in (Format-DotRow32 $itemHead ("R$ " + $lineTotal.ToString("N2")) 32)) { $out.Add(" " + $dl) }',
     '      }',
-    '      foreach ($el in $extrasLines) { $out.Add($el) }',
+    '      foreach ($el in $extrasList) { $out.Add($el) }',
     '',
     '      if ($im.observation.stringValue -and $im.observation.stringValue.Trim()) {',
-    '        $out.Add("   * OBS: " + $im.observation.stringValue.Trim().ToUpper())',
+    '        $obsClean = (Clean-ThermalText $im.observation.stringValue).ToUpper()',
+    '        foreach ($wl in (Wrap-Text32 ("  >> OBS: " + $obsClean) 32 "     ")) { $out.Add(" " + $wl) }',
     '      }',
-    '      $out.Add(" - - - - - - - - - - - - - - - -")',
+    '      if ($idx -lt ($itemsCount - 1)) {',
+    '        $out.Add("  - - - - - - - - - - - - - - - -")',
+    '      }',
     '    }',
     '  }',
     '',
     '  if (-not $isKitchen) {',
-    '    $out.Add($line)',
-    '    if ($deliveryFee -gt 0) {',
-    '      $out.Add("Taxa de Entrega: R$ " + $deliveryFee.ToString("N2"))',
+    '    $out.Add(" " + $dline)',
+    '    $calcSub = if ($subtotalSum -gt 0) { $subtotalSum } else { $totalPrice - $deliveryFee }',
+    '    $discount = [Math]::Max(0, ($calcSub + $deliveryFee) - $totalPrice)',
+    '    if ($deliveryFee -gt 0 -or $discount -gt 0.01) {',
+    '      foreach ($dl in (Format-DotRow32 "Subtotal Itens:" ("R$ " + $calcSub.ToString("N2")) 32)) { $out.Add(" " + $dl) }',
     '    }',
-    '    $out.Add("TOTAL DO PEDIDO:")',
-    '    $out.Add("  R$ " + $totalPrice.ToString("N2"))',
-    '    $out.Add($line)',
-    '    $out.Add("Forma de Pagamento:")',
-    '    $out.Add("  " + $payment)',
+    '    if ($discount -gt 0.01) {',
+    '      foreach ($dl in (Format-DotRow32 "Desconto:" ("-R$ " + $discount.ToString("N2")) 32)) { $out.Add(" " + $dl) }',
+    '    }',
+    '    if ($deliveryFee -gt 0) {',
+    '      foreach ($dl in (Format-DotRow32 "Taxa de Entrega:" ("R$ " + $deliveryFee.ToString("N2")) 32)) { $out.Add(" " + $dl) }',
+    '    }',
+    '    $out.Add(" " + $line)',
+    '    foreach ($dl in (Format-DotRow32 "TOTAL DO PEDIDO:" ("R$ " + $totalPrice.ToString("N2")) 32)) { $out.Add(" " + $dl) }',
+    '    $out.Add(" " + $line)',
+    '    foreach ($wl in (Wrap-Text32 ("Pagamento: " + $payment) 32 "  ")) { $out.Add(" " + $wl) }',
     '    if ($changeFor) {',
-    '      $out.Add("Troco para: R$ " + $changeFor)',
+    '      foreach ($dl in (Format-DotRow32 "Troco para:" ("R$ " + $changeFor) 32)) { $out.Add(" " + $dl) }',
+    '    }',
+    '    if ($authCode) {',
+    '      foreach ($wl in (Wrap-Text32 ("Autenticacao: " + $authCode) 32 "  ")) { $out.Add(" " + $wl) }',
     '    }',
     '  }',
     '',
-    '  $out.Add($line)',
-    `  $out.Add("${footerStr}")`,
-    '  $out.Add("ATE A PROXIMA!")',
-    '  $out.Add($dline)',
+    '  $out.Add(" " + $dline)',
+    `  if ("${footerStr}") { foreach ($cl in (Center-Text32 "${footerStr}" 32)) { $out.Add(" " + $cl) } }`,
+    '  foreach ($cl in (Center-Text32 "ATE A PROXIMA!" 32)) { $out.Add(" " + $cl) }',
+    '  $out.Add(" " + $dline)',
     '  $out.Add(" ")',
     '  $out.Add(" ")',
     '  return ($out -join [Environment]::NewLine)',
