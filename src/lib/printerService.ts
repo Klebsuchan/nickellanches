@@ -4,6 +4,7 @@
 
 import { Order, PrinterSettings, getCloudBridgeStatus, enqueueCloudPrintJob, isOrderPaid } from './db';
 import { getConnectedUsbPrinter, checkAndAutoReconnectUsbPrinter, sendRawToUsbPrinter, buildReceiptEscPos } from './escpos';
+import { renderFullOrderToImage } from './receiptCanvas';
 
 const RECEIPT_MAX_COLS = 32;
 const RECEIPT_LEFT_PAD = ' ';
@@ -501,19 +502,38 @@ export function generateReceiptHtml(
 /**
  * Builds full HTML page with print stylesheet and instant trigger
  */
-export function buildCompletePrintPageHtml(order: Order, settings: PrinterSettings): string {
+/**
+ * Builds full HTML page with 1-bit monochrome bitmap image of the receipt so printer drivers
+ * can NEVER substitute device fonts or strip black background banners.
+ */
+export function buildCompletePrintPageHtml(
+  order: Order,
+  settings: PrinterSettings,
+  autoPrintOnLoad = true
+): string {
   const is58 = settings.printerType === 'thermal_58';
   const paperWidth = is58 ? '48mm' : '72mm';
 
   let bodyContent = '';
-  if (settings.printCopies === 2) {
-    bodyContent = `
-      ${generateReceiptHtml(order, settings, true, 'VIA 1 - COZINHA / PREPARO')}
-      <div class="print-page-break" style="page-break-after: always; break-after: page; height: 10px; border-bottom: 2px dashed #000; margin: 15px 0;"></div>
-      ${generateReceiptHtml(order, settings, false, 'VIA 2 - ENTREGA / CLIENTE')}
-    `;
-  } else {
-    bodyContent = generateReceiptHtml(order, settings, false);
+  if (typeof document !== 'undefined') {
+    try {
+      const rendered = renderFullOrderToImage(order, settings);
+      bodyContent = `<img id="comanda-bitmap-img" src="${rendered.dataUrl}" alt="Comanda" style="width: 100%; max-width: ${paperWidth}; height: auto; display: block; margin: 0 auto; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; image-rendering: pixelated;" />`;
+    } catch (e) {
+      console.warn('Fallback to HTML receipt:', e);
+    }
+  }
+
+  if (!bodyContent) {
+    if (settings.printCopies === 2) {
+      bodyContent = `
+        ${generateReceiptHtml(order, settings, true, 'VIA 1 - COZINHA / PREPARO')}
+        <div class="print-page-break" style="page-break-after: always; break-after: page; height: 10px; border-bottom: 2px dashed #000; margin: 15px 0;"></div>
+        ${generateReceiptHtml(order, settings, false, 'VIA 2 - ENTREGA / CLIENTE')}
+      `;
+    } else {
+      bodyContent = generateReceiptHtml(order, settings, false);
+    }
   }
 
   return `<!DOCTYPE html>
@@ -589,7 +609,7 @@ export function buildCompletePrintPageHtml(order: Order, settings: PrinterSettin
       }
       .comanda-wrapper {
         background: #fff;
-        padding: 10px;
+        padding: 6px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         border: 1px solid #ddd;
         border-radius: 4px;
@@ -602,15 +622,16 @@ export function buildCompletePrintPageHtml(order: Order, settings: PrinterSettin
       body {
         margin: 0 !important;
         padding: 0 !important;
+        background: #ffffff !important;
       }
       .screen-bar {
         display: none !important;
       }
       .comanda-wrapper {
-        width: 100% !important;
+        width: ${paperWidth} !important;
         max-width: ${paperWidth} !important;
         margin: 0 !important;
-        padding: 0 0.5mm !important;
+        padding: 0 !important;
         box-shadow: none !important;
         border: none !important;
         box-sizing: border-box !important;
@@ -635,19 +656,38 @@ export function buildCompletePrintPageHtml(order: Order, settings: PrinterSettin
     ${bodyContent}
   </div>
 
-  <script>
-    // Tenta acionar a impressão automática assim que carregar
-    window.addEventListener('load', function() {
-      setTimeout(function() {
-        try {
-          window.focus();
-          window.print();
-        } catch (e) {
-          console.warn('Auto print error:', e);
+  ${
+    autoPrintOnLoad
+      ? `<script>
+    (function() {
+      var printed = false;
+      function doPrint() {
+        if (printed) return;
+        printed = true;
+        setTimeout(function() {
+          try {
+            window.focus();
+            window.print();
+          } catch (e) {
+            console.warn('Auto print error:', e);
+          }
+        }, 120);
+      }
+      var img = document.getElementById('comanda-bitmap-img');
+      if (img) {
+        if (img.complete) {
+          doPrint();
+        } else {
+          img.addEventListener('load', doPrint);
+          img.addEventListener('error', doPrint);
         }
-      }, 250);
-    });
-  </script>
+      } else {
+        window.addEventListener('load', doPrint);
+      }
+    })();
+  </script>`
+      : ''
+  }
 </body>
 </html>`;
 }
@@ -660,6 +700,8 @@ export async function checkWindowsBridgeStatus(): Promise<{
   connected: boolean;
   printerName?: string;
   printedCount?: number;
+  bridgeVersion?: number;
+  outdated?: boolean;
 }> {
   // 1. Try local HTTP bridge first (fastest when browser allows local network)
   try {
@@ -673,10 +715,13 @@ export async function checkWindowsBridgeStatus(): Promise<{
     clearTimeout(timeout);
     if (res.ok) {
       const data = await res.json();
+      const ver = Number(data.bridgeVersion || 1);
       return {
         connected: true,
         printerName: data.printer || 'Impressora Padrão do Windows',
         printedCount: data.printedCount || 0,
+        bridgeVersion: ver,
+        outdated: ver < 5,
       };
     }
   } catch (_) {
@@ -687,10 +732,13 @@ export async function checkWindowsBridgeStatus(): Promise<{
   try {
     const cloudSt = await getCloudBridgeStatus();
     if (cloudSt.connected) {
+      const ver = Number(cloudSt.bridgeVersion || 1);
       return {
         connected: true,
         printerName: cloudSt.printerName || 'Impressora Padrão do Windows',
         printedCount: cloudSt.printedCount || 0,
+        bridgeVersion: ver,
+        outdated: ver < 5,
       };
     }
   } catch (_) {}
@@ -699,62 +747,85 @@ export async function checkWindowsBridgeStatus(): Promise<{
 }
 
 /**
- * Sends a formatted comanda directly to the Windows "Impressão Automática" app
- * via both Local Bridge (127.0.0.1:4848) AND Cloud Print Queue (Firestore settings/print_queue)
+ * Sends a visual bitmap comanda directly to the Windows "Impressão Automática" app (v5+)
+ * via both Local Bridge (127.0.0.1:4848) AND Cloud Print Queue (Firestore settings/print_queue).
+ * IMPORTANT: If the user is still running an older v1 text-only bridge on their PC, this function
+ * refuses to send plain text to it (so it never prints the old ugly layout) and instead returns
+ * ok: false so executeUniversalPrint prints the exact visual bitmap immediately!
  */
 export async function sendToWindowsBridge(
   order: Order,
   settings: PrinterSettings,
   force = false
-): Promise<{ ok: boolean; printer?: string; skipped?: boolean }> {
-  let fullText = '';
-  if (settings.printCopies === 2) {
-    const via1 = generateReceiptText(order, settings, true, 'VIA 1 - COZINHA / PREPARO');
-    const via2 = generateReceiptText(order, settings, false, 'VIA 2 - ENTREGA / CLIENTE');
-    fullText = `${via1}\r\n\r\n\r\n${via2}`;
-  } else {
-    fullText = generateReceiptText(order, settings, false);
-  }
-
-  const fullHtml = buildCompletePrintPageHtml(order, settings);
+): Promise<{ ok: boolean; printer?: string; skipped?: boolean; outdatedBridge?: boolean }> {
   const orderId = order.id || `manual-${Date.now()}`;
   const orderNumber = order.orderNumber || 1;
 
-  // Always push to Cloud Print Queue so the Windows PC app picks it up even over HTTPS
+  let imageBase64 = '';
+  let viasBase64: string[] = [];
+  if (typeof document !== 'undefined') {
+    try {
+      const rendered = renderFullOrderToImage(order, settings);
+      imageBase64 = rendered.base64;
+      viasBase64 = rendered.viasBase64;
+    } catch (e) {
+      console.warn('Erro ao renderizar imagem da comanda:', e);
+    }
+  }
+
+  // Push to Cloud Print Queue with imageBase64 (and empty text so legacy v1 scripts ignore it!)
   const cloudQueuedPromise = enqueueCloudPrintJob({
     orderId,
     orderNumber,
-    text: fullText,
-    html: fullHtml,
+    imageBase64,
     force,
   });
 
-  // Also try local 127.0.0.1:4848 in parallel
+  // Check if local 127.0.0.1:4848 is running v5+ visual engine
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1400);
-    const res = await fetch('http://127.0.0.1:4848/print', {
-      method: 'POST',
+    const stCtrl = new AbortController();
+    const stTimeout = setTimeout(() => stCtrl.abort(), 700);
+    const stRes = await fetch('http://127.0.0.1:4848/status', {
+      method: 'GET',
       mode: 'cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        orderId,
-        orderNumber,
-        text: fullText,
-        html: fullHtml,
-        copies: 1,
-        force,
-      }),
-      signal: controller.signal,
+      signal: stCtrl.signal,
     });
-    clearTimeout(timeout);
-    if (res.ok) {
-      const data = await res.json();
-      await cloudQueuedPromise;
-      return { ok: true, printer: data.printer, skipped: data.skipped };
+    clearTimeout(stTimeout);
+
+    if (stRes.ok) {
+      const stData = await stRes.json();
+      const ver = Number(stData.bridgeVersion || 1);
+      if (ver < 5) {
+        // Legacy v1 script detected! Do NOT call /print on it so it never prints old plain text.
+        await cloudQueuedPromise;
+        return { ok: false, outdatedBridge: true };
+      }
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2000);
+      const res = await fetch('http://127.0.0.1:4848/print', {
+        method: 'POST',
+        mode: 'cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId,
+          orderNumber,
+          imageBase64,
+          viasBase64,
+          copies: 1,
+          force,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (res.ok) {
+        const data = await res.json();
+        await cloudQueuedPromise;
+        return { ok: true, printer: data.printer, skipped: data.skipped };
+      }
     }
   } catch (_) {
-    // Local port blocked by HTTPS mixed-content; verify if Cloud Bridge is online
+    // Local port blocked by HTTPS mixed-content; verify if Cloud Bridge v5+ is online
   }
 
   const [cloudQueued, cloudBridge] = await Promise.all([
@@ -762,7 +833,11 @@ export async function sendToWindowsBridge(
     getCloudBridgeStatus(),
   ]);
 
-  if (cloudQueued && cloudBridge.connected) {
+  if (cloudBridge.connected && Number(cloudBridge.bridgeVersion || 1) < 5) {
+    return { ok: false, outdatedBridge: true };
+  }
+
+  if (cloudQueued && cloudBridge.connected && Number(cloudBridge.bridgeVersion || 1) >= 5) {
     return {
       ok: true,
       printer: cloudBridge.printerName || 'Impressora do Windows',
@@ -775,9 +850,9 @@ export async function sendToWindowsBridge(
 
 /**
  * Universal print handler that supports:
- * 0. Windows "Impressão Automática" Desktop Bridge (Local + Cloud Queue) - 100% silent on any Windows printer!
- * 1. WebUSB direct ESC/POS (if connected)
- * 2. Hidden isolated IFrame print (standard browser spooler without breaking the app UI)
+ * 0. Windows "Impressão Automática" v5 Visual Bitmap Bridge (Local + Cloud Queue)
+ * 1. WebUSB direct ESC/POS 1-bit Raster Bitmap (GS v 0)
+ * 2. Hidden isolated IFrame 1-bit Bitmap print (standard browser spooler without font substitution)
  * 3. Popup window print (fallback if iframe printing is sandboxed/blocked)
  */
 export async function executeUniversalPrint(
@@ -804,7 +879,7 @@ export async function executeUniversalPrint(
 
   const forcePrint = options?.force ?? true;
 
-  // 0. Send to Windows "Impressão Automática" App (Local + Cloud Queue)
+  // 0. Send to Windows "Impressão Automática" App (v5 Visual Engine)
   const bridgeResult = await sendToWindowsBridge(order, settings, forcePrint);
   if (bridgeResult.ok) {
     if (addToast && !bridgeResult.skipped) {
@@ -816,7 +891,7 @@ export async function executeUniversalPrint(
     return { success: true, method: 'windows_bridge' };
   }
 
-  // 1. WebUSB direct check (auto reconnect if device was previously paired)
+  // 1. WebUSB direct check (auto reconnect if device was previously paired) -> Prints 1-bit Raster Image (GS v 0)
   let usbStatus = getConnectedUsbPrinter();
   if (!usbStatus.connected) {
     usbStatus = await checkAndAutoReconnectUsbPrinter();
@@ -825,10 +900,10 @@ export async function executeUniversalPrint(
   if (usbStatus.connected) {
     try {
       if (settings.printCopies === 2) {
-        const kitchenData = buildReceiptEscPos(order, settings, true, 'VIA 1 - COZINHA');
+        const kitchenData = buildReceiptEscPos(order, settings, true, 'VIA 1 - COZINHA / PREPARO');
         await sendRawToUsbPrinter(kitchenData);
         await new Promise(r => setTimeout(r, 450));
-        const deliveryData = buildReceiptEscPos(order, settings, false, 'VIA 2 - ENTREGA');
+        const deliveryData = buildReceiptEscPos(order, settings, false, 'VIA 2 - ENTREGA / CLIENTE');
         await sendRawToUsbPrinter(deliveryData);
       } else {
         const singleData = buildReceiptEscPos(order, settings, false);
@@ -836,7 +911,7 @@ export async function executeUniversalPrint(
       }
 
       if (addToast) {
-        addToast({ message: 'Comanda impressa diretamente na impressora USB via ESC/POS!', type: 'success' });
+        addToast({ message: 'Comanda impressa diretamente na impressora USB com layout idêntico à prévia!', type: 'success' });
       }
       return { success: true, method: 'webusb' };
     } catch (err) {
@@ -844,10 +919,10 @@ export async function executeUniversalPrint(
     }
   }
 
-  // Build complete HTML for print
-  const pageHtml = buildCompletePrintPageHtml(order, settings);
+  // Build complete HTML with 1-bit Bitmap Image (autoPrintOnLoad = false because we trigger it cleanly below)
+  const pageHtml = buildCompletePrintPageHtml(order, settings, false);
 
-  // 2. Isolated hidden Iframe print (cleanest spooler printing, never blocked by popup blockers)
+  // 2. Isolated hidden Iframe print (waits for bitmap image to decode before calling print())
   try {
     const oldIframe = document.getElementById('nickel-print-frame');
     if (oldIframe) oldIframe.remove();
@@ -869,20 +944,26 @@ export async function executeUniversalPrint(
       doc.write(pageHtml);
       doc.close();
 
-      setTimeout(() => {
+      const triggerIframePrint = () => {
         try {
           iframe.contentWindow?.focus();
           iframe.contentWindow?.print();
           if (addToast) {
-            addToast({ message: 'Comanda enviada para a impressora!', type: 'info' });
+            addToast({
+              message: bridgeResult.outdatedBridge
+                ? 'Comanda enviada no novo formato visual! (Dica: Baixe novamente o App Windows na aba Impressão Automática para atualizar o modo silencioso).'
+                : 'Comanda enviada para a impressora com o layout exato da pré-visualização!',
+              type: 'info',
+            });
           }
         } catch (iframePrintErr) {
           console.warn('Iframe print bloqueado pelo sandbox, tentando popup ou fallback:', iframePrintErr);
           try {
+            const popupHtml = buildCompletePrintPageHtml(order, settings, true);
             const printWindow = window.open('', '_blank', 'width=420,height=650');
             if (printWindow) {
               printWindow.document.open();
-              printWindow.document.write(pageHtml);
+              printWindow.document.write(popupHtml);
               printWindow.document.close();
             } else {
               window.print();
@@ -891,7 +972,15 @@ export async function executeUniversalPrint(
             window.print();
           }
         }
-      }, 300);
+      };
+
+      const imgEl = doc.getElementById('comanda-bitmap-img') as HTMLImageElement | null;
+      if (imgEl && !imgEl.complete) {
+        imgEl.onload = () => setTimeout(triggerIframePrint, 80);
+        imgEl.onerror = () => setTimeout(triggerIframePrint, 80);
+      } else {
+        setTimeout(triggerIframePrint, 120);
+      }
 
       return { success: true, method: 'iframe_spooler' };
     }
@@ -923,21 +1012,26 @@ export async function executeUniversalPrint(
  */
 export function generateWindowsBridgeBatchScript(settings: PrinterSettings): string {
   const headerName = (settings.printHeader || 'NICKEL LANCHES').replace(/["'`$\\]/g, '');
-  const subHeader = (settings.printSubHeader || 'Delivery de Verdade!').replace(/["'`$\\]/g, '');
+  const subHeader = (settings.printSubHeader || 'DELIVERY DE VERDADE!').replace(/["'`$\\]/g, '');
   const phoneStr = (settings.printPhone || '(54) 99959-8389').replace(/["'`$\\]/g, '');
   const addressStr = (settings.printAddress || 'R. Uruguai, 919 - Petropolis - Passo Fundo - RS').replace(/["'`$\\]/g, '');
-  const footerStr = (settings.printFooter || 'Ate a proxima!').replace(/["'`$\\]/g, '');
+  const footerStr = (settings.printFooter || 'AGRADECEMOS A PREFERENCIA! BOM APETITE!').replace(/["'`$\\]/g, '');
   const copiesCount = settings.printCopies === 2 ? 2 : 1;
   const is58 = settings.printerType === 'thermal_58';
-  const fontSizePt = is58
-    ? (settings.fontSize === 'small' ? 7 : settings.fontSize === 'large' ? 8.5 : 7.5)
-    : (settings.fontSize === 'small' ? 7.5 : settings.fontSize === 'large' ? 9.5 : 8.5);
+  const rollW = is58 ? 186 : 278;
 
   const psLines: string[] = [
     '$ErrorActionPreference = "SilentlyContinue"',
     '[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12',
     '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8',
-    '$Host.UI.RawUI.WindowTitle = "Impressao Automatica - Nickel Lanches (SEMPRE LIGADO)"',
+    '$Host.UI.RawUI.WindowTitle = "Impressao Automatica v5 Visual - Nickel Lanches (SEMPRE LIGADO)"',
+    '',
+    '# Encerra qualquer instancia antiga em segundo plano para liberar a porta 4848 e evitar impressao em texto antigo',
+    'try {',
+    '  Get-CimInstance Win32_Process -Filter "Name = \'powershell.exe\'" | Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like "*NickelAutoPrint*" } | ForEach-Object {',
+    '    Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue',
+    '  }',
+    '} catch {}',
     '',
     'Add-Type -AssemblyName System.Drawing',
     '',
@@ -946,7 +1040,7 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '$printedFile = Join-Path $appDir "printed_orders.txt"',
     '$printedJobsFile = Join-Path $appDir "printed_jobs.txt"',
     '$printerPrefFile = Join-Path $appDir "selected_printer.txt"',
-    '$firstRunFile = Join-Path $appDir "first_run_v4.txt"',
+    '$firstRunFile = Join-Path $appDir "first_run_v5_visual.txt"',
     '',
     'if (-not (Test-Path $printedFile)) { New-Item -ItemType File -Path $printedFile -Force | Out-Null }',
     'if (-not (Test-Path $printedJobsFile)) { New-Item -ItemType File -Path $printedJobsFile -Force | Out-Null }',
@@ -1016,7 +1110,6 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '',
     '$script:selectedPrinter = Get-BestWindowsPrinter',
     '$script:printedSessionCount = 0',
-    '$script:currentPrintLines = @()',
     '',
     'function Clean-ThermalText([string]$txt) {',
     '  if (-not $txt) { return "" }',
@@ -1026,150 +1119,16 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '  return $s',
     '}',
     '',
-    'function Wrap-Text32([string]$rawText, [int]$maxCols = 32, [string]$indent = "") {',
-    '  $res = New-Object System.Collections.Generic.List[string]',
-    '  $clean = Clean-ThermalText $rawText',
-    '  if (-not $clean) { return $res }',
-    '  if ($clean.Length -le $maxCols) {',
-    '    $res.Add($clean)',
-    '    return $res',
-    '  }',
-    '  $words = $clean -split " "',
-    '  $cur = ""',
-    '  foreach ($w in $words) {',
-    '    if (-not $w) { continue }',
-    '    $pfx = if ($res.Count -eq 0) { "" } else { $indent }',
-    '    while ($w.Length -gt ($maxCols - $pfx.Length)) {',
-    '      if ($cur) {',
-    '        $res.Add(($cur -replace "\\s+-\\s*$", ""))',
-    '        $cur = ""',
-    '      }',
-    '      $pfx = if ($res.Count -eq 0) { "" } else { $indent }',
-    '      $chunk = $maxCols - $pfx.Length',
-    '      $res.Add($pfx + $w.Substring(0, $chunk))',
-    '      $w = $w.Substring($chunk)',
-    '    }',
-    '    if (-not $w) { continue }',
-    '    if (-not $cur) {',
-    '      if ($res.Count -gt 0 -and $w -eq "-") { continue }',
-    '      $cur = $pfx + $w',
-    '    } elseif (($cur.Length + 1 + $w.Length) -le $maxCols) {',
-    '      $cur = $cur + " " + $w',
-    '    } else {',
-    '      $res.Add(($cur -replace "\\s+-\\s*$", ""))',
-    '      if ($w -eq "-") {',
-    '        $cur = ""',
-    '      } else {',
-    '        $cur = $indent + $w',
-    '      }',
-    '    }',
-    '  }',
-    '  if ($cur) {',
-    '    $res.Add(($cur -replace "\\s+-\\s*$", ""))',
-    '  }',
-    '  return $res',
-    '}',
-    '',
-    'function Center-Text32([string]$rawText, [int]$maxCols = 32) {',
-    '  $res = New-Object System.Collections.Generic.List[string]',
-    '  $lines = Wrap-Text32 $rawText $maxCols ""',
-    '  foreach ($ln in $lines) {',
-    '    $t = $ln.Trim()',
-    '    if ($t.Length -ge $maxCols) {',
-    '      $res.Add($t.Substring(0, $maxCols))',
-    '    } else {',
-    '      $pad = [int][Math]::Floor(($maxCols - $t.Length) / 2)',
-    '      $res.Add((" " * $pad) + $t)',
-    '    }',
-    '  }',
-    '  return $res',
-    '}',
-    '',
-    'function Format-DotRow32([string]$left, [string]$right, [int]$maxCols = 32) {',
-    '  $res = New-Object System.Collections.Generic.List[string]',
-    '  $cl = Clean-ThermalText $left',
-    '  $cr = Clean-ThermalText $right',
-    '  if (-not $cr) {',
-    '    foreach ($l in (Wrap-Text32 $cl $maxCols "  ")) { $res.Add($l) }',
-    '    return $res',
-    '  }',
-    '  if (($cl.Length + 2 + $cr.Length) -le $maxCols) {',
-    '    $dots = $maxCols - $cl.Length - $cr.Length - 2',
-    '    if ($dots -ge 1) {',
-    '      $res.Add($cl + " " + ("." * $dots) + " " + $cr)',
-    '    } else {',
-    '      $spaces = $maxCols - $cl.Length - $cr.Length',
-    '      $res.Add($cl + (" " * $spaces) + $cr)',
-    '    }',
-    '    return $res',
-    '  }',
-    '  foreach ($l in (Wrap-Text32 $cl $maxCols "  ")) { $res.Add($l) }',
-    '  $vLabel = "   Subtotal:"',
-    '  $dots = [Math]::Max(1, ($maxCols - $vLabel.Length - $cr.Length - 2))',
-    '  $res.Add($vLabel + " " + ("." * $dots) + " " + $cr)',
-    '  return $res',
-    '}',
-    '',
-    'function Print-HtmlComanda([string]$htmlContent) {',
-    '  if (-not $htmlContent -or $htmlContent.Trim().Length -lt 30) { return $false }',
-    '  $targetPrinter = $script:selectedPrinter',
-    '  $edgePaths = @(',
-    '    "${env:ProgramFiles(x86)}\\Microsoft\\Edge\\Application\\msedge.exe",',
-    '    "$env:ProgramFiles\\Microsoft\\Edge\\Application\\msedge.exe",',
-    '    "$env:LOCALAPPDATA\\Microsoft\\Edge\\Application\\msedge.exe"',
-    '  )',
-    '  $edgeExe = ""',
-    '  foreach ($ep in $edgePaths) {',
-    '    if ($ep -and (Test-Path $ep)) { $edgeExe = $ep; break }',
-    '  }',
-    '  if ($edgeExe) {',
-    '    try {',
-    '      $tempHtml = Join-Path $appDir "comanda_current.html"',
-    '      [System.IO.File]::WriteAllText($tempHtml, $htmlContent, [System.Text.Encoding]::UTF8)',
-    '      $pArgs = if ($targetPrinter -and $targetPrinter -ne "Impressora Padrao do Windows") {',
-    '        "--headless --disable-gpu --run-all-compositor-stages-before-draw --print-to-printer=`"$targetPrinter`" `"$tempHtml`""',
-    '      } else {',
-    '        "--headless --disable-gpu --run-all-compositor-stages-before-draw --print-to-default-printer `"$tempHtml`""',
-    '      }',
-    '      $proc = Start-Process -FilePath $edgeExe -ArgumentList $pArgs -PassThru -WindowStyle Hidden',
-    '      $proc.WaitForExit(9000)',
-    '      $script:printedSessionCount++',
-    '      return $true',
-    '    } catch {}',
-    '  }',
-    '  return $false',
-    '}',
-    '',
-    'function Print-RawComanda([string]$comandaText) {',
-    '  $targetPrinter = $script:selectedPrinter',
-    '  $useTextOnly = ($targetPrinter -match "Generic|Text Only|Somente Texto")',
-    '',
-    '  $safeLines = New-Object System.Collections.Generic.List[string]',
-    '  foreach ($rawLn in ($comandaText -split "\\r?\\n")) {',
-    '    if (-not $rawLn -or $rawLn.Trim().Length -eq 0) {',
-    '      $safeLines.Add(" ")',
-    '      continue',
-    '    }',
-    '    $trimmed = $rawLn.TrimEnd()',
-    '    if ($trimmed.Length -le 34) {',
-    '      $safeLines.Add($trimmed)',
-    '    } else {',
-    '      foreach ($wln in (Wrap-Text32 $trimmed.Trim() 32 "  ")) {',
-    '        $safeLines.Add(" " + $wln)',
-    '      }',
-    '    }',
-    '  }',
-    '  $finalText = ($safeLines -join [Environment]::NewLine)',
-    '',
-    '  if ($useTextOnly) {',
-    '    try {',
-    '      $finalText | Out-Printer -Name $targetPrinter',
-    '      $script:printedSessionCount++',
-    '      return $true',
-    '    } catch {}',
-    '  }',
-    '',
+    '# Imprime a imagem PNG 1-bit exata gerada pelo navegador (100% identica a pre-visualizacao do site!)',
+    'function Print-Base64Image([string]$base64Str) {',
+    '  if (-not $base64Str -or $base64Str.Length -lt 50) { return $false }',
     '  try {',
+    '    $cleanB64 = $base64Str -replace "^data:image/\\w+;base64,", ""',
+    '    $bytes = [Convert]::FromBase64String($cleanB64)',
+    '    $ms = New-Object System.IO.MemoryStream(,$bytes)',
+    '    $bmp = [System.Drawing.Image]::FromStream($ms)',
+    '',
+    '    $targetPrinter = $script:selectedPrinter',
     '    $doc = New-Object System.Drawing.Printing.PrintDocument',
     '    if ($targetPrinter -and $targetPrinter -ne "Impressora Padrao do Windows") {',
     '      $doc.PrinterSettings.PrinterName = $targetPrinter',
@@ -1178,215 +1137,320 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '    $doc.DefaultPageSettings.Margins = New-Object System.Drawing.Printing.Margins(0, 0, 0, 0)',
     '    $doc.PrintController = New-Object System.Drawing.Printing.StandardPrintController',
     '',
-    '    $script:currentPrintLines = $safeLines',
+    '    $script:currentBmp = $bmp',
     '    $doc.add_PrintPage({',
     '      param($sender, $ev)',
-    '      $fontFamily = "Consolas"',
-    `      $testFont = New-Object System.Drawing.Font($fontFamily, ${fontSizePt}, [System.Drawing.FontStyle]::Bold)`,
-    '      if ($testFont.Name -ne $fontFamily) {',
-    `        $font = New-Object System.Drawing.Font("Courier New", ${fontSizePt}, [System.Drawing.FontStyle]::Bold)`,
-    '      } else {',
-    '        $font = $testFont',
+    '      $ev.Graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::NearestNeighbor',
+    '      $ev.Graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality',
+    '      $ev.Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None',
+    `      $destW = [float]${rollW}`,
+    '      $ratio = [float]$script:currentBmp.Height / [float]$script:currentBmp.Width',
+    '      $destH = [float]($destW * $ratio)',
+    '      $ev.Graphics.DrawImage($script:currentBmp, 0.0, 0.0, $destW, $destH)',
+    '      $ev.HasMorePages = $false',
+    '    })',
+    '    $doc.Print()',
+    '    $bmp.Dispose()',
+    '    $ms.Dispose()',
+    '    $script:printedSessionCount++',
+    '    return $true',
+    '  } catch {',
+    '    return $false',
+    '  }',
+    '}',
+    '',
+    '# Motor Grafico GDI+ que desenha o layout visual EXATO da previa (faixas pretas, badges 1x, caixas tracejadas)',
+    'function Print-VisualFirestoreOrder($docObj, [bool]$isKitchen, [string]$viaLabel) {',
+    '  try {',
+    '    $targetPrinter = $script:selectedPrinter',
+    '    $doc = New-Object System.Drawing.Printing.PrintDocument',
+    '    if ($targetPrinter -and $targetPrinter -ne "Impressora Padrao do Windows") {',
+    '      $doc.PrinterSettings.PrinterName = $targetPrinter',
+    '    }',
+    '    $doc.OriginAtMargins = $false',
+    '    $doc.DefaultPageSettings.Margins = New-Object System.Drawing.Printing.Margins(0, 0, 0, 0)',
+    '    $doc.PrintController = New-Object System.Drawing.Printing.StandardPrintController',
+    '',
+    '    $script:gdiDocObj = $docObj',
+    '    $script:gdiIsKitchen = $isKitchen',
+    '    $script:gdiViaLabel = $viaLabel',
+    '',
+    '    $doc.add_PrintPage({',
+    '      param($sender, $ev)',
+    '      $g = $ev.Graphics',
+    '      $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None',
+    '      $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::SingleBitPerPixelGridFit',
+    '',
+    `      $W = [float]${rollW}`,
+    '      $PAD = 4.0',
+    '      $CW = $W - ($PAD * 2.0)',
+    '      $y = 4.0',
+    '',
+    '      $ff = "Consolas"',
+    '      $fHeader    = New-Object System.Drawing.Font($ff, 13, [System.Drawing.FontStyle]::Bold)',
+    '      $fSub       = New-Object System.Drawing.Font($ff, 8,  [System.Drawing.FontStyle]::Bold)',
+    '      $fSmall     = New-Object System.Drawing.Font($ff, 7.5,[System.Drawing.FontStyle]::Regular)',
+    '      $fSmallBold = New-Object System.Drawing.Font($ff, 7.5,[System.Drawing.FontStyle]::Bold)',
+    '      $fOrderBig  = New-Object System.Drawing.Font($ff, 17, [System.Drawing.FontStyle]::Bold)',
+    '      $fBanner    = New-Object System.Drawing.Font($ff, 8.5,[System.Drawing.FontStyle]::Bold)',
+    '      $fItem      = New-Object System.Drawing.Font($ff, 9.5,[System.Drawing.FontStyle]::Bold)',
+    '      $fBodyBold  = New-Object System.Drawing.Font($ff, 8.5,[System.Drawing.FontStyle]::Bold)',
+    '      $fTotal     = New-Object System.Drawing.Font($ff, 10.5,[System.Drawing.FontStyle]::Bold)',
+    '',
+    '      $bBlack = [System.Drawing.Brushes]::Black',
+    '      $bWhite = [System.Drawing.Brushes]::White',
+    '      $pSolid2 = New-Object System.Drawing.Pen([System.Drawing.Color]::Black, 2)',
+    '      $pSolid1 = New-Object System.Drawing.Pen([System.Drawing.Color]::Black, 1)',
+    '      $pDash   = New-Object System.Drawing.Pen([System.Drawing.Color]::Black, 1.5)',
+    '      $pDash.DashStyle = [System.Drawing.Drawing2D.DashStyle]::Dash',
+    '      $pDot    = New-Object System.Drawing.Pen([System.Drawing.Color]::Black, 1.5)',
+    '      $pDot.DashStyle = [System.Drawing.Drawing2D.DashStyle]::Dot',
+    '',
+    '      $sfCenter = New-Object System.Drawing.StringFormat',
+    '      $sfCenter.Alignment = [System.Drawing.StringAlignment]::Center',
+    '      $sfRight = New-Object System.Drawing.StringFormat',
+    '      $sfRight.Alignment = [System.Drawing.StringAlignment]::Far',
+    '',
+    '      $f = $script:gdiDocObj.fields',
+    '      $docId = if ($script:gdiDocObj.name) { ($script:gdiDocObj.name -split "/")[-1] } else { "NKL1" }',
+    '      $orderNum = if ($f.orderNumber.integerValue) { [string]$f.orderNumber.integerValue } elseif ($f.orderNumber.doubleValue) { [string]$f.orderNumber.doubleValue } else { $docId.Substring(0, [Math]::Min(4, $docId.Length)).ToUpper() }',
+    '      $passStr = $docId.Substring(0, [Math]::Min(4, $docId.Length)).ToUpper()',
+    '      $userName = if ($f.userName.stringValue) { (Clean-ThermalText $f.userName.stringValue).ToUpper() } else { "BALCAO / CLIENTE" }',
+    '      $whatsapp = if ($f.whatsapp.stringValue) { Clean-ThermalText $f.whatsapp.stringValue } else { "" }',
+    '      $address = if ($f.address.stringValue) { Clean-ThermalText $f.address.stringValue } else { "Retirada no Balcao" }',
+    '      $region = if ($f.region.stringValue) { Clean-ThermalText $f.region.stringValue } else { "" }',
+    '      $payment = if ($f.paymentMethod.stringValue) { (Clean-ThermalText $f.paymentMethod.stringValue).ToUpper() } else { "PIX" }',
+    '      $changeFor = if ($f.changeFor.stringValue) { Clean-ThermalText $f.changeFor.stringValue } else { "" }',
+    '      $authCode = if ($f.receiptAuthCode.stringValue) { Clean-ThermalText $f.receiptAuthCode.stringValue } else { "" }',
+    '      $notes = if ($f.receiptNotes.stringValue) { Clean-ThermalText $f.receiptNotes.stringValue } else { "" }',
+    '      $totalPrice = if ($f.totalPrice.doubleValue) { [double]$f.totalPrice.doubleValue } elseif ($f.totalPrice.integerValue) { [double]$f.totalPrice.integerValue } else { 0 }',
+    '      $deliveryFee = if ($f.deliveryFee.doubleValue) { [double]$f.deliveryFee.doubleValue } elseif ($f.deliveryFee.integerValue) { [double]$f.deliveryFee.integerValue } else { 0 }',
+    '',
+    '      $dateStr = (Get-Date).ToString("dd/MM/yyyy") + " as " + (Get-Date).ToString("HH:mm")',
+    '      if ($f.createdAt.timestampValue) {',
+    '        try {',
+    '          $dt = [DateTime]::Parse($f.createdAt.timestampValue).ToLocalTime()',
+    '          $dateStr = $dt.ToString("dd/MM/yyyy") + " as " + $dt.ToString("HH:mm")',
+    '        } catch {}',
     '      }',
-    '      $fontTitle = New-Object System.Drawing.Font($font.FontFamily, ($font.Size + 3), [System.Drawing.FontStyle]::Bold)',
-    '      $brush = [System.Drawing.Brushes]::Black',
-    '      $whiteBrush = [System.Drawing.Brushes]::White',
-    '      $blackBrush = [System.Drawing.Brushes]::Black',
-    '      $blackPen2 = New-Object System.Drawing.Pen([System.Drawing.Color]::Black, 2)',
-    '      $grayPen1 = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(120, 120, 120), 1)',
-    '      $y = 6',
-    '      $lineHeight = $font.GetHeight($ev.Graphics) + 2',
-    '      $rollWidth = 276',
-    '      foreach ($ln in $script:currentPrintLines) {',
-    '        $trimmed = $ln.Trim()',
-    '        if ($trimmed -match "^\\*\\*\\*\\s*PEDIDO") {',
-    '          $ev.Graphics.FillRectangle($blackBrush, 2, $y, $rollWidth, $lineHeight + 6)',
-    '          $ev.Graphics.DrawString($trimmed, $fontTitle, $whiteBrush, 4, $y + 2)',
-    '          $y += ($lineHeight + 8)',
-    '        } elseif ($trimmed -eq "ITENS DO PEDIDO" -or $trimmed -eq "PREPARO DA COZINHA" -or $trimmed -match "^\\[\\s*VIA\\s*\\d") {',
-    '          $ev.Graphics.FillRectangle($blackBrush, 2, $y, $rollWidth, $lineHeight + 3)',
-    '          $ev.Graphics.DrawString($trimmed, $font, $whiteBrush, 4, $y + 1)',
-    '          $y += ($lineHeight + 5)',
-    '        } elseif ($trimmed -match "PEDIDO PAGO E CONFIRMADO") {',
-    '          $ev.Graphics.FillRectangle($blackBrush, 2, $y, $rollWidth, $lineHeight + 3)',
-    '          $ev.Graphics.DrawString($trimmed, $font, $whiteBrush, 4, $y + 1)',
-    '          $y += ($lineHeight + 5)',
-    '        } elseif ($trimmed -match "^={10,}") {',
-    '          $ev.Graphics.DrawLine($blackPen2, 2, $y + [int]($lineHeight/2), $rollWidth, $y + [int]($lineHeight/2))',
-    '          $y += [int]($lineHeight * 0.75)',
-    '        } elseif ($trimmed -match "^-{10,}") {',
-    '          $ev.Graphics.DrawLine($grayPen1, 2, $y + [int]($lineHeight/2), $rollWidth, $y + [int]($lineHeight/2))',
-    '          $y += [int]($lineHeight * 0.75)',
-    '        } else {',
-    '          $ev.Graphics.DrawString($ln, $font, $brush, 4, $y)',
-    '          $y += $lineHeight',
+    '',
+    '      # 1. CABECALHO',
+    `      $g.DrawString("${headerName}".ToUpper(), $fHeader, $bBlack, (New-Object System.Drawing.RectangleF($PAD, $y, $CW, 22)), $sfCenter)`,
+    '      $y += 20',
+    `      if ("${subHeader}") {`,
+    `        $g.DrawString("${subHeader}".ToUpper(), $fSub, $bBlack, (New-Object System.Drawing.RectangleF($PAD, $y, $CW, 15)), $sfCenter)`,
+    '        $y += 14',
+    '      }',
+    `      if ("${phoneStr}") {`,
+    `        $g.DrawString("Tel/WhatsApp: ${phoneStr}", $fSmallBold, $bBlack, (New-Object System.Drawing.RectangleF($PAD, $y, $CW, 14)), $sfCenter)`,
+    '        $y += 13',
+    '      }',
+    `      if ("${addressStr}") {`,
+    `        $addrSz = $g.MeasureString("${addressStr}", $fSmall, [int]$CW)`,
+    `        $g.DrawString("${addressStr}", $fSmall, $bBlack, (New-Object System.Drawing.RectangleF($PAD, $y, $CW, $addrSz.Height + 2)), $sfCenter)`,
+    '        $y += $addrSz.Height + 2',
+    '      }',
+    '      if ($script:gdiViaLabel) {',
+    '        $y += 2',
+    '        $g.FillRectangle($bBlack, $PAD + 20, $y, $CW - 40, 16)',
+    '        $g.DrawString($script:gdiViaLabel.ToUpper(), $fSmallBold, $bWhite, (New-Object System.Drawing.RectangleF($PAD, $y + 1, $CW, 15)), $sfCenter)',
+    '        $y += 18',
+    '      }',
+    '      $y += 4',
+    '      $g.FillRectangle($bBlack, $PAD, $y, $CW, 2.5)',
+    '      $y += 7',
+    '',
+    '      # 2. CAIXA PRETA PEDIDO #',
+    '      $boxH = 42.0',
+    '      $g.FillRectangle($bBlack, $PAD, $y, $CW, $boxH)',
+    '      $g.DrawString(("PEDIDO #" + $orderNum), $fOrderBig, $bWhite, (New-Object System.Drawing.RectangleF($PAD, $y + 3, $CW, 26)), $sfCenter)',
+    '      $g.DrawString(("SENHA: " + $passStr), $fSmallBold, $bWhite, (New-Object System.Drawing.RectangleF($PAD, $y + 27, $CW, 14)), $sfCenter)',
+    '      $y += $boxH + 5',
+    '',
+    '      $g.DrawString(("Data/Hora: " + $dateStr), $fSmallBold, $bBlack, (New-Object System.Drawing.RectangleF($PAD, $y, $CW, 14)), $sfCenter)',
+    '      $y += 16',
+    '      $g.DrawLine($pDot, $PAD, $y, $W - $PAD, $y)',
+    '      $y += 5',
+    '',
+    '      # 3. DADOS DO CLIENTE E CAIXA TRACEJADA DE ENDERECO',
+    '      $cliSz = $g.MeasureString(("Cliente: " + $userName), $fBodyBold, [int]$CW)',
+    '      $g.DrawString(("Cliente: " + $userName), $fBodyBold, $bBlack, (New-Object System.Drawing.RectangleF($PAD, $y, $CW, $cliSz.Height + 2)))',
+    '      $y += $cliSz.Height + 1',
+    '      if ($whatsapp) {',
+    '        $g.DrawString(("WhatsApp: " + $whatsapp), $fSmallBold, $bBlack, $PAD, $y)',
+    '        $y += 14',
+    '      }',
+    '      $y += 3',
+    '      $fullAddr = if ($region -and ($address.ToLower() -notmatch [Regex]::Escape($region.ToLower()))) { $address + " (" + $region + ")" } else { $address }',
+    '      $addrBoxSz = $g.MeasureString($fullAddr, $fSmallBold, [int]($CW - 12))',
+    '      $addrBoxH = $addrBoxSz.Height + 21',
+    '      $g.DrawRectangle($pDash, $PAD, $y, $CW, $addrBoxH)',
+    '      $g.DrawString("ENDERECO DE ENTREGA:", $fSmallBold, $bBlack, $PAD + 5, $y + 4)',
+    '      $g.DrawString($fullAddr, $fSmallBold, $bBlack, (New-Object System.Drawing.RectangleF($PAD + 5, $y + 17, $CW - 10, $addrBoxSz.Height + 2)))',
+    '      $y += $addrBoxH + 5',
+    '',
+    '      if ($notes) {',
+    '        $obsTxt = "Obs. Entrega: " + $notes',
+    '        $obsSz = $g.MeasureString($obsTxt, $fSmallBold, [int]($CW - 14))',
+    '        $obsH = $obsSz.Height + 8',
+    '        $g.FillRectangle($bBlack, $PAD, $y, 3.5, $obsH)',
+    '        $g.DrawLine($pSolid1, $PAD, $y, $W - $PAD, $y)',
+    '        $g.DrawLine($pSolid1, $PAD, $y + $obsH, $W - $PAD, $y + $obsH)',
+    '        $g.DrawString($obsTxt, $fSmallBold, $bBlack, (New-Object System.Drawing.RectangleF($PAD + 7, $y + 4, $CW - 10, $obsSz.Height + 2)))',
+    '        $y += $obsH + 5',
+    '      }',
+    '',
+    '      $g.FillRectangle($bBlack, $PAD, $y, $CW, 2.5)',
+    '      $y += 6',
+    '',
+    '      # 4. FAIXA PRETA ITENS DO PEDIDO',
+    '      $secTitle = if ($script:gdiIsKitchen) { "PREPARO DA COZINHA" } else { "ITENS DO PEDIDO" }',
+    '      $g.FillRectangle($bBlack, $PAD, $y, $CW, 20)',
+    '      $g.DrawString($secTitle, $fBanner, $bWhite, (New-Object System.Drawing.RectangleF($PAD, $y + 3, $CW, 16)), $sfCenter)',
+    '      $y += 26',
+    '',
+    '      # 5. LISTA DE ITENS COM BADGE PRETO [1x] E CAIXA TRACEJADA DE OBS',
+    '      $subtotalSum = 0.0',
+    '      if ($f.items.arrayValue.values) {',
+    '        foreach ($itemVal in $f.items.arrayValue.values) {',
+    '          $im = $itemVal.mapValue.fields',
+    '          $qty = if ($im.quantity.integerValue) { [int]$im.quantity.integerValue } elseif ($im.quantity.doubleValue) { [int]$im.quantity.doubleValue } else { 1 }',
+    '          $iname = if ($im.name.stringValue) { (Clean-ThermalText $im.name.stringValue).ToUpper() } else { "ITEM" }',
+    '          $iprice = if ($im.price.doubleValue) { [double]$im.price.doubleValue } elseif ($im.price.integerValue) { [double]$im.price.integerValue } else { 0.0 }',
+    '',
+    '          $extrasSum = 0.0',
+    '          if ($im.extras.arrayValue.values) {',
+    '            foreach ($exVal in $im.extras.arrayValue.values) {',
+    '              $em = $exVal.mapValue.fields',
+    '              $eprice = if ($em.price.doubleValue) { [double]$em.price.doubleValue } elseif ($em.price.integerValue) { [double]$em.price.integerValue } else { 0.0 }',
+    '              $extrasSum += $eprice',
+    '            }',
+    '          }',
+    '          $lineTotal = ($iprice + $extrasSum) * $qty',
+    '          $subtotalSum += $lineTotal',
+    '',
+    '          $qtyStr = [string]$qty + "x"',
+    '          $badgeW = 24.0',
+    '          $badgeH = 16.0',
+    '          $g.FillRectangle($bBlack, $PAD, $y, $badgeW, $badgeH)',
+    '          $g.DrawString($qtyStr, $fSmallBold, $bWhite, (New-Object System.Drawing.RectangleF($PAD, $y + 1.5, $badgeW, $badgeH)), $sfCenter)',
+    '',
+    '          $priceStr = if (-not $script:gdiIsKitchen) { "R$ " + $lineTotal.ToString("N2") } else { "" }',
+    '          $priceW = if ($priceStr) { 68.0 } else { 0.0 }',
+    '          if ($priceStr) {',
+    '            $g.DrawString($priceStr, $fBodyBold, $bBlack, (New-Object System.Drawing.RectangleF($W - $PAD - $priceW, $y + 1, $priceW, 16)), $sfRight)',
+    '          }',
+    '',
+    '          $nameW = $CW - $badgeW - $priceW - 6.0',
+    '          $nameSz = $g.MeasureString($iname, $fItem, [int]$nameW)',
+    '          $g.DrawString($iname, $fItem, $bBlack, (New-Object System.Drawing.RectangleF($PAD + $badgeW + 4, $y, $nameW, $nameSz.Height + 2)))',
+    '          $y += [Math]::Max($badgeH, $nameSz.Height) + 4',
+    '',
+    '          if ($im.extras.arrayValue.values -and $im.extras.arrayValue.values.Count -gt 0) {',
+    '            $exStartY = $y',
+    '            $g.DrawString("ADICIONAIS:", $fSmallBold, $bBlack, $PAD + 10, $y)',
+    '            $y += 13',
+    '            foreach ($exVal in $im.extras.arrayValue.values) {',
+    '              $em = $exVal.mapValue.fields',
+    '              $ename = if ($em.name.stringValue) { Clean-ThermalText $em.name.stringValue } else { "" }',
+    '              $eprice = if ($em.price.doubleValue) { [double]$em.price.doubleValue } elseif ($em.price.integerValue) { [double]$em.price.integerValue } else { 0.0 }',
+    '              if ($ename) {',
+    '                $epStr = if (-not $script:gdiIsKitchen) { if ($eprice -gt 0) { "+R$ " + $eprice.ToString("N2") } else { "Incluso" } } else { "" }',
+    '                if ($epStr) {',
+    '                  $g.DrawString($epStr, $fSmallBold, $bBlack, (New-Object System.Drawing.RectangleF($W - $PAD - 65, $y, 65, 14)), $sfRight)',
+    '                }',
+    '                $exSz = $g.MeasureString(("+ " + $ename), $fSmallBold, [int]($CW - 78))',
+    '                $g.DrawString(("+ " + $ename), $fSmallBold, $bBlack, (New-Object System.Drawing.RectangleF($PAD + 10, $y, $CW - 78, $exSz.Height + 2)))',
+    '                $y += $exSz.Height + 1',
+    '              }',
+    '            }',
+    '            $g.FillRectangle($bBlack, $PAD + 3, $exStartY, 3.0, ($y - $exStartY))',
+    '            $y += 3',
+    '          }',
+    '',
+    '          if ($im.observation.stringValue -and $im.observation.stringValue.Trim()) {',
+    '            $obsItemTxt = ">> OBS: " + (Clean-ThermalText $im.observation.stringValue).ToUpper()',
+    '            $obsItemSz = $g.MeasureString($obsItemTxt, $fSmallBold, [int]($CW - 14))',
+    '            $obsItemH = $obsItemSz.Height + 8',
+    '            $g.DrawRectangle($pDash, $PAD, $y, $CW, $obsItemH)',
+    '            $g.FillRectangle($bBlack, $PAD, $y, 3.5, $obsItemH)',
+    '            $g.DrawString($obsItemTxt, $fSmallBold, $bBlack, (New-Object System.Drawing.RectangleF($PAD + 7, $y + 4, $CW - 11, $obsItemSz.Height + 2)))',
+    '            $y += $obsItemH + 4',
+    '          }',
+    '',
+    '          $y += 2',
+    '          $g.FillRectangle($bBlack, $PAD, $y, $CW, 2.0)',
+    '          $y += 6',
     '        }',
     '      }',
+    '',
+    '      # 6. TOTAIS E FAIXA PRETA DE PAGAMENTO',
+    '      if (-not $script:gdiIsKitchen) {',
+    '        $calcSub = if ($subtotalSum -gt 0) { $subtotalSum } else { $totalPrice - $deliveryFee }',
+    '        $discount = [Math]::Max(0.0, ($calcSub + $deliveryFee) - $totalPrice)',
+    '        if ($deliveryFee -gt 0 -or $discount -gt 0.01) {',
+    '          $g.DrawString("Subtotal Itens:", $fSmallBold, $bBlack, $PAD, $y)',
+    '          $g.DrawString(("R$ " + $calcSub.ToString("N2")), $fSmallBold, $bBlack, (New-Object System.Drawing.RectangleF($PAD, $y, $CW, 14)), $sfRight)',
+    '          $y += 14',
+    '        }',
+    '        if ($discount -gt 0.01) {',
+    '          $g.DrawString("Desconto:", $fSmallBold, $bBlack, $PAD, $y)',
+    '          $g.DrawString(("-R$ " + $discount.ToString("N2")), $fSmallBold, $bBlack, (New-Object System.Drawing.RectangleF($PAD, $y, $CW, 14)), $sfRight)',
+    '          $y += 14',
+    '        }',
+    '        if ($deliveryFee -gt 0) {',
+    '          $g.DrawString("Taxa de Entrega:", $fSmallBold, $bBlack, $PAD, $y)',
+    '          $g.DrawString(("R$ " + $deliveryFee.ToString("N2")), $fSmallBold, $bBlack, (New-Object System.Drawing.RectangleF($PAD, $y, $CW, 14)), $sfRight)',
+    '          $y += 15',
+    '        }',
+    '',
+    '        $g.FillRectangle($bBlack, $PAD, $y, $CW, 2.5)',
+    '        $y += 5',
+    '        $g.DrawString("TOTAL DO PEDIDO:", $fBodyBold, $bBlack, $PAD, $y + 1)',
+    '        $g.DrawString(("R$ " + $totalPrice.ToString("N2")), $fTotal, $bBlack, (New-Object System.Drawing.RectangleF($PAD, $y - 1, $CW, 18)), $sfRight)',
+    '        $y += 18',
+    '        $g.FillRectangle($bBlack, $PAD, $y, $CW, 2.5)',
+    '        $y += 6',
+    '',
+    '        $isDocPaid = if ($f.isPaid.booleanValue -eq $true -or $f.paymentStatus.stringValue -eq "pago" -or ($payment.Contains("APROVADO") -or $payment.Contains("STRIPE"))) { $true } else { $false }',
+    '        $payBanner = if ($isDocPaid) { ">>> PEDIDO PAGO E CONFIRMADO <<<" } else { ">>> AGUARDANDO PAGAMENTO <<<" }',
+    '        $g.FillRectangle($bBlack, $PAD, $y, $CW, 18)',
+    '        $g.DrawString($payBanner, $fSmallBold, $bWhite, (New-Object System.Drawing.RectangleF($PAD, $y + 2.5, $CW, 14)), $sfCenter)',
+    '        $y += 22',
+    '',
+    '        $g.DrawString(("Pagamento: " + $payment), $fSmallBold, $bBlack, $PAD, $y)',
+    '        $y += 13',
+    '        $g.DrawString(("Status: " + (if ($isDocPaid) { "PAGO" } else { "AGUARDANDO PAGAMENTO" })), $fSmallBold, $bBlack, $PAD, $y)',
+    '        $y += 14',
+    '        if ($changeFor) {',
+    '          $g.DrawString(("Troco para: R$ " + $changeFor), $fSmallBold, $bBlack, $PAD, $y)',
+    '          $y += 14',
+    '        }',
+    '        if ($authCode) {',
+    '          $g.DrawRectangle($pSolid1, $PAD, $y, $CW, 16)',
+    '          $g.DrawString(("Autenticacao: " + $authCode), $fSmall, $bBlack, $PAD + 4, $y + 2)',
+    '          $y += 20',
+    '        }',
+    '      }',
+    '',
+    '      # 7. RODAPE',
+    '      $y += 4',
+    '      $g.DrawLine($pDash, $PAD, $y, $W - $PAD, $y)',
+    '      $y += 6',
+    `      if ("${footerStr}") {`,
+    `        $ftSz = $g.MeasureString("${footerStr}".ToUpper(), $fSmallBold, [int]$CW)`,
+    `        $g.DrawString("${footerStr}".ToUpper(), $fSmallBold, $bBlack, (New-Object System.Drawing.RectangleF($PAD, $y, $CW, $ftSz.Height + 2)), $sfCenter)`,
+    '        $y += $ftSz.Height + 2',
+    '      }',
+    '      $g.DrawString("*** ATE A PROXIMA! ***", $fSmallBold, $bBlack, (New-Object System.Drawing.RectangleF($PAD, $y, $CW, 14)), $sfCenter)',
     '      $ev.HasMorePages = $false',
     '    })',
     '    $doc.Print()',
     '    $script:printedSessionCount++',
     '    return $true',
     '  } catch {',
-    '    try {',
-    '      if ($targetPrinter -and $targetPrinter -ne "Impressora Padrao do Windows") {',
-    '        $finalText | Out-Printer -Name $targetPrinter',
-    '      } else {',
-    '        $finalText | Out-Printer',
-    '      }',
-    '      $script:printedSessionCount++',
-    '      return $true',
-    '    } catch {',
-    '      Write-Host "  [X] Erro ao enviar para impressora." -ForegroundColor Red',
-    '      return $false',
-    '    }',
+    '    return $false',
     '  }',
-    '}',
-    '',
-    'function Format-FirestoreOrder($docObj, [bool]$isKitchen, [string]$viaLabel) {',
-    '  $f = $docObj.fields',
-    '  $docId = ($docObj.name -split "/")[-1]',
-    '  $orderNum = if ($f.orderNumber.integerValue) { [string]$f.orderNumber.integerValue } elseif ($f.orderNumber.doubleValue) { [string]$f.orderNumber.doubleValue } else { $docId.Substring(0, [Math]::Min(4, $docId.Length)).ToUpper() }',
-    '  $userName = if ($f.userName.stringValue) { (Clean-ThermalText $f.userName.stringValue).ToUpper() } else { "BALCAO / CLIENTE" }',
-    '  $whatsapp = if ($f.whatsapp.stringValue) { Clean-ThermalText $f.whatsapp.stringValue } else { "" }',
-    '  $address = if ($f.address.stringValue) { Clean-ThermalText $f.address.stringValue } else { "Retirada no Balcao" }',
-    '  $region = if ($f.region.stringValue) { Clean-ThermalText $f.region.stringValue } else { "" }',
-    '  $payment = if ($f.paymentMethod.stringValue) { (Clean-ThermalText $f.paymentMethod.stringValue).ToUpper() } else { "A CONFIRMAR" }',
-    '  $changeFor = if ($f.changeFor.stringValue) { Clean-ThermalText $f.changeFor.stringValue } else { "" }',
-    '  $authCode = if ($f.receiptAuthCode.stringValue) { Clean-ThermalText $f.receiptAuthCode.stringValue } else { "" }',
-    '  $notes = if ($f.receiptNotes.stringValue) { Clean-ThermalText $f.receiptNotes.stringValue } else { "" }',
-    '  $totalPrice = if ($f.totalPrice.doubleValue) { [double]$f.totalPrice.doubleValue } elseif ($f.totalPrice.integerValue) { [double]$f.totalPrice.integerValue } else { 0 }',
-    '  $deliveryFee = if ($f.deliveryFee.doubleValue) { [double]$f.deliveryFee.doubleValue } elseif ($f.deliveryFee.integerValue) { [double]$f.deliveryFee.integerValue } else { 0 }',
-    '',
-    '  $dateStr = (Get-Date).ToString("dd/MM/yyyy HH:mm")',
-    '  if ($f.createdAt.timestampValue) {',
-    '    try {',
-    '      $dt = [DateTime]::Parse($f.createdAt.timestampValue).ToLocalTime()',
-    '      $dateStr = $dt.ToString("dd/MM/yyyy HH:mm")',
-    '    } catch {}',
-    '  }',
-    '',
-    '  $dline = "================================"',
-    '  $line  = "--------------------------------"',
-    '  $out = New-Object System.Collections.Generic.List[string]',
-    '',
-    '  $out.Add(" " + $dline)',
-    `  foreach ($cl in (Center-Text32 "${headerName}" 32)) { $out.Add(" " + $cl) }`,
-    `  if ("${subHeader}") { foreach ($cl in (Center-Text32 "${subHeader}" 32)) { $out.Add(" " + $cl) } }`,
-    `  if ("${phoneStr}") { foreach ($cl in (Center-Text32 "Tel/WhatsApp: ${phoneStr}" 32)) { $out.Add(" " + $cl) } }`,
-    `  if ("${addressStr}") { foreach ($cl in (Center-Text32 "${addressStr}" 32)) { $out.Add(" " + $cl) } }`,
-    '  if ($viaLabel) {',
-    '    $out.Add(" " + $line)',
-    '    foreach ($cl in (Center-Text32 ("[ " + $viaLabel + " ]") 32)) { $out.Add(" " + $cl) }',
-    '  }',
-    '  $out.Add(" " + $dline)',
-    '',
-    '  $passStr = $docId.Substring(0, [Math]::Min(4, $docId.Length)).ToUpper()',
-    '  foreach ($dl in (Format-DotRow32 ("PEDIDO #" + $orderNum) ("SENHA: " + $passStr) 32)) { $out.Add(" " + $dl) }',
-    '  foreach ($wl in (Wrap-Text32 ("Data/Hora: " + $dateStr) 32 "  ")) { $out.Add(" " + $wl) }',
-    '  $out.Add(" " + $line)',
-    '  foreach ($wl in (Wrap-Text32 ("Cliente: " + $userName) 32 "  ")) { $out.Add(" " + $wl) }',
-    '  if ($whatsapp) {',
-    '    foreach ($wl in (Wrap-Text32 ("WhatsApp: " + $whatsapp) 32 "  ")) { $out.Add(" " + $wl) }',
-    '  }',
-    '  $fullAddr = if ($region -and ($address.ToLower() -notmatch [Regex]::Escape($region.ToLower()))) { $address + " (" + $region + ")" } else { $address }',
-    '  foreach ($wl in (Wrap-Text32 ("Entrega: " + $fullAddr) 32 "  ")) { $out.Add(" " + $wl) }',
-    '  if ($notes) {',
-    '    foreach ($wl in (Wrap-Text32 ("Obs. Entrega: " + $notes) 32 "  ")) { $out.Add(" " + $wl) }',
-    '  }',
-    '',
-    '  $out.Add(" " + $dline)',
-    '  $secTitle = if ($isKitchen) { "PREPARO DA COZINHA" } else { "ITENS DO PEDIDO" }',
-    '  foreach ($cl in (Center-Text32 $secTitle 32)) { $out.Add(" " + $cl) }',
-    '  $out.Add(" " + $line)',
-    '',
-    '  $subtotalSum = 0',
-    '  if ($f.items.arrayValue.values) {',
-    '    $itemsCount = $f.items.arrayValue.values.Count',
-    '    for ($idx = 0; $idx -lt $itemsCount; $idx++) {',
-    '      $itemVal = $f.items.arrayValue.values[$idx]',
-    '      $im = $itemVal.mapValue.fields',
-    '      $qty = if ($im.quantity.integerValue) { [int]$im.quantity.integerValue } elseif ($im.quantity.doubleValue) { [int]$im.quantity.doubleValue } else { 1 }',
-    '      $iname = if ($im.name.stringValue) { (Clean-ThermalText $im.name.stringValue).ToUpper() } else { "ITEM" }',
-    '      $iprice = if ($im.price.doubleValue) { [double]$im.price.doubleValue } elseif ($im.price.integerValue) { [double]$im.price.integerValue } else { 0 }',
-    '',
-    '      $extrasSum = 0',
-    '      $extrasList = New-Object System.Collections.Generic.List[string]',
-    '      if ($im.extras.arrayValue.values) {',
-    '        foreach ($exVal in $im.extras.arrayValue.values) {',
-    '          $em = $exVal.mapValue.fields',
-    '          $ename = if ($em.name.stringValue) { Clean-ThermalText $em.name.stringValue } else { "" }',
-    '          $eprice = if ($em.price.doubleValue) { [double]$em.price.doubleValue } elseif ($em.price.integerValue) { [double]$em.price.integerValue } else { 0 }',
-    '          $extrasSum += $eprice',
-    '          if ($ename) {',
-    '            if ($isKitchen) {',
-    '              foreach ($wl in (Wrap-Text32 ("  + " + $ename) 32 "    ")) { $extrasList.Add(" " + $wl) }',
-    '            } else {',
-    '              $epStr = if ($eprice -gt 0) { "+R$ " + $eprice.ToString("N2") } else { "Incluso" }',
-    '              foreach ($dl in (Format-DotRow32 ("  + " + $ename) $epStr 32)) { $extrasList.Add(" " + $dl) }',
-    '            }',
-    '          }',
-    '        }',
-    '      }',
-    '',
-    '      $lineTotal = ($iprice + $extrasSum) * $qty',
-    '      $subtotalSum += $lineTotal',
-    '      $itemHead = [string]$qty + "x " + $iname',
-    '      if ($isKitchen) {',
-    '        foreach ($wl in (Wrap-Text32 $itemHead 32 "   ")) { $out.Add(" " + $wl) }',
-    '      } else {',
-    '        foreach ($dl in (Format-DotRow32 $itemHead ("R$ " + $lineTotal.ToString("N2")) 32)) { $out.Add(" " + $dl) }',
-    '      }',
-    '      foreach ($el in $extrasList) { $out.Add($el) }',
-    '',
-    '      if ($im.observation.stringValue -and $im.observation.stringValue.Trim()) {',
-    '        $obsClean = (Clean-ThermalText $im.observation.stringValue).ToUpper()',
-    '        foreach ($wl in (Wrap-Text32 ("  >> OBS: " + $obsClean) 32 "     ")) { $out.Add(" " + $wl) }',
-    '      }',
-    '      if ($idx -lt ($itemsCount - 1)) {',
-    '        $out.Add("  - - - - - - - - - - - - - - - -")',
-    '      }',
-    '    }',
-    '  }',
-    '',
-    '  if (-not $isKitchen) {',
-    '    $out.Add(" " + $dline)',
-    '    $calcSub = if ($subtotalSum -gt 0) { $subtotalSum } else { $totalPrice - $deliveryFee }',
-    '    $discount = [Math]::Max(0, ($calcSub + $deliveryFee) - $totalPrice)',
-    '    if ($deliveryFee -gt 0 -or $discount -gt 0.01) {',
-    '      foreach ($dl in (Format-DotRow32 "Subtotal Itens:" ("R$ " + $calcSub.ToString("N2")) 32)) { $out.Add(" " + $dl) }',
-    '    }',
-    '    if ($discount -gt 0.01) {',
-    '      foreach ($dl in (Format-DotRow32 "Desconto:" ("-R$ " + $discount.ToString("N2")) 32)) { $out.Add(" " + $dl) }',
-    '    }',
-    '    if ($deliveryFee -gt 0) {',
-    '      foreach ($dl in (Format-DotRow32 "Taxa de Entrega:" ("R$ " + $deliveryFee.ToString("N2")) 32)) { $out.Add(" " + $dl) }',
-    '    }',
-    '    $out.Add(" " + $line)',
-    '    foreach ($dl in (Format-DotRow32 "TOTAL DO PEDIDO:" ("R$ " + $totalPrice.ToString("N2")) 32)) { $out.Add(" " + $dl) }',
-    '    $out.Add(" " + $line)',
-    '    $isDocPaid = if ($f.isPaid.booleanValue -eq $true -or $f.paymentStatus.stringValue -eq "pago" -or ($payment.Contains("APROVADO") -or $payment.Contains("STRIPE"))) { $true } else { $false }',
-    '    if ($isDocPaid) {',
-    '      foreach ($cl in (Center-Text32 ">>> PEDIDO PAGO E CONFIRMADO <<<" 32)) { $out.Add(" " + $cl) }',
-    '      $out.Add(" " + $line)',
-    '    }',
-    '    foreach ($wl in (Wrap-Text32 ("Status: " + (if ($isDocPaid) { "PAGO" } else { "AGUARDANDO PAGAMENTO" })) 32 "  ")) { $out.Add(" " + $wl) }',
-    '    foreach ($wl in (Wrap-Text32 ("Pagamento: " + $payment) 32 "  ")) { $out.Add(" " + $wl) }',
-    '    if ($changeFor) {',
-    '      foreach ($dl in (Format-DotRow32 "Troco para:" ("R$ " + $changeFor) 32)) { $out.Add(" " + $dl) }',
-    '    }',
-    '    if ($authCode) {',
-    '      foreach ($wl in (Wrap-Text32 ("Autenticacao: " + $authCode) 32 "  ")) { $out.Add(" " + $wl) }',
-    '    }',
-    '  }',
-    '',
-    '  $out.Add(" " + $dline)',
-    `  if ("${footerStr}") { foreach ($cl in (Center-Text32 "${footerStr}" 32)) { $out.Add(" " + $cl) } }`,
-    '  foreach ($cl in (Center-Text32 "ATE A PROXIMA!" 32)) { $out.Add(" " + $cl) }',
-    '  $out.Add(" " + $dline)',
-    '  $out.Add(" ")',
-    '  $out.Add(" ")',
-    '  return ($out -join [Environment]::NewLine)',
     '}',
     '',
     '$baseDbUrl = "https://firestore.googleapis.com/v1/projects/gen-lang-client-0312540102/databases/ai-studio-nickellanches-8133d702-5451-4be1-a259-e8090108c42a/documents"',
@@ -1405,6 +1469,7 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '        printedCount = @{ integerValue = $pCount }',
     '        lastSeenMs = @{ integerValue = $nowMs }',
     '        autoStartEnabled = @{ booleanValue = $true }',
+    '        bridgeVersion = @{ integerValue = "5" }',
     '      }',
     '    }',
     '    $bodyJson = $bodyObj | ConvertTo-Json -Compress -Depth 6',
@@ -1414,44 +1479,77 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '}',
     '',
     'function Print-SampleTestTicket {',
-    '  $nowStr = (Get-Date).ToString("dd/MM/yyyy HH:mm:ss")',
-    '  $t = @(',
-    '    "================================",',
-    `    "${headerName}",`,
-    '    "IMPRESSAO AUTOMATICA - WINDOWS",',
-    '    "--------------------------------",',
-    '    ("Data/Hora: " + $nowStr),',
-    '    ("Impressora: " + $script:selectedPrinter),',
-    '    "Modo: SEMPRE LIGADO (Auto-Start)",',
-    '    "--------------------------------",',
-    '    "1x TESTE DE IMPRESSAO   R$ 0,00",',
-    '    "   * Formatacao sem corte de bordas!",',
-    '    "   * Novos pedidos do site sairao",',
-    '    "     aqui automaticamente!",',
-    '    "================================",',
-    '    " ",',
-    '    " "',
-    '  ) -join [Environment]::NewLine',
+    '  $sampleDoc = @{',
+    '    name = "projects/db/documents/global_orders/NKL849"',
+    '    fields = @{',
+    '      orderNumber = @{ integerValue = 1 }',
+    '      userName = @{ stringValue = "BRAIAN KLEBER" }',
+    '      whatsapp = @{ stringValue = "(54) 99106-4604" }',
+    '      address = @{ stringValue = "Roberto Dalla Lana, 332 - Petropolis" }',
+    '      region = @{ stringValue = "Passo Fundo" }',
+    '      paymentMethod = @{ stringValue = "PIX" }',
+    '      paymentStatus = @{ stringValue = "pago" }',
+    '      isPaid = @{ booleanValue = $true }',
+    '      receiptAuthCode = @{ stringValue = "AUT-NKL-PIX-9821" }',
+    '      receiptNotes = @{ stringValue = "Tocar a campainha duas vezes, portao preto." }',
+    '      deliveryFee = @{ doubleValue = 6.00 }',
+    '      totalPrice = @{ doubleValue = 95.00 }',
+    '      items = @{',
+    '        arrayValue = @{',
+    '          values = @(',
+    '            @{',
+    '              mapValue = @{',
+    '                fields = @{',
+    '                  name = @{ stringValue = "CACHORRO QUENTE TRADICIONAL" }',
+    '                  price = @{ doubleValue = 39.00 }',
+    '                  quantity = @{ integerValue = 1 }',
+    '                  observation = @{ stringValue = "CAPRICHAR NO MOLHO ESPECIAL" }',
+    '                  extras = @{',
+    '                    arrayValue = @{',
+    '                      values = @(',
+    '                        @{ mapValue = @{ fields = @{ name = @{ stringValue = "Uma carne a mais" }; price = @{ doubleValue = 6.00 } } } },',
+    '                        @{ mapValue = @{ fields = @{ name = @{ stringValue = "Mussarela" }; price = @{ doubleValue = 0.00 } } } }',
+    '                      )',
+    '                    }',
+    '                  }',
+    '                }',
+    '              }',
+    '            },',
+    '            @{',
+    '              mapValue = @{',
+    '                fields = @{',
+    '                  name = @{ stringValue = "XIS ESPECIAL" }',
+    '                  price = @{ doubleValue = 25.00 }',
+    '                  quantity = @{ integerValue = 2 }',
+    '                  observation = @{ stringValue = "1 SEM TOMATE E 1 BEM PRENSADO" }',
+    '                }',
+    '              }',
+    '            }',
+    '          )',
+    '        }',
+    '      }',
+    '    }',
+    '  }',
     '  try { [Console]::Beep(1000, 200); [Console]::Beep(1500, 250) } catch {}',
-    '  [void](Print-RawComanda $t)',
+    '  [void](Print-VisualFirestoreOrder $sampleDoc $false "")',
     '  Send-CloudHeartbeat',
     '}',
     '',
     'function Show-Header {',
     '  Clear-Host',
     '  Write-Host "================================================================" -ForegroundColor Yellow',
-    '  Write-Host "   IMPRESSAO AUTOMATICA - NICKEL LANCHES (SEMPRE LIGADO)" -ForegroundColor Green',
-    '  Write-Host "   Conectado Diretamente as Comandas do Site em Tempo Real" -ForegroundColor White',
+    '  Write-Host "   IMPRESSAO AUTOMATICA v5 VISUAL - NICKEL LANCHES" -ForegroundColor Green',
+    '  Write-Host "   Layout Grafico 100% Identico a Pre-Visualizacao do Site" -ForegroundColor White',
     '  Write-Host "================================================================" -ForegroundColor Yellow',
     '  Write-Host ""',
     '  Write-Host "  Impressora Selecionada : " -NoNewline -ForegroundColor Gray',
     '  Write-Host $script:selectedPrinter -ForegroundColor Cyan',
     `  Write-Host "  Vias por Comanda       : ${copiesCount} via(s)" -ForegroundColor Gray`,
-    '  Write-Host "  Inicializacao c/ PC    : ATIVADO AUTOMATICAMENTE" -ForegroundColor Green',
+    '  Write-Host "  Modo de Impressao      : ALTA DEFINICAO (Faixas Pretas e Caixas)" -ForegroundColor Green',
     '  Write-Host "  Status das Comandas    : MONITORANDO PEDIDOS 24H..." -ForegroundColor Green',
     '  Write-Host ""',
     '  Write-Host "  [TECLAS DE ATALHO NESTA JANELA]:" -ForegroundColor Yellow',
-    '  Write-Host "   Pressione [T] -> Imprimir Comanda de Teste Agora" -ForegroundColor White',
+    '  Write-Host "   Pressione [T] -> Imprimir Comanda Visual de Teste Agora" -ForegroundColor White',
     '  Write-Host "   Pressione [U] -> Imprimir o Ultimo Pedido do Site Agora" -ForegroundColor White',
     '  Write-Host "   Pressione [I] -> Trocar a Impressora do Windows" -ForegroundColor White',
     '  Write-Host "================================================================" -ForegroundColor DarkGray',
@@ -1470,7 +1568,7 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '} catch {}',
     '',
     'Send-CloudHeartbeat',
-    'Write-Host "[OK] Conectado com o Painel Nickel Lanches na Nuvem!" -ForegroundColor Green',
+    'Write-Host "[OK] Conectado com o Painel Nickel Lanches na Nuvem (Motor Visual v5)!" -ForegroundColor Green',
     '',
     '$isFirstRun = (-not (Test-Path $firstRunFile))',
     'try {',
@@ -1505,17 +1603,17 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '      Write-Host ("[!] Imprimindo comanda recente encontrada - Pedido #" + $onum + "...") -ForegroundColor Cyan',
     '      try { [Console]::Beep(1000, 200); [Console]::Beep(1500, 300) } catch {}',
     `      if (${copiesCount} -eq 2) {`,
-    '        [void](Print-RawComanda (Format-FirestoreOrder $newestRecebido $true "VIA 1 - COZINHA / PREPARO"))',
+    '        [void](Print-VisualFirestoreOrder $newestRecebido $true "VIA 1 - COZINHA / PREPARO")',
     '        Start-Sleep -Milliseconds 400',
-    '        [void](Print-RawComanda (Format-FirestoreOrder $newestRecebido $false "VIA 2 - ENTREGA / CLIENTE"))',
+    '        [void](Print-VisualFirestoreOrder $newestRecebido $false "VIA 2 - ENTREGA / CLIENTE")',
     '      } else {',
-    '        [void](Print-RawComanda (Format-FirestoreOrder $newestRecebido $false ""))',
+    '        [void](Print-VisualFirestoreOrder $newestRecebido $false "")',
     '      }',
     '      Write-Host ("[OK] Comanda #" + $onum + " enviada para " + $script:selectedPrinter + "!") -ForegroundColor Green',
     '    } else {',
-    '      Write-Host ("[!] Imprimindo bilhete de confirmacao na impressora " + $script:selectedPrinter + "...") -ForegroundColor Cyan',
+    '      Write-Host ("[!] Imprimindo comanda visual de teste na impressora " + $script:selectedPrinter + "...") -ForegroundColor Cyan',
     '      Print-SampleTestTicket',
-    '      Write-Host "[OK] Bilhete de ativacao enviado para a impressora!" -ForegroundColor Green',
+    '      Write-Host "[OK] Comanda visual de ativacao enviada para a impressora!" -ForegroundColor Green',
     '    }',
     '  }',
     '} catch {',
@@ -1551,9 +1649,9 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '      $key = [Console]::ReadKey($true)',
     '      $ch = $key.KeyChar.ToString().ToUpper()',
     '      if ($ch -eq "T") {',
-    '        Write-Host ("[TESTE] Enviando Comanda de Teste para " + $script:selectedPrinter + "...") -ForegroundColor Cyan',
+    '        Write-Host ("[TESTE] Enviando Comanda Visual de Teste para " + $script:selectedPrinter + "...") -ForegroundColor Cyan',
     '        Print-SampleTestTicket',
-    '        Write-Host "[OK] Comanda de Teste enviada!" -ForegroundColor Green',
+    '        Write-Host "[OK] Comanda Visual de Teste enviada!" -ForegroundColor Green',
     '      } elseif ($ch -eq "U") {',
     '        Write-Host "[ULTIMO PEDIDO] Buscando ultimo pedido no site..." -ForegroundColor Cyan',
     '        try {',
@@ -1573,17 +1671,18 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '            }',
     '            if ($bestDoc) {',
     '              try { [Console]::Beep(1000, 200); [Console]::Beep(1500, 250) } catch {}',
-    `            if (${copiesCount} -eq 2) {`,
-    '              [void](Print-RawComanda (Format-FirestoreOrder $bestDoc $true "VIA 1 - COZINHA / PREPARO"))',
-    '              Start-Sleep -Milliseconds 400',
-    '              [void](Print-RawComanda (Format-FirestoreOrder $bestDoc $false "VIA 2 - ENTREGA / CLIENTE"))',
+    `              if (${copiesCount} -eq 2) {`,
+    '                [void](Print-VisualFirestoreOrder $bestDoc $true "VIA 1 - COZINHA / PREPARO")',
+    '                Start-Sleep -Milliseconds 400',
+    '                [void](Print-VisualFirestoreOrder $bestDoc $false "VIA 2 - ENTREGA / CLIENTE")',
+    '              } else {',
+    '                [void](Print-VisualFirestoreOrder $bestDoc $false "")',
+    '              }',
+    '              Send-CloudHeartbeat',
+    '              Write-Host "[OK] Ultimo pedido impresso no layout visual com sucesso!" -ForegroundColor Green',
     '            } else {',
-    '              [void](Print-RawComanda (Format-FirestoreOrder $bestDoc $false ""))',
+    '              Write-Host "[!] Nenhum pedido pago encontrado no banco." -ForegroundColor Yellow',
     '            }',
-    '            Send-CloudHeartbeat',
-    '            Write-Host "[OK] Ultimo pedido impresso com sucesso!" -ForegroundColor Green',
-    '          } else {',
-    '            Write-Host "[!] Nenhum pedido encontrado no banco." -ForegroundColor Yellow',
     '          }',
     '        } catch {',
     '          Write-Host "[X] Erro ao buscar ultimo pedido." -ForegroundColor Red',
@@ -1629,6 +1728,7 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '          app = "Impressao Automatica"',
     '          printer = [string]$script:selectedPrinter',
     '          printedCount = [int]$script:printedSessionCount',
+    '          bridgeVersion = 5',
     '        }',
     '        $json = $respObj | ConvertTo-Json -Compress',
     '        $buf = [System.Text.Encoding]::UTF8.GetBytes($json)',
@@ -1647,22 +1747,24 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '        if (-not $already) {',
     '          if ($oid) { Save-PrintedId $oid }',
     '          $nowStr = (Get-Date).ToString("HH:mm:ss")',
-    '          Write-Host ("[" + $nowStr + "] Imprimindo Comanda #" + $payload.orderNumber + " em " + $script:selectedPrinter + "...") -ForegroundColor Cyan',
+    '          Write-Host ("[" + $nowStr + "] Imprimindo Comanda Visual #" + $payload.orderNumber + " em " + $script:selectedPrinter + "...") -ForegroundColor Cyan',
     '          try { [Console]::Beep(1200, 200); [Console]::Beep(1600, 300) } catch {}',
-    '          $printedOk = $false',
-    '          if ($payload.html) {',
-    '            $printedOk = Print-HtmlComanda ([string]$payload.html)',
-    '          }',
-    '          if (-not $printedOk) {',
-    '            [void](Print-RawComanda ([string]$payload.text))',
+    '          if ($payload.viasBase64 -and $payload.viasBase64.Count -gt 0) {',
+    '            foreach ($vb in $payload.viasBase64) {',
+    '              [void](Print-Base64Image ([string]$vb))',
+    '              Start-Sleep -Milliseconds 300',
+    '            }',
+    '          } elseif ($payload.imageBase64) {',
+    '            [void](Print-Base64Image ([string]$payload.imageBase64))',
     '          }',
     '          Send-CloudHeartbeat',
-    '          Write-Host ("[" + $nowStr + "] -> Comanda impressa com sucesso!") -ForegroundColor Green',
+    '          Write-Host ("[" + $nowStr + "] -> Comanda Visual impressa com sucesso!") -ForegroundColor Green',
     '        }',
     '        $respObj = @{',
     '          ok = $true',
     '          skipped = [bool]$already',
     '          printer = [string]$script:selectedPrinter',
+    '          bridgeVersion = 5',
     '        }',
     '        $json = $respObj | ConvertTo-Json -Compress',
     '        $buf = [System.Text.Encoding]::UTF8.GetBytes($json)',
@@ -1684,24 +1786,17 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '    try {',
     '      $qDoc = Invoke-RestMethod -Uri $queueUrl -Method Get -TimeoutSec 4',
     '      if ($qDoc.fields -and $qDoc.fields.jobId.stringValue) {',
-    '        $jid   = $qDoc.fields.jobId.stringValue',
-    '        $jtext = if ($qDoc.fields.text.stringValue) { $qDoc.fields.text.stringValue } else { "" }',
-    '        $jhtml = if ($qDoc.fields.html.stringValue) { $qDoc.fields.html.stringValue } else { "" }',
+    '        $jid  = $qDoc.fields.jobId.stringValue',
+    '        $jb64 = if ($qDoc.fields.imageBase64.stringValue) { $qDoc.fields.imageBase64.stringValue } else { "" }',
     '        $jonum = if ($qDoc.fields.orderNumber.stringValue) { $qDoc.fields.orderNumber.stringValue } else { "1" }',
     '        $joid  = if ($qDoc.fields.orderId.stringValue) { $qDoc.fields.orderId.stringValue } else { "" }',
-    '        if (-not $printedJobs.Contains($jid) -and ($jtext -or $jhtml)) {',
+    '        if (-not $printedJobs.Contains($jid) -and $jb64) {',
     '          Save-PrintedJob $jid',
     '          if ($joid) { Save-PrintedId $joid }',
     '          $nowStr = (Get-Date).ToString("HH:mm:ss")',
-    '          Write-Host ("[" + $nowStr + "] COMANDA RECEBIDA DO PAINEL - Pedido #" + $jonum + " -> Imprimindo...") -ForegroundColor Cyan',
+    '          Write-Host ("[" + $nowStr + "] COMANDA VISUAL RECEBIDA DO PAINEL - Pedido #" + $jonum + " -> Imprimindo...") -ForegroundColor Cyan',
     '          try { [Console]::Beep(1200, 200); [Console]::Beep(1600, 300) } catch {}',
-    '          $printedOk = $false',
-    '          if ($jhtml) {',
-    '            $printedOk = Print-HtmlComanda $jhtml',
-    '          }',
-    '          if (-not $printedOk) {',
-    '            [void](Print-RawComanda $jtext)',
-    '          }',
+    '          [void](Print-Base64Image $jb64)',
     '          Send-CloudHeartbeat',
     '          Write-Host ("[" + $nowStr + "] -> Comanda #" + $jonum + " impressa em " + $script:selectedPrinter + "!") -ForegroundColor Green',
     '        }',
@@ -1734,18 +1829,15 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '            try { [Console]::Beep(1000, 250); [Console]::Beep(1400, 250); [Console]::Beep(1800, 400) } catch {}',
     '',
     `            if (${copiesCount} -eq 2) {`,
-    '              $via1 = Format-FirestoreOrder $docItem $true "VIA 1 - COZINHA / PREPARO"',
-    '              $via2 = Format-FirestoreOrder $docItem $false "VIA 2 - ENTREGA / CLIENTE"',
-    '              [void](Print-RawComanda $via1)',
+    '              [void](Print-VisualFirestoreOrder $docItem $true "VIA 1 - COZINHA / PREPARO")',
     '              Start-Sleep -Milliseconds 450',
-    '              [void](Print-RawComanda $via2)',
+    '              [void](Print-VisualFirestoreOrder $docItem $false "VIA 2 - ENTREGA / CLIENTE")',
     '            } else {',
-    '              $singleTicket = Format-FirestoreOrder $docItem $false ""',
-    '              [void](Print-RawComanda $singleTicket)',
+    '              [void](Print-VisualFirestoreOrder $docItem $false "")',
     '            }',
     '',
     '            Send-CloudHeartbeat',
-    '            Write-Host (" [" + $nowStr + "] -> Comanda #" + $orderNum + " impressa automaticamente em: " + $script:selectedPrinter) -ForegroundColor Cyan',
+    '            Write-Host (" [" + $nowStr + "] -> Comanda Visual #" + $orderNum + " impressa automaticamente em: " + $script:selectedPrinter) -ForegroundColor Cyan',
     '            Write-Host ""',
     '          }',
     '        }',
@@ -1787,7 +1879,7 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
   const batLines = [
     '@echo off',
     'chcp 65001 >nul 2>&1',
-    'title Impressao Automatica - Nickel Lanches (Sempre Ligado)',
+    'title Impressao Automatica v5 Visual - Nickel Lanches (Sempre Ligado)',
     'color 0A',
     'set "APP_DIR=%APPDATA%\\NickelImpressaoAutomatica"',
     'if not exist "%APP_DIR%" mkdir "%APP_DIR%"',

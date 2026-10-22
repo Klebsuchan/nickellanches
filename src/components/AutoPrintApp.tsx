@@ -23,6 +23,7 @@ export default function AutoPrintApp({
   const { addToast } = useToast();
   const [bridgeStatus, setBridgeStatus] = useState<{
     connected: boolean;
+    outdated?: boolean;
     printerName?: string;
     printedCount?: number;
   }>({ connected: false });
@@ -46,7 +47,13 @@ export default function AutoPrintApp({
     verifyBridge();
     const unsubCloudBridge = subscribeToBridgeStatus((cloudSt) => {
       if (cloudSt.connected) {
-        setBridgeStatus(cloudSt);
+        const isV5 = (cloudSt.bridgeVersion || 0) >= 5;
+        setBridgeStatus({
+          connected: isV5,
+          outdated: !isV5,
+          printerName: cloudSt.printerName,
+          printedCount: cloudSt.printedCount,
+        });
       }
     });
     const interval = setInterval(verifyBridge, 4000);
@@ -97,8 +104,8 @@ export default function AutoPrintApp({
     downloadWindowsAutoPrintApp(settings);
     playSound('coin');
     addToast({
-      title: 'Download Iniciado!',
-      message: 'Abra o arquivo "Impressao-Automatica-Nickel.bat" no seu Windows para conectar direto na impressora.',
+      title: 'Download Iniciado (Motor Visual v5)!',
+      message: 'Abra o arquivo "Impressao-Automatica-Nickel.bat" no seu Windows para substituir a versão antiga e imprimir idêntico à pré-visualização.',
       type: 'success',
     });
   };
@@ -117,25 +124,44 @@ export default function AutoPrintApp({
 
   const handleTestComandaPrint = async () => {
     const sampleOrder: Order = {
-      id: `TESTE-${Date.now().toString(36).toUpperCase()}`,
-      orderNumber: 99,
-      userName: 'TESTE IMPRESSÃO AUTOMÁTICA',
-      whatsapp: '(54) 99959-8389',
-      address: 'Impressão Direta no Windows (Sem Confirmação)',
+      id: '9F8A-TESTE-01',
+      orderNumber: 1,
+      userName: 'João da Silva (Pedido Teste)',
+      whatsapp: '(54) 99123-4567',
+      address: 'Av. Brasil, 1500 - Apto 302 (Centro)',
       region: 'Centro',
-      paymentMethod: 'PIX (Aprovado)',
-      totalPrice: 42.0,
-      totalPoints: 10,
-      deliveryFee: 0,
-      createdAt: new Date().toLocaleString('pt-BR'),
-      status: 'recebido',
+      deliveryNotes: 'Campainha não funciona, chamar no WhatsApp ao chegar na portaria.',
+      paymentMethod: 'PIX (Mercado Pago)',
+      totalPrice: 78.5,
+      totalPoints: 25,
+      deliveryFee: 7.0,
+      createdAt: new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      status: 'em preparo',
+      receiptAuthCode: 'MP-AUTH-9988776655',
+      receiptTimestamp: new Date().toLocaleTimeString('pt-BR'),
       items: [
         {
-          name: '1x Comanda de Teste Automática',
-          price: 42.0,
+          name: 'X-Salada Duplo Especial',
+          price: 32.0,
           quantity: 1,
-          observation: 'Se este bilhete saiu na impressora, sua Impressão Automática está 100% pronta!',
-          extras: [{ name: 'Conexão Direta com Comandas', price: 0 }],
+          observation: 'Sem cebola, maionese temperada à parte e pão bem tostado',
+          extras: [
+            { name: 'Bacon Crocante Extra', price: 5.0 },
+            { name: 'Queijo Cheddar Inglês', price: 4.5 },
+          ],
+        },
+        {
+          name: 'Porção de Fritas com Cheddar e Bacon (G)',
+          price: 24.0,
+          quantity: 1,
+          observation: 'Mandar bastante guardanapo e sachê de ketchup',
+          extras: [],
+        },
+        {
+          name: 'Coca-Cola Lata 350ml (Bem Gelada)',
+          price: 6.0,
+          quantity: 2,
+          extras: [],
         },
       ],
     };

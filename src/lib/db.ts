@@ -34,6 +34,7 @@ export interface Order {
   deliveryFee?: number;
   changeFor?: string;
   region?: string;
+  deliveryNotes?: string;
   adminNotes?: string;
 }
 
@@ -862,6 +863,7 @@ export interface CloudBridgeStatus {
   lastSeenMs: number;
   lastPrintedOrder?: string;
   autoStartEnabled?: boolean;
+  bridgeVersion?: number;
 }
 
 export const getCloudBridgeStatus = async (): Promise<{
@@ -869,12 +871,14 @@ export const getCloudBridgeStatus = async (): Promise<{
   printerName?: string;
   printedCount?: number;
   lastSeenMs?: number;
+  bridgeVersion?: number;
 }> => {
   try {
     const snap = await getDoc(doc(db, 'settings', 'bridge_status'));
     if (snap.exists()) {
       const data = snap.data() as CloudBridgeStatus;
       const lastSeen = Number(data.lastSeenMs || 0);
+      const bridgeVersion = Number(data.bridgeVersion || 1);
       // Consider active if heartbeat was updated within the last 60 seconds
       if (Date.now() - lastSeen < 60000) {
         return {
@@ -882,6 +886,7 @@ export const getCloudBridgeStatus = async (): Promise<{
           printerName: data.printerName || 'Impressora Padrão do Windows',
           printedCount: Number(data.printedCount || 0),
           lastSeenMs: lastSeen,
+          bridgeVersion,
         };
       }
     }
@@ -890,7 +895,12 @@ export const getCloudBridgeStatus = async (): Promise<{
 };
 
 export const subscribeToBridgeStatus = (
-  callback: (status: { connected: boolean; printerName?: string; printedCount?: number }) => void
+  callback: (status: {
+    connected: boolean;
+    printerName?: string;
+    printedCount?: number;
+    bridgeVersion?: number;
+  }) => void
 ) => {
   const docRef = doc(db, 'settings', 'bridge_status');
   return onSnapshot(
@@ -900,10 +910,12 @@ export const subscribeToBridgeStatus = (
         const data = snap.data() as CloudBridgeStatus;
         const lastSeen = Number(data.lastSeenMs || 0);
         const isOnline = Date.now() - lastSeen < 60000;
+        const bridgeVersion = Number(data.bridgeVersion || 1);
         callback({
           connected: isOnline,
           printerName: data.printerName || 'Impressora Padrão do Windows',
           printedCount: Number(data.printedCount || 0),
+          bridgeVersion,
         });
       } else {
         callback({ connected: false });
@@ -918,8 +930,9 @@ export const subscribeToBridgeStatus = (
 export const enqueueCloudPrintJob = async (job: {
   orderId: string;
   orderNumber: string | number;
-  text: string;
+  text?: string;
   html?: string;
+  imageBase64?: string;
   force?: boolean;
 }): Promise<boolean> => {
   try {
@@ -928,7 +941,9 @@ export const enqueueCloudPrintJob = async (job: {
       jobId,
       orderId: String(job.orderId || 'manual'),
       orderNumber: String(job.orderNumber || '1'),
-      text: job.text,
+      // Keep text empty so any legacy v1 background script never prints old plain-text format
+      text: '',
+      imageBase64: job.imageBase64 || '',
       html: job.html || '',
       force: Boolean(job.force),
       createdAtMs: Date.now(),

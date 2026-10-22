@@ -3,6 +3,7 @@
 // ======================================================================
 
 import { Order, PrinterSettings } from './db';
+import { renderReceiptToCanvas, canvasToEscPosRaster } from './receiptCanvas';
 
 // WebUSB Type declarations for TypeScript without @types/w3c-web-usb
 export interface USBEndpointDef {
@@ -174,6 +175,14 @@ export function buildReceiptEscPos(
   isKitchenOnly: boolean = false,
   viaTitle?: string
 ): Uint8Array {
+  if (typeof document !== 'undefined') {
+    try {
+      const canvas = renderReceiptToCanvas(order, settings, isKitchenOnly, viaTitle);
+      return canvasToEscPosRaster(canvas, settings.cutPaper, settings.beepOnPrint);
+    } catch (e) {
+      console.warn('Erro ao gerar raster ESC/POS, usando fallback texto:', e);
+    }
+  }
   const b = new EscPosBuilder();
   const width = 32;
 
