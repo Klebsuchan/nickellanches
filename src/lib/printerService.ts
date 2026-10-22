@@ -326,11 +326,11 @@ export function generateReceiptHtml(
   viaTitle?: string
 ): string {
   const is58 = settings.printerType === 'thermal_58';
-  const paperWidth = is58 ? '44mm' : '64mm';
+  const paperWidth = is58 ? '48mm' : '72mm';
   const fontSize = 
-    settings.fontSize === 'small' ? (is58 ? '9.5px' : '10.5px') :
-    settings.fontSize === 'large' ? (is58 ? '12px' : '14px') :
-    (is58 ? '10.5px' : '12px');
+    settings.fontSize === 'small' ? (is58 ? '10px' : '11.5px') :
+    settings.fontSize === 'large' ? (is58 ? '13px' : '15px') :
+    (is58 ? '11.5px' : '13px');
 
   let dateStr = '';
   if (order.createdAt?.toDate) {
@@ -359,7 +359,7 @@ export function generateReceiptHtml(
 
     const extrasSnippet = item.extras && item.extras.length > 0
       ? `
-        <div style="padding-left: 8px; margin-top: 4px; font-size: 0.92em; border-left: 3px solid #000; margin-left: 2px; padding-bottom: 2px;">
+        <div style="padding-left: 8px; margin-top: 4px; font-size: 0.92em; border-left: 4px solid #000; margin-left: 2px; padding-bottom: 2px;">
           <div style="font-weight: 900; text-transform: uppercase; font-size: 0.82em; color: #000; margin-bottom: 2px;">ADICIONAIS:</div>
           ${item.extras.map((e: any) => `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; padding: 1px 0; font-weight: 800; gap: 6px; color: #000;">
@@ -372,17 +372,17 @@ export function generateReceiptHtml(
       : '';
 
     const obsSnippet = settings.showItemObservations && item.observation && item.observation.trim()
-      ? `<div style="padding: 4px 6px; margin-top: 5px; font-weight: 900; background: #e5e5e5; border-left: 4px solid #000; text-transform: uppercase; font-size: 0.92em; word-break: break-word; line-height: 1.25; color: #000;">>> OBS: ${sanitizeForThermal(item.observation.trim())}</div>`
+      ? `<div style="padding: 4px 6px; margin-top: 5px; font-weight: 900; background: #ffffff; border: 1px dashed #000000; border-left: 5px solid #000000; text-transform: uppercase; font-size: 0.92em; word-break: break-word; line-height: 1.25; color: #000000; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">>> OBS: ${sanitizeForThermal(item.observation.trim())}</div>`
       : '';
 
     return `
       <div style="border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 6px; word-break: break-word;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; font-weight: 900; font-size: 1.15em; gap: 6px;">
-          <span style="flex: 1; min-width: 0; word-break: break-word; line-height: 1.25; text-transform: uppercase; font-weight: 900;">
-            <span style="background: #000; color: #fff; padding: 1px 5px; font-size: 0.88em; font-weight: 900; border-radius: 2px; margin-right: 4px;">${item.quantity}x</span>
+          <span style="flex: 1; min-width: 0; word-break: break-word; line-height: 1.25; text-transform: uppercase; font-weight: 900; color: #000;">
+            <span style="background: #000000 !important; color: #ffffff !important; padding: 2px 6px; font-size: 0.9em; font-weight: 900; border-radius: 2px; margin-right: 4px; display: inline-block; vertical-align: middle; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">${item.quantity}x</span>
             ${sanitizeForThermal(item.name || 'Item')}
           </span>
-          ${!isKitchenOnly ? `<span style="font-family: monospace; white-space: nowrap; flex-shrink: 0; font-weight: 900; font-size: 1.02em;">R$ ${itemTotal.toFixed(2).replace('.', ',')}</span>` : ''}
+          ${!isKitchenOnly ? `<span style="font-family: monospace; white-space: nowrap; flex-shrink: 0; font-weight: 900; font-size: 1.05em; color: #000;">R$ ${itemTotal.toFixed(2).replace('.', ',')}</span>` : ''}
         </div>
         ${extrasSnippet}
         ${obsSnippet}
@@ -393,38 +393,38 @@ export function generateReceiptHtml(
   const feedCm = (settings.feedLines || 4) * 0.35;
 
   return `
-    <div class="comanda-receipt" style="width: 100%; max-width: ${paperWidth}; margin: 0 auto; padding: 2px 4px; font-family: 'Consolas', 'Lucida Console', 'Courier New', monospace, sans-serif; font-size: ${fontSize}; line-height: 1.25; color: #000; background: #fff; box-sizing: border-box; overflow-wrap: anywhere; word-break: break-word;">
+    <div class="comanda-receipt" style="width: 100%; max-width: ${paperWidth}; margin: 0 auto; padding: 2px 4px; font-family: 'Consolas', 'Lucida Console', 'Courier New', monospace, sans-serif; font-size: ${fontSize}; line-height: 1.25; color: #000; background: #fff; box-sizing: border-box; overflow-wrap: anywhere; word-break: break-word; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
       
       <!-- CABEÇALHO -->
       <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 6px;">
-        <div style="font-weight: 900; font-size: 1.3em; text-transform: uppercase; letter-spacing: -0.5px;">${settings.printHeader || 'NICKEL LANCHES'}</div>
-        ${settings.printSubHeader ? `<div style="font-weight: bold; font-size: 0.85em; text-transform: uppercase;">${settings.printSubHeader}</div>` : ''}
-        ${settings.printPhone ? `<div style="font-size: 0.85em; font-weight: bold; margin-top: 2px;">Tel/WhatsApp: ${settings.printPhone}</div>` : ''}
+        <div style="font-weight: 900; font-size: 1.3em; text-transform: uppercase; letter-spacing: -0.5px; color: #000;">${settings.printHeader || 'NICKEL LANCHES'}</div>
+        ${settings.printSubHeader ? `<div style="font-weight: bold; font-size: 0.85em; text-transform: uppercase; color: #000;">${settings.printSubHeader}</div>` : ''}
+        ${settings.printPhone ? `<div style="font-size: 0.85em; font-weight: bold; margin-top: 2px; color: #000;">Tel/WhatsApp: ${settings.printPhone}</div>` : ''}
         ${settings.printAddress ? `<div style="font-size: 0.8em; color: #222; margin-top: 2px; word-break: break-word;">${settings.printAddress}</div>` : ''}
-        ${viaTitle ? `<div style="display: inline-block; background: #000; color: #fff; font-weight: 900; font-size: 0.8em; padding: 2px 6px; margin-top: 4px; text-transform: uppercase;">${viaTitle}</div>` : ''}
+        ${viaTitle ? `<div style="display: inline-block; background: #000000 !important; color: #ffffff !important; font-weight: 900; font-size: 0.85em; padding: 2px 8px; margin-top: 4px; text-transform: uppercase; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">${viaTitle}</div>` : ''}
       </div>
 
       <!-- DADOS DO PEDIDO E NÚMERO DO PEDIDO EM ALTO DESTAQUE -->
       <div style="border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 6px;">
-        <div style="background: #000; color: #fff; padding: 6px 4px; text-align: center; margin: 4px 0 6px 0; border-radius: 3px; border: 2px solid #000;">
-          <div style="font-weight: 900; font-size: 1.55em; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.1;">
+        <div style="background: #000000 !important; color: #ffffff !important; padding: 7px 4px; text-align: center; margin: 4px 0 6px 0; border: 2px solid #000000 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
+          <div style="font-weight: 900; font-size: 1.65em; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.1; color: #ffffff !important;">
             PEDIDO #${orderNum}
           </div>
-          ${settings.showPassword && order.id ? `<div style="font-weight: 900; font-size: 0.85em; color: #fde047; margin-top: 3px; letter-spacing: 1px;">SENHA: ${order.id.substring(0, 4).toUpperCase()}</div>` : ''}
+          ${settings.showPassword && order.id ? `<div style="font-weight: 900; font-size: 0.88em; color: #ffffff !important; margin-top: 3px; letter-spacing: 1px;">SENHA: ${order.id.substring(0, 4).toUpperCase()}</div>` : ''}
         </div>
         <div style="font-size: 0.88em; color: #000; font-weight: bold; text-align: center;">Data/Hora: ${dateStr}</div>
         
-        <div style="margin-top: 6px; padding-top: 4px; border-top: 1px dotted #888; font-size: 0.92em; line-height: 1.35;">
-          <div style="word-break: break-word;"><span style="font-weight: bold; color: #333;">Cliente: </span><span style="font-weight: 900; text-transform: uppercase;">${sanitizeForThermal(order.userName || 'Balcão / Cliente')}</span></div>
-          ${settings.showCustomerPhone && order.whatsapp ? `<div style="margin-top: 2px;"><span style="font-weight: bold; color: #333;">WhatsApp: </span><span style="font-weight: bold;">${order.whatsapp}</span></div>` : ''}
+        <div style="margin-top: 6px; padding-top: 4px; border-top: 1px dotted #000; font-size: 0.92em; line-height: 1.35;">
+          <div style="word-break: break-word;"><span style="font-weight: bold; color: #000;">Cliente: </span><span style="font-weight: 900; text-transform: uppercase; color: #000;">${sanitizeForThermal(order.userName || 'Balcão / Cliente')}</span></div>
+          ${settings.showCustomerPhone && order.whatsapp ? `<div style="margin-top: 2px;"><span style="font-weight: bold; color: #000;">WhatsApp: </span><span style="font-weight: bold; color: #000;">${order.whatsapp}</span></div>` : ''}
           ${settings.showDeliveryAddress ? `
-            <div style="margin-top: 4px; padding: 4px 6px; background: #f8f8f8; border: 1px dashed #aaa; border-radius: 2px;">
-              <div style="font-weight: 900; text-transform: uppercase; font-size: 0.82em; color: #333;">Endereço de Entrega:</div>
-              <div style="font-weight: bold; word-break: break-word; margin-top: 1px;">${order.address || 'Retirada no Balcão'}${order.region && !hasRegion ? ` (${order.region})` : ''}</div>
+            <div style="margin-top: 4px; padding: 4px 6px; background: #ffffff; border: 1px dashed #000; border-radius: 2px;">
+              <div style="font-weight: 900; text-transform: uppercase; font-size: 0.82em; color: #000;">Endereço de Entrega:</div>
+              <div style="font-weight: bold; word-break: break-word; margin-top: 1px; color: #000;">${order.address || 'Retirada no Balcão'}${order.region && !hasRegion ? ` (${order.region})` : ''}</div>
             </div>
           ` : ''}
           ${order.receiptNotes ? `
-            <div style="margin-top: 4px; padding: 4px 6px; background: #f3f3f3; border-left: 3px solid #333; font-size: 0.9em; word-break: break-word;">
+            <div style="margin-top: 4px; padding: 4px 6px; background: #ffffff; border-left: 3px solid #000; border-top: 1px solid #ddd; border-bottom: 1px solid #ddd; font-size: 0.9em; word-break: break-word; color: #000;">
               <strong>Obs. Entrega: </strong>${sanitizeForThermal(order.receiptNotes)}
             </div>
           ` : ''}
@@ -433,7 +433,7 @@ export function generateReceiptHtml(
 
       <!-- ITENS DO PEDIDO EM ALTO DESTAQUE E NEGRITO -->
       <div style="margin-bottom: 6px;">
-        <div style="background: #000; color: #fff; text-align: center; font-weight: 900; font-size: 0.92em; padding: 3px 0; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 1px;">
+        <div style="background: #000000 !important; color: #ffffff !important; text-align: center; font-weight: 900; font-size: 0.95em; padding: 4px 0; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 1px; border-top: 2px solid #000; border-bottom: 2px solid #000; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
           ${isKitchenOnly ? 'PREPARO DA COZINHA' : 'ITENS DO PEDIDO'}
         </div>
         <div>
@@ -445,39 +445,39 @@ export function generateReceiptHtml(
       ${!isKitchenOnly ? `
         <div style="border-top: 2px solid #000; padding-top: 4px; margin-bottom: 6px;">
           ${fee > 0 || discount > 0.01 ? `
-            <div style="display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 2px; font-weight: 600;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 2px; font-weight: 600; color: #000;">
               <span>Subtotal Itens:</span>
               <span style="font-family: monospace;">R$ ${subtotal.toFixed(2).replace('.', ',')}</span>
             </div>
           ` : ''}
           ${discount > 0.01 ? `
-            <div style="display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 2px; font-weight: 700;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 2px; font-weight: 700; color: #000;">
               <span>Desconto:</span>
               <span style="font-family: monospace;">-R$ ${discount.toFixed(2).replace('.', ',')}</span>
             </div>
           ` : ''}
           ${fee > 0 ? `
-            <div style="display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 3px; font-weight: 600;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 3px; font-weight: 600; color: #000;">
               <span>Taxa de Entrega:</span>
               <span style="font-family: monospace;">R$ ${fee.toFixed(2).replace('.', ',')}</span>
             </div>
           ` : ''}
 
-          <div style="display: flex; justify-content: space-between; align-items: center; font-weight: 900; font-size: 1.2em; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 0; margin: 4px 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; font-weight: 900; font-size: 1.25em; border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 5px 0; margin: 5px 0; color: #000;">
             <span>TOTAL DO PEDIDO:</span>
-            <span style="font-family: monospace;">R$ ${total.toFixed(2).replace('.', ',')}</span>
+            <span style="font-family: monospace; font-size: 1.15em;">R$ ${total.toFixed(2).replace('.', ',')}</span>
           </div>
 
           ${settings.showPaymentDetails ? `
-            <div style="font-size: 0.88em; margin-top: 4px; line-height: 1.35;">
-              <div style="background: ${isOrderPaid(order) ? '#000' : '#d97706'}; color: #fff; text-align: center; font-weight: 900; font-size: 0.85em; padding: 2.5px 0; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">
+            <div style="font-size: 0.88em; margin-top: 4px; line-height: 1.35; color: #000;">
+              <div style="background: #000000 !important; color: #ffffff !important; text-align: center; font-weight: 900; font-size: 0.9em; padding: 3.5px 0; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
                 ${isOrderPaid(order) ? '>>> PEDIDO PAGO E CONFIRMADO <<<' : '>>> AGUARDANDO PAGAMENTO <<<'}
               </div>
               <div style="word-break: break-word;">Pagamento: <strong style="text-transform: uppercase;">${cleanPayment}</strong></div>
               <div>Status: <strong>${isOrderPaid(order) ? 'PAGO' : 'AGUARDANDO PAGAMENTO'}</strong></div>
               ${order.changeFor ? `<div style="font-weight: 900; margin-top: 2px;">Troco para: R$ ${order.changeFor}</div>` : ''}
               ${order.receiptAuthCode ? `
-                <div style="margin-top: 3px; font-size: 0.85em; color: #222; border: 1px solid #bbb; padding: 2px 4px; background: #fafafa; word-break: break-word;">
+                <div style="margin-top: 3px; font-size: 0.85em; color: #000; border: 1px solid #888; padding: 2px 4px; background: #fff; word-break: break-word;">
                   Autenticação: <strong>${order.receiptAuthCode}</strong>
                 </div>
               ` : ''}
@@ -487,9 +487,9 @@ export function generateReceiptHtml(
       ` : ''}
 
       <!-- RODAPÉ -->
-      <div style="text-align: center; border-top: 1px dashed #000; padding-top: 6px; margin-top: 6px;">
-        ${settings.printFooter ? `<div style="font-weight: bold; font-size: 0.85em; text-transform: uppercase; word-break: break-word;">${settings.printFooter}</div>` : ''}
-        <div style="font-size: 0.85em; margin-top: 3px; font-weight: bold;">*** ATÉ A PRÓXIMA! ***</div>
+      <div style="text-align: center; border-top: 2px dashed #000; padding-top: 6px; margin-top: 6px;">
+        ${settings.printFooter ? `<div style="font-weight: bold; font-size: 0.85em; text-transform: uppercase; word-break: break-word; color: #000;">${settings.printFooter}</div>` : ''}
+        <div style="font-size: 0.85em; margin-top: 3px; font-weight: 900; color: #000;">*** ATÉ A PRÓXIMA! ***</div>
       </div>
 
       <!-- AVANÇO DE LINHAS PARA A GUILHOTINA / SERRILHA -->
@@ -503,7 +503,7 @@ export function generateReceiptHtml(
  */
 export function buildCompletePrintPageHtml(order: Order, settings: PrinterSettings): string {
   const is58 = settings.printerType === 'thermal_58';
-  const paperWidth = is58 ? '44mm' : '64mm';
+  const paperWidth = is58 ? '48mm' : '72mm';
 
   let bodyContent = '';
   if (settings.printCopies === 2) {
@@ -526,10 +526,11 @@ export function buildCompletePrintPageHtml(order: Order, settings: PrinterSettin
       margin: 0 !important;
       size: auto !important;
     }
-    * {
+    *, *:before, *:after {
       box-sizing: border-box;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
+      color-adjust: exact !important;
     }
     html, body {
       margin: 0;
@@ -538,11 +539,13 @@ export function buildCompletePrintPageHtml(order: Order, settings: PrinterSettin
       color: #000000;
       width: 100%;
       font-family: 'Consolas', 'Lucida Console', 'Courier New', Courier, monospace, sans-serif;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
     @media screen {
       body {
         background: #f0f0f0;
-        padding: 20px;
+        padding: 16px;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -596,14 +599,18 @@ export function buildCompletePrintPageHtml(order: Order, settings: PrinterSettin
       }
     }
     @media print {
+      body {
+        margin: 0 !important;
+        padding: 0 !important;
+      }
       .screen-bar {
         display: none !important;
       }
       .comanda-wrapper {
         width: 100% !important;
         max-width: ${paperWidth} !important;
-        margin: 0 auto !important;
-        padding: 0 1.5mm !important;
+        margin: 0 !important;
+        padding: 0 0.5mm !important;
         box-shadow: none !important;
         border: none !important;
         box-sizing: border-box !important;
@@ -709,6 +716,7 @@ export async function sendToWindowsBridge(
     fullText = generateReceiptText(order, settings, false);
   }
 
+  const fullHtml = buildCompletePrintPageHtml(order, settings);
   const orderId = order.id || `manual-${Date.now()}`;
   const orderNumber = order.orderNumber || 1;
 
@@ -717,6 +725,7 @@ export async function sendToWindowsBridge(
     orderId,
     orderNumber,
     text: fullText,
+    html: fullHtml,
     force,
   });
 
@@ -732,6 +741,7 @@ export async function sendToWindowsBridge(
         orderId,
         orderNumber,
         text: fullText,
+        html: fullHtml,
         copies: 1,
         force,
       }),
@@ -1100,6 +1110,36 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '  return $res',
     '}',
     '',
+    'function Print-HtmlComanda([string]$htmlContent) {',
+    '  if (-not $htmlContent -or $htmlContent.Trim().Length -lt 30) { return $false }',
+    '  $targetPrinter = $script:selectedPrinter',
+    '  $edgePaths = @(',
+    '    "${env:ProgramFiles(x86)}\\Microsoft\\Edge\\Application\\msedge.exe",',
+    '    "$env:ProgramFiles\\Microsoft\\Edge\\Application\\msedge.exe",',
+    '    "$env:LOCALAPPDATA\\Microsoft\\Edge\\Application\\msedge.exe"',
+    '  )',
+    '  $edgeExe = ""',
+    '  foreach ($ep in $edgePaths) {',
+    '    if ($ep -and (Test-Path $ep)) { $edgeExe = $ep; break }',
+    '  }',
+    '  if ($edgeExe) {',
+    '    try {',
+    '      $tempHtml = Join-Path $appDir "comanda_current.html"',
+    '      [System.IO.File]::WriteAllText($tempHtml, $htmlContent, [System.Text.Encoding]::UTF8)',
+    '      $pArgs = if ($targetPrinter -and $targetPrinter -ne "Impressora Padrao do Windows") {',
+    '        "--headless --disable-gpu --run-all-compositor-stages-before-draw --print-to-printer=`"$targetPrinter`" `"$tempHtml`""',
+    '      } else {',
+    '        "--headless --disable-gpu --run-all-compositor-stages-before-draw --print-to-default-printer `"$tempHtml`""',
+    '      }',
+    '      $proc = Start-Process -FilePath $edgeExe -ArgumentList $pArgs -PassThru -WindowStyle Hidden',
+    '      $proc.WaitForExit(9000)',
+    '      $script:printedSessionCount++',
+    '      return $true',
+    '    } catch {}',
+    '  }',
+    '  return $false',
+    '}',
+    '',
     'function Print-RawComanda([string]$comandaText) {',
     '  $targetPrinter = $script:selectedPrinter',
     '  $useTextOnly = ($targetPrinter -match "Generic|Text Only|Somente Texto")',
@@ -1148,12 +1188,39 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '      } else {',
     '        $font = $testFont',
     '      }',
+    '      $fontTitle = New-Object System.Drawing.Font($font.FontFamily, ($font.Size + 3), [System.Drawing.FontStyle]::Bold)',
     '      $brush = [System.Drawing.Brushes]::Black',
+    '      $whiteBrush = [System.Drawing.Brushes]::White',
+    '      $blackBrush = [System.Drawing.Brushes]::Black',
+    '      $blackPen2 = New-Object System.Drawing.Pen([System.Drawing.Color]::Black, 2)',
+    '      $grayPen1 = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(120, 120, 120), 1)',
     '      $y = 6',
-    '      $lineHeight = $font.GetHeight($ev.Graphics) + 1',
+    '      $lineHeight = $font.GetHeight($ev.Graphics) + 2',
+    '      $rollWidth = 276',
     '      foreach ($ln in $script:currentPrintLines) {',
-    '        $ev.Graphics.DrawString($ln, $font, $brush, 4, $y)',
-    '        $y += $lineHeight',
+    '        $trimmed = $ln.Trim()',
+    '        if ($trimmed -match "^\\*\\*\\*\\s*PEDIDO") {',
+    '          $ev.Graphics.FillRectangle($blackBrush, 2, $y, $rollWidth, $lineHeight + 6)',
+    '          $ev.Graphics.DrawString($trimmed, $fontTitle, $whiteBrush, 4, $y + 2)',
+    '          $y += ($lineHeight + 8)',
+    '        } elseif ($trimmed -eq "ITENS DO PEDIDO" -or $trimmed -eq "PREPARO DA COZINHA" -or $trimmed -match "^\\[\\s*VIA\\s*\\d") {',
+    '          $ev.Graphics.FillRectangle($blackBrush, 2, $y, $rollWidth, $lineHeight + 3)',
+    '          $ev.Graphics.DrawString($trimmed, $font, $whiteBrush, 4, $y + 1)',
+    '          $y += ($lineHeight + 5)',
+    '        } elseif ($trimmed -match "PEDIDO PAGO E CONFIRMADO") {',
+    '          $ev.Graphics.FillRectangle($blackBrush, 2, $y, $rollWidth, $lineHeight + 3)',
+    '          $ev.Graphics.DrawString($trimmed, $font, $whiteBrush, 4, $y + 1)',
+    '          $y += ($lineHeight + 5)',
+    '        } elseif ($trimmed -match "^={10,}") {',
+    '          $ev.Graphics.DrawLine($blackPen2, 2, $y + [int]($lineHeight/2), $rollWidth, $y + [int]($lineHeight/2))',
+    '          $y += [int]($lineHeight * 0.75)',
+    '        } elseif ($trimmed -match "^-{10,}") {',
+    '          $ev.Graphics.DrawLine($grayPen1, 2, $y + [int]($lineHeight/2), $rollWidth, $y + [int]($lineHeight/2))',
+    '          $y += [int]($lineHeight * 0.75)',
+    '        } else {',
+    '          $ev.Graphics.DrawString($ln, $font, $brush, 4, $y)',
+    '          $y += $lineHeight',
+    '        }',
     '      }',
     '      $ev.HasMorePages = $false',
     '    })',
@@ -1582,7 +1649,13 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '          $nowStr = (Get-Date).ToString("HH:mm:ss")',
     '          Write-Host ("[" + $nowStr + "] Imprimindo Comanda #" + $payload.orderNumber + " em " + $script:selectedPrinter + "...") -ForegroundColor Cyan',
     '          try { [Console]::Beep(1200, 200); [Console]::Beep(1600, 300) } catch {}',
-    '          [void](Print-RawComanda ([string]$payload.text))',
+    '          $printedOk = $false',
+    '          if ($payload.html) {',
+    '            $printedOk = Print-HtmlComanda ([string]$payload.html)',
+    '          }',
+    '          if (-not $printedOk) {',
+    '            [void](Print-RawComanda ([string]$payload.text))',
+    '          }',
     '          Send-CloudHeartbeat',
     '          Write-Host ("[" + $nowStr + "] -> Comanda impressa com sucesso!") -ForegroundColor Green',
     '        }',
@@ -1611,17 +1684,24 @@ export function generateWindowsBridgeBatchScript(settings: PrinterSettings): str
     '    try {',
     '      $qDoc = Invoke-RestMethod -Uri $queueUrl -Method Get -TimeoutSec 4',
     '      if ($qDoc.fields -and $qDoc.fields.jobId.stringValue) {',
-    '        $jid = $qDoc.fields.jobId.stringValue',
-    '        $jtext = $qDoc.fields.text.stringValue',
+    '        $jid   = $qDoc.fields.jobId.stringValue',
+    '        $jtext = if ($qDoc.fields.text.stringValue) { $qDoc.fields.text.stringValue } else { "" }',
+    '        $jhtml = if ($qDoc.fields.html.stringValue) { $qDoc.fields.html.stringValue } else { "" }',
     '        $jonum = if ($qDoc.fields.orderNumber.stringValue) { $qDoc.fields.orderNumber.stringValue } else { "1" }',
     '        $joid  = if ($qDoc.fields.orderId.stringValue) { $qDoc.fields.orderId.stringValue } else { "" }',
-    '        if (-not $printedJobs.Contains($jid) -and $jtext) {',
+    '        if (-not $printedJobs.Contains($jid) -and ($jtext -or $jhtml)) {',
     '          Save-PrintedJob $jid',
     '          if ($joid) { Save-PrintedId $joid }',
     '          $nowStr = (Get-Date).ToString("HH:mm:ss")',
     '          Write-Host ("[" + $nowStr + "] COMANDA RECEBIDA DO PAINEL - Pedido #" + $jonum + " -> Imprimindo...") -ForegroundColor Cyan',
     '          try { [Console]::Beep(1200, 200); [Console]::Beep(1600, 300) } catch {}',
-    '          [void](Print-RawComanda $jtext)',
+    '          $printedOk = $false',
+    '          if ($jhtml) {',
+    '            $printedOk = Print-HtmlComanda $jhtml',
+    '          }',
+    '          if (-not $printedOk) {',
+    '            [void](Print-RawComanda $jtext)',
+    '          }',
     '          Send-CloudHeartbeat',
     '          Write-Host ("[" + $nowStr + "] -> Comanda #" + $jonum + " impressa em " + $script:selectedPrinter + "!") -ForegroundColor Green',
     '        }',

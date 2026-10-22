@@ -304,8 +304,8 @@ export default function PrintModal({ order, settings, onClose }: PrintModalProps
 
             <div className="bg-stone-200 p-3 rounded-2xl max-h-[480px] overflow-y-auto flex justify-center shadow-inner border border-stone-300">
               <div 
-                className="bg-white p-3 shadow-md rounded-sm font-mono text-black w-full"
-                style={{ maxWidth: is58 ? '46mm' : '68mm' }}
+                className="bg-white p-2 shadow-md rounded-sm font-mono text-black w-full"
+                style={{ maxWidth: is58 ? '48mm' : '72mm' }}
                 dangerouslySetInnerHTML={{
                   __html: settings.printCopies === 2 
                     ? `

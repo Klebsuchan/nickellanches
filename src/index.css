@@ -104,25 +104,25 @@ body {
 }
 
 @media print {
-  html, body {
-    margin: 0 !important;
-    padding: 0 !important;
-    background: #ffffff !important;
-    color: #000000 !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
   @page {
     margin: 0 !important;
     size: auto !important;
   }
 
+  *, *:before, *:after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
   html, body {
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
+    color: #000000 !important;
     width: 100% !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   body * {
@@ -131,16 +131,18 @@ body {
 
   #printable-command, #printable-command * {
     visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   #printable-command {
     display: block !important;
-    position: relative !important;
-    left: auto !important;
-    top: auto !important;
-    margin: 0 auto !important;
-    padding: 1mm 2.5mm !important;
-    font-family: 'Consolas', 'Lucida Console', 'Courier New', Courier, monospace !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    margin: 0 !important;
+    padding: 0.5mm 1.5mm !important;
+    font-family: 'Consolas', 'Lucida Console', 'Courier New', Courier, monospace, sans-serif !important;
     color: #000000 !important;
     background: #ffffff !important;
     box-sizing: border-box !important;
@@ -150,15 +152,19 @@ body {
   }
 
   #printable-command.thermal-80 {
-    max-width: 64mm !important;
+    max-width: 72mm !important;
+    width: 72mm !important;
   }
 
   #printable-command.thermal-58 {
-    max-width: 44mm !important;
+    max-width: 48mm !important;
+    width: 48mm !important;
   }
 
   #printable-command.normal-a4 {
     max-width: 180mm !important;
+    position: relative !important;
+    margin: 0 auto !important;
   }
 
   .print-page-break {
@@ -170,3 +176,4 @@ body {
     border: none;
   }
 }
+

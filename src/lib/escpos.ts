@@ -72,6 +72,12 @@ export class EscPosBuilder {
     return this;
   }
 
+  // Inverse print mode: white text on solid black background (GS B n)
+  reverseMode(enable: boolean): this {
+    this.buffer.push(0x1D, 0x42, enable ? 1 : 0);
+    return this;
+  }
+
   // Size: normal, double-height, double-width, double-both
   textSize(size: 'normal' | 'large' | 'title'): this {
     if (size === 'title') {
@@ -180,16 +186,18 @@ export function buildReceiptEscPos(
 
   if (viaTitle) {
     b.emptyLine(1);
-    b.bold(true).textSize('large').textLine(`[ ${viaTitle} ]`).textSize('normal').bold(false);
+    b.align('center').reverseMode(true).bold(true).textSize('normal').textLine(`  [ ${viaTitle} ]  `).reverseMode(false).bold(false);
   }
 
   b.divider('=', width);
 
-  // Order identification (Alto Destaque e Negrito)
+  // Order identification (Solid Black Inverted Banner - Alto Destaque)
   if (settings.showOrderNumber) {
     const num = order.orderNumber ? `#${order.orderNumber}` : `#${order.id ? order.id.substring(0, 4).toUpperCase() : '1'}`;
-    b.align('center').bold(true).textSize('large').textLine(`PEDIDO ${num}`).textSize('normal').bold(false);
+    b.emptyLine(1);
+    b.align('center').reverseMode(true).bold(true).textSize('large').textLine(`   PEDIDO ${num}   `).reverseMode(false).textSize('normal').bold(false);
     if (settings.showPassword && order.id) {
+      b.emptyLine(1);
       b.align('center').bold(true).textLine(`SENHA: ${order.id.substring(0, 4).toUpperCase()}`).bold(false);
     }
     b.align('left');
@@ -202,31 +210,32 @@ export function buildReceiptEscPos(
     }
     return new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   })();
-  b.textLine(`Data/Hora: ${timeStr}`);
+  b.emptyLine(1);
+  b.align('center').bold(true).textLine(`Data/Hora: ${timeStr}`).bold(false).align('left');
 
   // Customer Details
   b.divider('-', width);
-  b.bold(true).textLine(`Cliente: ${order.userName || 'Cliente'}`).bold(false);
+  b.bold(true).textLine(`Cliente: ${(order.userName || 'Cliente').toUpperCase()}`).bold(false);
   if (settings.showCustomerPhone && order.whatsapp) {
     b.textLine(`WhatsApp: ${order.whatsapp}`);
   }
   if (settings.showDeliveryAddress) {
     b.textLine(`Entrega: ${order.address || 'Retirada no Balcao'}`);
     if (order.region && !order.address?.includes(order.region)) {
-      b.textLine(`Bairro/Regiao: ${order.region}`);
+      b.textLine(`Bairro: ${order.region}`);
     }
   }
   if (order.receiptNotes) {
-    b.textLine(`Obs. Entrega: ${order.receiptNotes}`);
+    b.textLine(`Obs: ${order.receiptNotes}`);
   }
 
-  // Items (Alto Destaque e Negrito)
-  b.divider('=', width);
-  b.align('center').bold(true).textLine(isKitchenOnly ? 'PREPARO DA COZINHA' : 'ITENS DO PEDIDO').align('left').bold(false);
-  b.divider('=', width);
+  // Items (Solid Black Inverted Banner)
+  b.emptyLine(1);
+  b.align('center').reverseMode(true).bold(true).textLine(isKitchenOnly ? '   PREPARO DA COZINHA   ' : '   ITENS DO PEDIDO   ').reverseMode(false).bold(false).align('left');
+  b.emptyLine(1);
 
   let subtotal = 0;
-  order.items?.forEach(item => {
+  order.items?.forEach((item, itemIdx) => {
     const extrasTotal = item.extras?.reduce((s: number, e: any) => s + (Number(e.price) || 0), 0) || 0;
     const itemTotal = (Number(item.price) + extrasTotal) * Number(item.quantity);
     subtotal += itemTotal;
@@ -250,7 +259,9 @@ export function buildReceiptEscPos(
     if (settings.showItemObservations && item.observation && item.observation.trim()) {
       b.bold(true).textLine(`  >> OBS: ${item.observation.trim().toUpperCase()}`).bold(false);
     }
-    b.divider('-', width);
+    if (itemIdx < (order.items?.length || 1) - 1) {
+      b.divider('-', width);
+    }
   });
 
   // Financials if not kitchen only
@@ -269,12 +280,16 @@ export function buildReceiptEscPos(
     if (fee > 0) {
       b.twoColumns('Taxa de Entrega:', `R$ ${fee.toFixed(2).replace('.', ',')}`, width);
     }
-    b.divider('-', width);
-    b.bold(true).twoColumns('TOTAL DO PEDIDO:', `R$ ${total.toFixed(2).replace('.', ',')}`, width).bold(false);
+    b.divider('=', width);
+    b.bold(true).textSize('large').twoColumns('TOTAL:', `R$ ${total.toFixed(2).replace('.', ',')}`, width).textSize('normal').bold(false);
+    b.divider('=', width);
 
     if (settings.showPaymentDetails) {
-      b.divider('-', width);
+      b.emptyLine(1);
+      b.align('center').reverseMode(true).bold(true).textLine('   >>> PEDIDO PAGO E CONFIRMADO <<<   ').reverseMode(false).bold(false).align('left');
+      b.emptyLine(1);
       b.textLine(`Pagamento: ${order.paymentMethod || 'A Confirmar'}`);
+      b.bold(true).textLine('Status: PAGO').bold(false);
       if (order.changeFor) {
         b.bold(true).textLine(`Troco para: R$ ${order.changeFor}`).bold(false);
       }
@@ -290,7 +305,7 @@ export function buildReceiptEscPos(
   if (settings.printFooter) {
     b.textLine(settings.printFooter);
   }
-  b.textLine('ATE A PROXIMA!');
+  b.bold(true).textLine('*** ATE A PROXIMA! ***').bold(false);
   b.divider('=', width);
 
   // Cut paper and feed

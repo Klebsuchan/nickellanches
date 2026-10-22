@@ -919,6 +919,7 @@ export const enqueueCloudPrintJob = async (job: {
   orderId: string;
   orderNumber: string | number;
   text: string;
+  html?: string;
   force?: boolean;
 }): Promise<boolean> => {
   try {
@@ -928,6 +929,7 @@ export const enqueueCloudPrintJob = async (job: {
       orderId: String(job.orderId || 'manual'),
       orderNumber: String(job.orderNumber || '1'),
       text: job.text,
+      html: job.html || '',
       force: Boolean(job.force),
       createdAtMs: Date.now(),
     });
