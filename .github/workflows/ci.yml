@@ -1,0 +1,38 @@
+name: CI - Build & Lint Check
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+
+jobs:
+  validate:
+    name: Lint & Build Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout do Código
+        uses: actions/checkout@v4
+
+      - name: 🟢 Configurar Node.js (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: 📦 Instalar Dependências
+        run: npm ci
+
+      - name: 🔍 Verificação de Lint & TypeScript (tsc --noEmit)
+        run: npm run lint
+
+      - name: 🏗️ Compilar Projeto (Vite Build)
+        run: npm run build
+        env:
+          VITE_FIREBASE_API_KEY: "mock_api_key_ci"
+          VITE_FIREBASE_AUTH_DOMAIN: "mock.firebaseapp.com"
+          VITE_FIREBASE_PROJECT_ID: "mock-project-id"
+          VITE_FIREBASE_STORAGE_BUCKET: "mock.appspot.com"
+          VITE_FIREBASE_MESSAGING_SENDER_ID: "123456789"
+          VITE_FIREBASE_APP_ID: "1:123456789:web:abcdef"

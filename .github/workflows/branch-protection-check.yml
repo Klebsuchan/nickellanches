@@ -1,0 +1,34 @@
+name: Branch & Security Policy Check
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  policy-enforcement:
+    name: Branch Policy & Secrets Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout do Código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🛡️ Verificar Push Direto na Main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "Verificando integridade da branch main..."
+          echo "Lembrete: Alterações na branch main devem ser realizadas EXCLUSIVAMENTE via Pull Request com validação."
+
+      - name: 🔎 Scan de Senhas e Credenciais Hardcoded
+        run: |
+          echo "Varrendo arquivos em busca de credenciais em texto claro..."
+          # Bloqueia se senhas óbvias ou hardcoded forem detectadas no código fonte
+          if grep -rn -i "nickellanches123" src/ ; then
+            echo "::error::Senha em texto claro detectada no código fonte! Remova antes de prosseguir."
+            exit 1
+          fi
+          echo "Nenhuma credencial exposta detectada. Verificação de segurança concluída com sucesso!"

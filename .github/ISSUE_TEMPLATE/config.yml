@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Dúvidas e Suporte da Lancheria
+    url: https://github.com/seu-usuario/nickel-lanches/discussions
+    about: Faça perguntas, compartilhe fotos dos seus lanches ou peça ajuda com configuração de impressoras térmicas.
+  - name: 🚨 Reporte de Segurança Confidencial
+    url: mailto:braian.kleber.camargo@gmail.com
+    about: Para reportar falhas de segurança de forma confidencial.

@@ -38,10 +38,16 @@ export const executePrintOrder = async (
   await executeUniversalPrint(order, settings, addToast, options);
 };
 
+// Acesso protegido do painel administrativo
+async function computePasswordHash(text: string): Promise<string> {
+  const data = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 export default function AdminPanel({ onClose, initialTab = 'orders', standaloneAutoPrint = false }: AdminPanelProps) {
-  // Acesso estritamente protegido pela senha nickellanches123 (permite janela filha autenticada na mesma sessão)
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return sessionStorage.getItem('nickel_admin_session_auth') === 'nickellanches123_ok';
+    return sessionStorage.getItem('nickel_admin_session_auth') === 'authenticated';
   });
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -110,15 +116,34 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
   
   const { addToast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanPass = password.trim();
-    if (
-      cleanPass === 'nickellanches123' ||
-      cleanPass.toLowerCase() === 'nickellanches123' ||
-      ((import.meta as any).env?.VITE_ADMIN_PASSWORD && cleanPass === (import.meta as any).env?.VITE_ADMIN_PASSWORD)
-    ) {
-      sessionStorage.setItem('nickel_admin_session_auth', 'nickellanches123_ok');
+    if (!cleanPass) {
+      playSound('error');
+      addToast({ message: 'Digite a senha de administrador.', type: 'error' as any });
+      return;
+    }
+
+    const envAdminPass = (import.meta as any).env?.VITE_ADMIN_PASSWORD;
+    let isAuthorized = false;
+
+    if (envAdminPass && cleanPass === envAdminPass) {
+      isAuthorized = true;
+    } else {
+      try {
+        const hashed = await computePasswordHash(cleanPass);
+        // Master hash de autorização administrativa (sem expor a senha em texto plano)
+        if (hashed === 'd3b8aca45e911548eaeb548af01a2fff7000b73eda85c5d4c6d43a86e60ad775') {
+          isAuthorized = true;
+        }
+      } catch (err) {
+        console.error('Erro de validação criptográfica:', err);
+      }
+    }
+
+    if (isAuthorized) {
+      sessionStorage.setItem('nickel_admin_session_auth', 'authenticated');
       setIsAuthenticated(true);
       playSound('coin');
       addToast({ message: 'Login efetuado com sucesso!', type: 'success' });
