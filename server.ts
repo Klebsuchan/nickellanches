@@ -213,7 +213,33 @@ async function startServer() {
       }
       const stripe = new Stripe(stripeSecretKey);
       
-      const { items, orderDetails, discountAmount } = req.body;
+      const { items, orderDetails, discountAmount, storeOpen } = req.body;
+
+      // Validação de segurança de horário no servidor (São Paulo UTC-3: 18:30 às 22:30)
+      const spFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Sao_Paulo',
+        weekday: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+      const spParts = spFormatter.formatToParts(new Date());
+      const spWeekday = spParts.find(p => p.type === 'weekday')?.value || 'Sun';
+      const spHour = parseInt(spParts.find(p => p.type === 'hour')?.value || '00', 10) % 24;
+      const spMin = parseInt(spParts.find(p => p.type === 'minute')?.value || '00', 10);
+      const spMinutes = spHour * 60 + spMin;
+
+      const isMonday = spWeekday === 'Mon';
+      const isWithinHours = !isMonday && spMinutes >= (18 * 60 + 30) && spMinutes <= (22 * 60 + 30);
+
+      // Bloqueia tentativas fora do horário caso o frontend reporte fechado ou esteja fora da janela (exceto bypass de admin)
+      if ((storeOpen === false || !isWithinHours) && !req.body.adminBypass) {
+        return res.status(400).json({
+          error: isMonday
+            ? 'Hoje (Segunda-feira) o restaurante está fechado para descanso da equipe. Nosso atendimento é de terça a domingo das 18:30 às 22:30!'
+            : 'O restaurante está fechado no momento. Nosso horário de atendimento é das 18:30 às 22:30!'
+        });
+      }
       
       const lineItems = (items || []).map((item: any) => {
         const extrasCost = (item.extras || []).reduce((acc: number, ex: any) => acc + ex.price, 0);

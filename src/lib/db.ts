@@ -277,7 +277,14 @@ export const getStoreHoursSettings = async (): Promise<StoreHoursSettings> => {
     const docRef = doc(db, "settings", "store_hours");
     const snap = await getDoc(docRef);
     if (snap.exists()) {
-      const merged = { ...DEFAULT_STORE_HOURS, ...snap.data() } as StoreHoursSettings;
+      const data = snap.data();
+      const hasOldHours = Array.isArray(data.schedule) && data.schedule.some((d: any) => d.closeTime === '23:45' || d.closeTime === '23:59');
+      const merged = { 
+        ...DEFAULT_STORE_HOURS, 
+        ...data,
+        schedule: hasOldHours ? DEFAULT_STORE_HOURS.schedule : (data.schedule || DEFAULT_STORE_HOURS.schedule),
+        mode: (data.mode === 'open' && !data.updatedAtMs) ? 'auto' : (data.mode || 'auto')
+      } as StoreHoursSettings;
       setCachedStoreHours(merged);
       return merged;
     }
@@ -311,12 +318,19 @@ export const subscribeToStoreHours = (callback: (settings: StoreHoursSettings) =
     docRef,
     (snap) => {
       if (snap.exists()) {
-        const data = { ...DEFAULT_STORE_HOURS, ...snap.data() } as StoreHoursSettings;
-        setCachedStoreHours(data);
+        const data = snap.data();
+        const hasOldHours = Array.isArray(data.schedule) && data.schedule.some((d: any) => d.closeTime === '23:45' || d.closeTime === '23:59');
+        const merged = { 
+          ...DEFAULT_STORE_HOURS, 
+          ...data,
+          schedule: hasOldHours ? DEFAULT_STORE_HOURS.schedule : (data.schedule || DEFAULT_STORE_HOURS.schedule),
+          mode: (data.mode === 'open' && !data.updatedAtMs) ? 'auto' : (data.mode || 'auto')
+        } as StoreHoursSettings;
+        setCachedStoreHours(merged);
         try {
-          localStorage.setItem("nickel_simular_segunda", data.mode === "closed" ? "true" : "false");
+          localStorage.setItem("nickel_simular_segunda", merged.mode === "closed" ? "true" : "false");
         } catch {}
-        callback(data);
+        callback(merged);
       } else {
         const cached = getCachedStoreHours();
         callback(cached);
@@ -405,7 +419,7 @@ export const seedDatabase = async (initialProducts: Product[], initialPromos: { 
     
     const metaSnap = await getDoc(metaRef);
     const currentVersion = metaSnap.exists() ? metaSnap.data().seedVersion : 0;
-    const TARGET_VERSION = 25;
+    const TARGET_VERSION = 26;
   
     const productsSnap = await getDocs(productsRef);
     const existingDocs = new Map(productsSnap.docs.map(d => [d.id, d.data()]));
@@ -442,6 +456,21 @@ export const seedDatabase = async (initialProducts: Product[], initialPromos: { 
             acceptDebit: true
           }
         }, { merge: true });
+      } catch (_) {}
+      // Garante que o horário de funcionamento oficial (18:30 às 22:30 em modo automático) seja salvo
+      try {
+        await setDoc(doc(db, "settings", "store_hours"), {
+          mode: 'auto',
+          closedTitle: 'Loja Fechada no Momento',
+          closedDescription: 'Nosso horário de funcionamento é das 18:30 às 22:30. Faça seu pedido assim que abrirmos!',
+          bannerText: '⏰ LOJA FECHADA NO MOMENTO • ATENDIMENTO DAS 18:30 ÀS 22:30',
+          schedule: DEFAULT_STORE_HOURS.schedule,
+          updatedAtMs: Date.now()
+        }, { merge: true });
+        setCachedStoreHours({
+          ...DEFAULT_STORE_HOURS,
+          updatedAtMs: Date.now()
+        });
       } catch (_) {}
       try {
         await setDoc(metaRef, { seedVersion: TARGET_VERSION }, { merge: true });

@@ -536,8 +536,8 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
   const [isSplitting, setIsSplitting] = useState(false);
   const hasTriggeredClose = useRef(false);
 
-  // Duração rápida e ágil para não prender o cliente (~1.3 segundos de auto-avanço)
-  const DURATION_MS = 1400;
+  // Duração aumentada em 1s (+1000ms) para 2.4s conforme solicitado pelo usuário
+  const DURATION_MS = 2400;
   const SPLIT_ANIMATION_MS = 220;
 
   // Tocar som alegre de balcão ao abrir
@@ -630,13 +630,13 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
       <AnimatedSunburst />
 
       {/* Estrelas Douradas Cintilantes Espalhadas */}
-      <SparkleStar top="12%" left="18%" size={18} delay={0.2} />
-      <SparkleStar top="22%" left="38%" size={22} delay={0.8} />
-      <SparkleStar top="14%" left="72%" size={19} delay={0.4} />
-      <SparkleStar top="34%" left="76%" size={17} delay={1.1} />
-      <SparkleStar top="62%" left="15%" size={24} delay={0.6} />
-      <SparkleStar top="58%" left="72%" size={20} delay={0.9} />
-      <SparkleStar top="40%" left="28%" size={16} delay={1.3} />
+      <SparkleStar top="12%" left="18%" size={20} delay={0.2} />
+      <SparkleStar top="22%" left="38%" size={24} delay={0.8} />
+      <SparkleStar top="14%" left="72%" size={22} delay={0.4} />
+      <SparkleStar top="34%" left="76%" size={18} delay={1.1} />
+      <SparkleStar top="62%" left="15%" size={26} delay={0.6} />
+      <SparkleStar top="58%" left="72%" size={22} delay={0.9} />
+      <SparkleStar top="40%" left="28%" size={18} delay={1.3} />
 
       {/* Fumacinha cartoon saindo dos lanches */}
       <CartoonSmokePuff className="top-[18%] left-[36%]" />
@@ -644,18 +644,18 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
       <CartoonSmokePuff className="top-[48%] right-[30%]" />
 
       {/* ========================================================
-          ELEMENTOS FLUTUANTES MÓVEIS (Fast Food com física independente)
+          ELEMENTOS FLUTUANTES MÓVEIS (Fast Food com dimensões ampliadas)
           ======================================================== */}
 
       {/* 1. Hambúrguer Top-Left com Linhas de Velocidade */}
       <motion.div
         animate={{
-          y: [0, -10, 0],
-          x: [0, 4, 0],
+          y: [0, -12, 0],
+          x: [0, 5, 0],
           rotate: [-4, 3, -4],
         }}
         transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute top-[10%] sm:top-[12%] left-[3%] sm:left-[8%] md:left-[14%] w-24 sm:w-32 md:w-44 z-20 pointer-events-none"
+        className="absolute top-[8%] sm:top-[10%] left-[2%] sm:left-[7%] md:left-[12%] w-28 sm:w-40 md:w-52 z-20 pointer-events-none"
       >
         <BurgerGraphic hasSpeedLines={true} className="w-full" />
       </motion.div>
@@ -663,12 +663,12 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
       {/* 2. Hambúrguer Mid-Left Suculento */}
       <motion.div
         animate={{
-          y: [0, 10, 0],
+          y: [0, 12, 0],
           rotate: [3, -4, 3],
-          scale: [1, 1.03, 1],
+          scale: [1, 1.04, 1],
         }}
         transition={{ duration: 3.8, repeat: Infinity, ease: 'easeInOut', delay: 0.4 }}
-        className="absolute top-[34%] sm:top-[38%] left-[1%] sm:left-[6%] md:left-[11%] w-26 sm:w-36 md:w-48 z-20 pointer-events-none"
+        className="absolute top-[34%] sm:top-[38%] left-[1%] sm:left-[5%] md:left-[10%] w-30 sm:w-44 md:w-56 z-20 pointer-events-none"
       >
         <BurgerGraphic className="w-full" />
       </motion.div>
@@ -676,11 +676,11 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
       {/* 3. Refrigerante Gelado com Canudo (Esquerda) */}
       <motion.div
         animate={{
-          y: [0, -8, 0],
+          y: [0, -10, 0],
           rotate: [-8, -2, -8],
         }}
         transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut', delay: 0.7 }}
-        className="absolute top-[50%] sm:top-[52%] left-[15%] sm:left-[18%] md:left-[24%] w-16 sm:w-22 md:w-28 z-20 pointer-events-none"
+        className="absolute top-[52%] sm:top-[54%] left-[14%] sm:left-[18%] md:left-[24%] w-20 sm:w-28 md:w-36 z-20 pointer-events-none"
       >
         <DrinkGraphic className="w-full" />
       </motion.div>
@@ -688,11 +688,11 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
       {/* 4. Hambúrguer Bottom-Left */}
       <motion.div
         animate={{
-          y: [0, -9, 0],
+          y: [0, -10, 0],
           rotate: [-3, 3, -3],
         }}
         transition={{ duration: 3.4, repeat: Infinity, ease: 'easeInOut', delay: 0.9 }}
-        className="hidden xs:block absolute top-[66%] sm:top-[64%] left-[4%] sm:left-[9%] md:left-[15%] w-22 sm:w-32 md:w-42 z-20 pointer-events-none"
+        className="hidden xs:block absolute top-[66%] sm:top-[64%] left-[3%] sm:left-[8%] md:left-[14%] w-26 sm:w-38 md:w-48 z-20 pointer-events-none"
       >
         <BurgerGraphic className="w-full" />
       </motion.div>
@@ -700,12 +700,12 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
       {/* 5. Batata Frita Crocante Top-Right */}
       <motion.div
         animate={{
-          y: [0, -11, 0],
+          y: [0, -12, 0],
           rotate: [4, -3, 4],
-          scale: [1, 1.04, 1],
+          scale: [1, 1.05, 1],
         }}
         transition={{ duration: 3.3, repeat: Infinity, ease: 'easeInOut', delay: 0.3 }}
-        className="absolute top-[8%] sm:top-[11%] right-[3%] sm:right-[8%] md:right-[15%] w-22 sm:w-32 md:w-44 z-20 pointer-events-none"
+        className="absolute top-[7%] sm:top-[10%] right-[2%] sm:right-[7%] md:right-[13%] w-28 sm:w-40 md:w-52 z-20 pointer-events-none"
       >
         <FriesGraphic className="w-full" />
       </motion.div>
@@ -713,11 +713,11 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
       {/* 6. Copo de Refrigerante Grande Mid-Right */}
       <motion.div
         animate={{
-          y: [0, 9, 0],
+          y: [0, 10, 0],
           rotate: [5, -4, 5],
         }}
         transition={{ duration: 3.6, repeat: Infinity, ease: 'easeInOut', delay: 0.6 }}
-        className="absolute top-[32%] sm:top-[34%] right-[2%] sm:right-[7%] md:right-[13%] w-20 sm:w-28 md:w-38 z-20 pointer-events-none"
+        className="absolute top-[32%] sm:top-[34%] right-[1%] sm:right-[6%] md:right-[12%] w-24 sm:w-34 md:w-46 z-20 pointer-events-none"
       >
         <DrinkGraphic className="w-full" />
       </motion.div>
@@ -725,11 +725,11 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
       {/* 7. Cachorro-Quente / Hot Dog Bottom-Right */}
       <motion.div
         animate={{
-          y: [0, -8, 0],
+          y: [0, -10, 0],
           rotate: [-5, 4, -5],
         }}
         transition={{ duration: 3.4, repeat: Infinity, ease: 'easeInOut', delay: 0.8 }}
-        className="absolute top-[58%] sm:top-[60%] right-[3%] sm:right-[9%] md:right-[16%] w-26 sm:w-38 md:w-52 z-20 pointer-events-none"
+        className="absolute top-[56%] sm:top-[58%] right-[2%] sm:right-[8%] md:right-[15%] w-30 sm:w-44 md:w-60 z-20 pointer-events-none"
       >
         <HotDogGraphic className="w-full" />
       </motion.div>
@@ -747,9 +747,9 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
             initial={{ opacity: 0, y: -15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="inline-flex items-center gap-1.5 px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full bg-black/70 border border-amber-400/80 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.3)] text-[10px] sm:text-xs font-black uppercase tracking-wider backdrop-blur-md"
+            className="inline-flex items-center gap-1.5 px-3 sm:px-5 py-1.5 sm:py-2 rounded-full bg-black/75 border border-amber-400 text-amber-300 shadow-[0_0_18px_rgba(245,158,11,0.35)] text-[11px] sm:text-sm font-black uppercase tracking-wider backdrop-blur-md"
           >
-            <Sparkles size={12} className="text-amber-400 animate-spin" style={{ animationDuration: '6s' }} />
+            <Sparkles size={14} className="text-amber-400 animate-spin" style={{ animationDuration: '6s' }} />
             <span className="truncate max-w-[200px] sm:max-w-none">
               NICKEL LANCHES • PASSO FUNDO RS
             </span>
@@ -760,10 +760,10 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4, delay: 0.1 }}
-            className="inline-flex items-center gap-1 sm:gap-1.5 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-[#381156]/90 border border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.3)] text-white backdrop-blur-md"
+            className="inline-flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-full bg-[#381156]/90 border border-amber-400 shadow-[0_0_18px_rgba(245,158,11,0.35)] text-white backdrop-blur-md"
           >
-            <Heart size={12} className="text-amber-400 fill-amber-400 animate-pulse" />
-            <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-amber-300">
+            <Heart size={14} className="text-amber-400 fill-amber-400 animate-pulse" />
+            <span className="text-[11px] sm:text-sm font-black uppercase tracking-wider text-amber-300">
               SÉRGIO & FRAN
             </span>
           </motion.div>
@@ -778,38 +778,38 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
               e.stopPropagation();
               triggerClose('menu');
             }}
-            className="flex items-center gap-1 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-stone-100 hover:text-white text-[11px] sm:text-xs font-bold border border-white/25 shadow-lg backdrop-blur-md transition-all cursor-pointer pointer-events-auto"
+            className="flex items-center gap-1.5 px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-stone-100 hover:text-white text-xs sm:text-sm font-bold border border-white/25 shadow-lg backdrop-blur-md transition-all cursor-pointer pointer-events-auto"
             title="Pular introdução"
           >
             <span>Pular</span>
-            <X size={13} className="stroke-[2.5]" />
+            <X size={14} className="stroke-[2.5]" />
           </motion.button>
         </header>
 
         {/* ======================================================
-            MEIO: PROPRIETÁRIOS SÉRGIO & FRAN (HERÓIS CENTRAIS)
+            MEIO: PROPRIETÁRIOS SÉRGIO & FRAN (HERÓIS CENTRAIS AMPLIADOS)
             ====================================================== */}
         <div className="relative flex-1 w-full flex items-center justify-center my-1 sm:my-2 min-h-0 pointer-events-none">
           {/* Luz de destaque dourada atrás do casal */}
-          <div className="absolute w-[280px] sm:w-[420px] md:w-[500px] h-[280px] sm:h-[420px] md:h-[500px] rounded-full bg-gradient-to-tr from-amber-400/35 via-yellow-300/25 to-purple-600/30 filter blur-3xl pointer-events-none animate-pulse" />
+          <div className="absolute w-[340px] sm:w-[500px] md:w-[620px] h-[340px] sm:h-[500px] md:h-[620px] rounded-full bg-gradient-to-tr from-amber-400/40 via-yellow-300/30 to-purple-600/30 filter blur-3xl pointer-events-none animate-pulse" />
 
-          {/* Personagens Sérgio e Fran com respiração sutil */}
+          {/* Personagens Sérgio e Fran em tamanho ampliado com respiração sutil */}
           <motion.div
             animate={{
-              y: [0, -8, 0],
-              scale: [1, 1.015, 1],
+              y: [0, -10, 0],
+              scale: [1, 1.02, 1],
             }}
             transition={{
               duration: 3.2,
               repeat: Infinity,
               ease: 'easeInOut',
             }}
-            className="relative z-30 flex items-center justify-center h-full max-h-[50vh] sm:max-h-[56vh] md:max-h-[60vh] max-w-full"
+            className="relative z-30 flex items-center justify-center h-full max-h-[55vh] sm:max-h-[62vh] md:max-h-[68vh] max-w-full"
           >
             <img
               src="/sergiofra.png"
               alt="Sérgio e Fran - Proprietários da Nickel Lanches"
-              className="h-full w-auto max-h-[50vh] sm:max-h-[56vh] md:max-h-[60vh] max-w-[85vw] sm:max-w-[70vw] object-contain drop-shadow-[0_20px_35px_rgba(0,0,0,0.85)] filter pointer-events-none select-none"
+              className="h-full w-auto max-h-[55vh] sm:max-h-[62vh] md:max-h-[68vh] max-w-[92vw] sm:max-w-[78vw] object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.9)] filter pointer-events-none select-none scale-105 sm:scale-110"
             />
           </motion.div>
         </div>
@@ -817,20 +817,20 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
         {/* ======================================================
             BASE: TEXTO, BARRA COM ENTREGADOR E BOTÕES DE AÇÃO
             ====================================================== */}
-        <footer className="w-full max-w-lg flex flex-col items-center gap-2 sm:gap-2.5 shrink-0 z-40 pb-1 pointer-events-auto">
-          {/* Frase de Carregamento */}
+        <footer className="w-full max-w-lg flex flex-col items-center gap-2.5 sm:gap-3 shrink-0 z-40 pb-1 pointer-events-auto">
+          {/* Frase de Carregamento Ampliada */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex items-center gap-1.5 text-white font-bold text-xs sm:text-sm drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
+            className="flex items-center gap-2 text-white font-black text-sm sm:text-base drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] tracking-wide"
           >
             <span>Carregando sabor e diversão...</span>
-            <span className="animate-pulse">⏳</span>
+            <span className="animate-pulse text-base sm:text-lg">⏳</span>
           </motion.div>
 
           {/* Barra de Progresso Cápsula Dourada com Entregador de Moto */}
           <div
-            className="w-full h-5 sm:h-6 rounded-full border-[1.5px] border-amber-400 bg-[#16062a] p-[2.5px] shadow-[0_0_16px_rgba(245,158,11,0.55)] cursor-pointer overflow-visible relative"
+            className="w-full h-6 sm:h-7 rounded-full border-2 border-amber-400 bg-[#16062a] p-[3px] shadow-[0_0_20px_rgba(245,158,11,0.65)] cursor-pointer overflow-visible relative"
             onClick={(e) => {
               e.stopPropagation();
               triggerClose('menu');
@@ -839,16 +839,16 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
           >
             {/* Preenchimento dinâmico */}
             <div
-              className="h-full rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 relative transition-all duration-75 shadow-[0_0_12px_#f59e0b]"
+              className="h-full rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 relative transition-all duration-75 shadow-[0_0_14px_#f59e0b]"
               style={{ width: `${Math.max(4, Math.min(100, progress))}%` }}
             >
               {/* Motinho de entrega no topo da ponta do progresso */}
               <motion.div
                 animate={{
-                  y: [0, -3, 0],
+                  y: [0, -3.5, 0],
                 }}
                 transition={{ duration: 0.45, repeat: Infinity, ease: 'easeInOut' }}
-                className="absolute -top-[15px] sm:-top-[17px] -right-[15px] sm:-right-[17px] text-lg sm:text-xl pointer-events-none filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] select-none"
+                className="absolute -top-[18px] sm:-top-[22px] -right-[18px] sm:-right-[22px] text-xl sm:text-2xl pointer-events-none filter drop-shadow-[0_2px_6px_rgba(0,0,0,0.95)] select-none"
                 style={{ transform: 'scaleX(-1)' }}
               >
                 🛵
@@ -857,7 +857,7 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
           </div>
 
           {/* Botões de Ação */}
-          <div className="w-full flex items-center gap-2 sm:gap-3 mt-0.5">
+          <div className="w-full flex items-center gap-2 sm:gap-3 mt-1">
             {/* Botão Principal Dourado: VER CARDÁPIO & PEDIR */}
             <motion.button
               whileHover={{ scale: 1.02 }}
@@ -867,11 +867,11 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
                 e.stopPropagation();
                 triggerClose('menu');
               }}
-              className="flex-1 py-2.5 sm:py-3 px-4 sm:px-6 rounded-xl sm:rounded-2xl bg-gradient-to-r from-[#F28B20] via-amber-400 to-[#F28B20] text-black font-display font-black text-xs sm:text-sm uppercase tracking-wider shadow-[0_6px_25px_rgba(242,139,32,0.6)] flex items-center justify-center gap-2 border border-amber-300/60 relative cursor-pointer group"
+              className="flex-1 py-3 sm:py-3.5 px-5 sm:px-7 rounded-xl sm:rounded-2xl bg-gradient-to-r from-[#F28B20] via-amber-400 to-[#F28B20] text-black font-display font-black text-xs sm:text-base uppercase tracking-wider shadow-[0_6px_25px_rgba(242,139,32,0.6)] flex items-center justify-center gap-2 border border-amber-300/60 relative cursor-pointer group"
             >
               <span>VER CARDÁPIO & PEDIR</span>
               <ArrowRight
-                size={16}
+                size={18}
                 className="stroke-[3] text-black group-hover:translate-x-1 transition-transform"
               />
 
@@ -882,7 +882,7 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
                   y: [0, 2, 0],
                 }}
                 transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
-                className="absolute -right-2 -bottom-2 text-base sm:text-lg pointer-events-none filter drop-shadow"
+                className="absolute -right-2 -bottom-2 text-base sm:text-xl pointer-events-none filter drop-shadow"
               >
                 👆
               </motion.div>
@@ -898,7 +898,7 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
                   e.stopPropagation();
                   triggerClose('game');
                 }}
-                className="py-2.5 sm:py-3 px-3.5 sm:px-5 rounded-xl sm:rounded-2xl bg-[#2b1442]/90 hover:bg-[#3d1b5c] text-white font-bold text-xs sm:text-sm uppercase tracking-wider shadow-md flex items-center justify-center gap-1.5 border border-white/20 whitespace-nowrap cursor-pointer"
+                className="py-3 sm:py-3.5 px-4 sm:px-6 rounded-xl sm:rounded-2xl bg-[#2b1442]/90 hover:bg-[#3d1b5c] text-white font-bold text-xs sm:text-base uppercase tracking-wider shadow-md flex items-center justify-center gap-1.5 border border-white/20 whitespace-nowrap cursor-pointer"
                 title="Jogar Nickel Dash"
               >
                 <span>🐶</span>
@@ -908,9 +908,9 @@ export default function IntroPresentation({ onClose, onGoToGame }: IntroPresenta
           </div>
 
           {/* Status inferior e link rápido */}
-          <div className="w-full flex items-center justify-between text-[10px] sm:text-xs text-stone-300/90 font-medium px-1">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping inline-block" />
+          <div className="w-full flex items-center justify-between text-[11px] sm:text-xs text-stone-300/90 font-medium px-1">
+            <span className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping inline-block" />
               <span>Entrando no cardápio...</span>
             </span>
             <button

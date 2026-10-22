@@ -28,18 +28,18 @@ export interface StoreStatus {
 }
 
 export const DEFAULT_STORE_HOURS: StoreHoursSettings = {
-  mode: 'open',
+  mode: 'auto',
   closedTitle: 'Loja Fechada no Momento',
-  closedDescription: 'Nosso delivery está fechado agora. Confira nosso horário de atendimento e faça seu pedido assim que abrirmos!',
-  bannerText: '⏰ LOJA FECHADA NO MOMENTO • CONFIRA NOSSO HORÁRIO DE ATENDIMENTO',
+  closedDescription: 'Nosso horário de funcionamento é das 18:30 às 22:30. Faça seu pedido assim que abrirmos!',
+  bannerText: '⏰ LOJA FECHADA NO MOMENTO • ATENDIMENTO DAS 18:30 ÀS 22:30',
   schedule: [
-    { dayOfWeek: 0, label: 'Domingo', enabled: true, openTime: '18:30', closeTime: '23:45' },
-    { dayOfWeek: 1, label: 'Segunda-feira', enabled: false, openTime: '18:30', closeTime: '23:45' },
-    { dayOfWeek: 2, label: 'Terça-feira', enabled: true, openTime: '18:30', closeTime: '23:45' },
-    { dayOfWeek: 3, label: 'Quarta-feira', enabled: true, openTime: '18:30', closeTime: '23:45' },
-    { dayOfWeek: 4, label: 'Quinta-feira', enabled: true, openTime: '18:30', closeTime: '23:45' },
-    { dayOfWeek: 5, label: 'Sexta-feira', enabled: true, openTime: '18:30', closeTime: '23:59' },
-    { dayOfWeek: 6, label: 'Sábado', enabled: true, openTime: '18:30', closeTime: '23:59' },
+    { dayOfWeek: 0, label: 'Domingo', enabled: true, openTime: '18:30', closeTime: '22:30' },
+    { dayOfWeek: 1, label: 'Segunda-feira', enabled: false, openTime: '18:30', closeTime: '22:30' },
+    { dayOfWeek: 2, label: 'Terça-feira', enabled: true, openTime: '18:30', closeTime: '22:30' },
+    { dayOfWeek: 3, label: 'Quarta-feira', enabled: true, openTime: '18:30', closeTime: '22:30' },
+    { dayOfWeek: 4, label: 'Quinta-feira', enabled: true, openTime: '18:30', closeTime: '22:30' },
+    { dayOfWeek: 5, label: 'Sexta-feira', enabled: true, openTime: '18:30', closeTime: '22:30' },
+    { dayOfWeek: 6, label: 'Sábado', enabled: true, openTime: '18:30', closeTime: '22:30' },
   ],
 };
 
@@ -64,7 +64,13 @@ export const getCachedStoreHours = (): StoreHoursSettings => {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed && Array.isArray(parsed.schedule) && parsed.schedule.length === 7) {
-          memoryStoreHours = { ...DEFAULT_STORE_HOURS, ...parsed };
+          // Se for cache legado onde mode era 'open' por padrão ou com horários antigos, mescla com DEFAULT
+          const hasOldHours = parsed.schedule.some((d: any) => d.closeTime === '23:45' || d.closeTime === '23:59');
+          if (hasOldHours || (parsed.mode === 'open' && !parsed.updatedAtMs)) {
+            memoryStoreHours = { ...DEFAULT_STORE_HOURS, ...parsed, mode: 'auto' };
+          } else {
+            memoryStoreHours = { ...DEFAULT_STORE_HOURS, ...parsed };
+          }
           return memoryStoreHours!;
         }
       }

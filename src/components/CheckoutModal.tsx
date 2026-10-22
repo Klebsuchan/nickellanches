@@ -476,7 +476,8 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
             orderDetails: orderPayload,
             discountAmount: discountAmount,
             paymentMethod: paymentMethod,
-            origin: window.location.origin
+            origin: window.location.origin,
+            storeOpen: getStoreStatus().isOpen
           })
         });
 
