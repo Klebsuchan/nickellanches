@@ -53,19 +53,21 @@ export default function PrintableReceipt({ order, settings, viaTitle, isKitchenO
         )}
       </div>
 
-      {/* Identification */}
-      <div className="mb-2 pb-2 border-b border-dashed border-black">
+      {/* Identification & Número do Pedido em Alto Destaque */}
+      <div className="mb-2 pb-2 border-b-2 border-black">
         {settings.showOrderNumber && (
-          <div className="flex justify-between items-center mb-1">
-            <span className="font-black text-lg">PEDIDO #{order.orderNumber || (order.id ? order.id.substring(0, 4).toUpperCase() : '1')}</span>
+          <div className="my-2 py-2 px-3 bg-black text-white text-center rounded-sm border-2 border-black shadow-sm">
+            <div className="font-black text-2xl sm:text-3xl tracking-tight leading-none uppercase">
+              PEDIDO #{order.orderNumber || (order.id ? order.id.substring(0, 4).toUpperCase() : '1')}
+            </div>
             {settings.showPassword && order.id && (
-              <span className="border border-black px-1.5 py-0.5 text-xs font-black">
+              <div className="text-xs font-black tracking-widest text-yellow-300 mt-1 uppercase">
                 SENHA: {order.id.substring(0, 4).toUpperCase()}
-              </span>
+              </div>
             )}
           </div>
         )}
-        <p className="text-[11px] text-stone-800 font-semibold">Data/Hora: {orderTimeStr}</p>
+        <p className="text-xs text-black font-bold text-center mt-1">Data/Hora: {orderTimeStr}</p>
         
         {/* Customer Details */}
         <div className="mt-1.5 pt-1.5 border-t border-dotted border-stone-400">
@@ -92,40 +94,43 @@ export default function PrintableReceipt({ order, settings, viaTitle, isKitchenO
         </div>
       </div>
 
-      {/* Items Section */}
+      {/* Items Section - Itens do Pedido em Destaque e Negrito */}
       <div className="py-1 mb-2">
-        <div className="font-black text-center text-xs py-0.5 bg-black text-white uppercase tracking-wider mb-2">
+        <div className="font-black text-center text-sm py-1 bg-black text-white uppercase tracking-wider mb-2.5 border-y-2 border-black">
           {isKitchenOnly ? 'PREPARO DA COZINHA' : 'ITENS DO PEDIDO'}
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {order.items?.map((item, i) => {
             const extrasTotal = item.extras?.reduce((s: number, e: any) => s + (Number(e.price) || 0), 0) || 0;
             const itemTotal = (Number(item.price) + extrasTotal) * Number(item.quantity);
 
             return (
-              <div key={i} className="border-b border-dashed border-stone-300 pb-2">
-                <div className="flex justify-between items-start font-black text-sm gap-2">
-                  <span className="flex-1 min-w-0 break-words leading-tight uppercase">
-                    {item.quantity}x {sanitizeForThermal(item.name || 'Item')}
+              <div key={i} className="border-b-2 border-black pb-2.5 mb-2.5">
+                <div className="flex justify-between items-start font-black gap-2">
+                  <span className="flex-1 min-w-0 break-words leading-tight uppercase font-black text-base sm:text-[17px] text-black">
+                    <span className="inline-block bg-black text-white px-2 py-0.5 rounded text-sm font-black mr-1.5 align-middle">
+                      {item.quantity}x
+                    </span>
+                    <span className="align-middle font-black">{sanitizeForThermal(item.name || 'Item')}</span>
                   </span>
                   {!isKitchenOnly && (
-                    <span className="shrink-0 font-mono whitespace-nowrap text-right">
+                    <span className="shrink-0 font-mono font-black text-sm sm:text-base whitespace-nowrap text-right text-black">
                       R$ {itemTotal.toFixed(2).replace('.', ',')}
                     </span>
                   )}
                 </div>
 
                 {item.extras && item.extras.length > 0 && (
-                  <div className="pl-2 mt-1 space-y-0.5 text-xs border-l-2 border-stone-400">
-                    <div className="font-bold text-stone-900 uppercase text-[10px] tracking-wide">
-                      Adicionais:
+                  <div className="pl-2.5 mt-1.5 space-y-1 text-xs border-l-4 border-black ml-1">
+                    <div className="font-black text-black uppercase text-[11px] tracking-wide">
+                      ADICIONAIS:
                     </div>
                     {item.extras.map((e: any, exIdx: number) => (
-                      <div key={exIdx} className="flex justify-between text-stone-800 font-semibold pl-1 gap-2">
+                      <div key={exIdx} className="flex justify-between text-black font-extrabold pl-0.5 gap-2">
                         <span className="min-w-0 break-words leading-tight">+ {sanitizeForThermal(e.name || '')}</span>
                         {!isKitchenOnly && (
-                          <span className="shrink-0 font-mono text-stone-700 whitespace-nowrap text-[11px]">
+                          <span className="shrink-0 font-mono font-extrabold text-black whitespace-nowrap text-xs">
                             {Number(e.price) > 0 ? `+R$ ${Number(e.price).toFixed(2).replace('.', ',')}` : 'Incluso'}
                           </span>
                         )}
@@ -135,7 +140,7 @@ export default function PrintableReceipt({ order, settings, viaTitle, isKitchenO
                 )}
 
                 {settings.showItemObservations && item.observation && item.observation.trim() && (
-                  <div className="mt-1.5 py-1 px-1.5 bg-stone-200 border-l-4 border-black text-xs font-black uppercase text-stone-900 break-words leading-snug">
+                  <div className="mt-2 py-1.5 px-2 bg-stone-200 border-l-4 border-black text-xs font-black uppercase text-black break-words leading-snug">
                     &gt;&gt; OBS: {sanitizeForThermal(item.observation.trim())}
                   </div>
                 )}

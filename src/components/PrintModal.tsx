@@ -152,10 +152,10 @@ export default function PrintModal({ order, settings, onClose }: PrintModalProps
               <Printer size={22} />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-black uppercase tracking-tight">
-                  Imprimir Comanda #{order.orderNumber || (order.id ? order.id.substring(0, 4) : '1')}
-                </h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="bg-yellow-400 text-stone-950 px-2.5 py-0.5 rounded-lg font-black text-base uppercase tracking-tight shadow-xs">
+                  PEDIDO #{order.orderNumber || (order.id ? order.id.substring(0, 4) : '1')}
+                </span>
                 <span className="bg-stone-800 text-yellow-400 text-[10px] font-black uppercase px-2 py-0.5 rounded border border-yellow-400/30">
                   {paperLabel}
                 </span>

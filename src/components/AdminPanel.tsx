@@ -768,8 +768,8 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
                   </div>
                   
                   <div className="pr-8 cursor-pointer" onClick={() => setEditingOrder(order)}>
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="font-black text-lg text-stone-900">
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span className="font-black text-base text-black bg-amber-400 px-2 py-0.5 rounded border border-amber-500 shadow-xs tracking-tight">
                         {order.orderNumber ? `PEDIDO #${order.orderNumber}` : `#${order.id?.substring(0,6).toUpperCase()}`}
                       </span>
                       <span className="text-xs text-stone-500 font-bold bg-stone-100 px-2 py-1 rounded">
@@ -780,6 +780,19 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
                     <div className="text-xs text-stone-500 font-medium mb-2 flex items-center gap-1 line-clamp-1">
                       {order.address || 'Retirada no Balcão'}
                     </div>
+
+                    {/* Itens do Pedido em Destaque e Negrito no Cartão */}
+                    {order.items && order.items.length > 0 && (
+                      <div className="my-2 p-2 bg-stone-50 border border-stone-200 rounded-lg text-xs space-y-1">
+                        {order.items.map((it: any, itIdx: number) => (
+                          <div key={itIdx} className="font-black text-stone-900 leading-tight flex items-start gap-1">
+                            <span className="font-black bg-black text-white px-1.5 py-0.2 rounded text-[11px] shrink-0">{it.quantity}x</span>
+                            <span className="break-words font-black">{it.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     <div className="flex justify-between items-center border-t border-dashed border-stone-200 pt-2 flex-wrap gap-1">
                       <div className="flex items-center gap-1.5">
                         <span className="font-black text-amber-700">R$ {order.totalPrice.toFixed(2)}</span>
@@ -832,8 +845,8 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
                     </div>
                     
                     <div className="pr-8 cursor-pointer" onClick={() => setEditingOrder(order)}>
-                      <div className="flex justify-between items-start mb-1">
-                        <span className="font-black text-lg text-stone-900">
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="font-black text-base text-black bg-yellow-400 px-2 py-0.5 rounded border border-yellow-500 shadow-xs tracking-tight">
                           {order.orderNumber ? `PEDIDO #${order.orderNumber}` : `#${order.id?.substring(0,6).toUpperCase()}`}
                         </span>
                         <span className="text-xs text-stone-500 font-bold bg-stone-100 px-2 py-1 rounded">
@@ -841,9 +854,22 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
                         </span>
                       </div>
                       <div className="font-bold text-stone-800 mb-1">{order.userName || 'Anônimo'}</div>
-                      <div className="text-xs text-stone-500 font-medium mb-3 flex items-center gap-1 line-clamp-1">
+                      <div className="text-xs text-stone-500 font-medium mb-2 flex items-center gap-1 line-clamp-1">
                         {order.address || 'Retirada no Balcão'}
                       </div>
+
+                      {/* Itens do Pedido em Destaque e Negrito no Cartão */}
+                      {order.items && order.items.length > 0 && (
+                        <div className="my-2 p-2 bg-stone-50 border border-stone-200 rounded-lg text-xs space-y-1">
+                          {order.items.map((it: any, itIdx: number) => (
+                            <div key={itIdx} className="font-black text-stone-900 leading-tight flex items-start gap-1">
+                              <span className="font-black bg-black text-white px-1.5 py-0.2 rounded text-[11px] shrink-0">{it.quantity}x</span>
+                              <span className="break-words font-black">{it.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                       <div className="flex justify-between items-center border-t border-dashed border-stone-200 pt-2 flex-wrap gap-1">
                         <div className="flex items-center gap-1.5">
                           <span className="font-black text-green-600">R$ {order.totalPrice.toFixed(2)}</span>
@@ -978,7 +1004,11 @@ function OrderEditModal({ order, onClose, onSave, onPrint }: any) {
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
         <div className="p-6 border-b-2 border-stone-100 flex justify-between items-center sticky top-0 bg-white z-10 rounded-t-2xl">
-          <h2 className="text-2xl font-black uppercase flex items-center gap-2">Comanda #{order.id}</h2>
+          <h2 className="text-2xl font-black uppercase flex items-center gap-2">
+            <span className="bg-yellow-400 text-black px-3 py-1 rounded-xl border border-yellow-500 shadow-sm font-black tracking-tight">
+              PEDIDO #{order.orderNumber || order.id?.substring(0, 6).toUpperCase()}
+            </span>
+          </h2>
           <div className="flex gap-2">
             <button 
               onClick={() => {
@@ -1095,21 +1125,31 @@ function OrderEditModal({ order, onClose, onSave, onPrint }: any) {
             </div>
           </div>
           <div className="bg-stone-100 p-4 rounded-xl border border-stone-200">
-            <h3 className="font-bold uppercase mb-4 pb-2 border-b-2 border-stone-300">Resumo dos Itens</h3>
-            <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
+            <h3 className="font-black uppercase mb-4 pb-2 border-b-2 border-stone-300 tracking-wider text-sm flex items-center justify-between">
+              <span>ITENS DO PEDIDO</span>
+              <span className="text-xs bg-stone-200 text-stone-800 px-2 py-0.5 rounded-full font-black">
+                {order.items?.length || 0} {order.items?.length === 1 ? 'item' : 'itens'}
+              </span>
+            </h3>
+            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
               {order.items.map((item: any, i: number) => (
-                <div key={i} className="bg-white p-3 rounded-lg shadow-sm border border-stone-200">
-                  <div className="flex justify-between font-bold">
-                    <span>{item.quantity}x {item.name}</span>
-                    <span className="text-green-600">R$ {((item.price + (item.extras?.reduce((s:any,e:any)=>s+e.price,0)||0)) * item.quantity).toFixed(2)}</span>
+                <div key={i} className="bg-white p-3.5 rounded-xl shadow-sm border-2 border-stone-300">
+                  <div className="flex justify-between items-center font-black text-base">
+                    <span className="flex items-center gap-2 text-stone-950 font-black">
+                      <span className="bg-black text-white px-2 py-0.5 rounded text-sm font-black">{item.quantity}x</span>
+                      <span>{item.name}</span>
+                    </span>
+                    <span className="font-mono text-emerald-700 font-black text-base whitespace-nowrap">
+                      R$ {((item.price + (item.extras?.reduce((s:any,e:any)=>s+e.price,0)||0)) * item.quantity).toFixed(2)}
+                    </span>
                   </div>
                   {item.extras && item.extras.length > 0 && (
-                    <div className="mt-1.5 pl-2 text-xs space-y-0.5 bg-yellow-50/80 p-2 rounded border border-yellow-200">
-                      <span className="font-bold text-yellow-800 uppercase text-[10px] block">Adicionais:</span>
+                    <div className="mt-2 pl-2.5 text-xs space-y-1 bg-yellow-50/90 p-2 rounded-lg border-l-4 border-amber-500">
+                      <span className="font-black text-amber-950 uppercase text-[11px] block">ADICIONAIS:</span>
                       {item.extras.map((e: any, exIdx: number) => (
-                        <div key={exIdx} className="flex justify-between font-semibold text-stone-700">
+                        <div key={exIdx} className="flex justify-between font-bold text-stone-900">
                           <span>• {e.name}</span>
-                          <span className="font-mono text-amber-900">
+                          <span className="font-mono text-amber-950 font-black">
                             {e.price > 0 ? `+ R$ ${Number(e.price).toFixed(2).replace('.', ',')}` : '(Incluso)'}
                           </span>
                         </div>
@@ -1117,7 +1157,9 @@ function OrderEditModal({ order, onClose, onSave, onPrint }: any) {
                     </div>
                   )}
                   {item.observation && (
-                    <div className="text-xs italic text-red-500 font-bold mt-1 uppercase">Obs: {item.observation}</div>
+                    <div className="text-xs bg-red-50 border-l-4 border-red-500 text-red-900 p-2 font-black mt-2 uppercase rounded-r leading-tight">
+                      &gt;&gt; OBS: {item.observation}
+                    </div>
                   )}
                 </div>
               ))}

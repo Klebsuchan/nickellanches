@@ -173,14 +173,15 @@ export function generateReceiptText(
   }
   pushRaw(dline);
 
-  // IDENTIFICAÇÃO DO PEDIDO
+  // IDENTIFICAÇÃO DO PEDIDO (ALTO DESTAQUE)
   const orderNum = order.orderNumber || (order.id ? order.id.substring(0, 4).toUpperCase() : '1');
   const passStr = settings.showPassword && order.id ? order.id.substring(0, 4).toUpperCase() : '';
+  pushRaw(dline);
+  pushCentered(`*** PEDIDO #${orderNum} ***`);
   if (passStr) {
-    pushDotRow(`PEDIDO #${orderNum}`, `SENHA: ${passStr}`);
-  } else {
-    pushCentered(`*** PEDIDO #${orderNum} ***`);
+    pushCentered(`SENHA: ${passStr}`);
   }
+  pushRaw(dline);
 
   let dateStr = '';
   if (order.createdAt?.toDate) {
@@ -211,10 +212,10 @@ export function generateReceiptText(
     pushWrapped(`Obs. Entrega: ${order.receiptNotes.trim()}`, '  ');
   }
 
-  // ITENS DO PEDIDO
+  // ITENS DO PEDIDO (DESTAQUE E NEGRITO)
   pushRaw(dline);
   pushCentered(isKitchenOnly ? 'PREPARO DA COZINHA' : 'ITENS DO PEDIDO');
-  pushRaw(line);
+  pushRaw(dline);
 
   let subtotal = 0;
   if (order.items && order.items.length > 0) {
@@ -223,7 +224,7 @@ export function generateReceiptText(
       const itemTotal = (Number(item.price) + extrasTotal) * Number(item.quantity);
       subtotal += itemTotal;
 
-      const itemHeader = `${item.quantity}x ${(item.name || 'Item').toUpperCase()}`;
+      const itemHeader = `[ ${item.quantity}X ] ${(item.name || 'Item').toUpperCase()}`;
       if (isKitchenOnly) {
         pushWrapped(itemHeader, '   ');
       } else {
@@ -249,7 +250,7 @@ export function generateReceiptText(
       }
 
       if (idx < order.items.length - 1) {
-        pushRaw(' - - - - - - - - - - - - - - - -');
+        pushRaw('--------------------------------');
       }
     });
   }
@@ -343,8 +344,8 @@ export function generateReceiptHtml(
 
   const orderNum = order.orderNumber || (order.id ? order.id.substring(0, 4).toUpperCase() : '1');
   const subtotal = order.items?.reduce((sum, item) => {
-    const extras = item.extras?.reduce((s: number, e: any) => s + (Number(e.price) || 0), 0) || 0;
-    return sum + ((Number(item.price) + extras) * Number(item.quantity));
+    const extrasTotal = item.extras?.reduce((s: number, e: any) => s + (Number(e.price) || 0), 0) || 0;
+    return sum + ((Number(item.price) + extrasTotal) * Number(item.quantity));
   }, 0) || order.totalPrice;
   const fee = Number(order.deliveryFee) || 0;
   const total = Number(order.totalPrice) || 0;
@@ -358,12 +359,12 @@ export function generateReceiptHtml(
 
     const extrasSnippet = item.extras && item.extras.length > 0
       ? `
-        <div style="padding-left: 8px; margin-top: 4px; font-size: 0.9em; border-left: 2px solid #888; margin-left: 2px; padding-bottom: 2px;">
-          <div style="font-weight: 900; text-transform: uppercase; font-size: 0.82em; color: #444; margin-bottom: 2px;">Adicionais:</div>
+        <div style="padding-left: 8px; margin-top: 4px; font-size: 0.92em; border-left: 3px solid #000; margin-left: 2px; padding-bottom: 2px;">
+          <div style="font-weight: 900; text-transform: uppercase; font-size: 0.82em; color: #000; margin-bottom: 2px;">ADICIONAIS:</div>
           ${item.extras.map((e: any) => `
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; padding: 1px 0; font-weight: 600; gap: 6px;">
-              <span style="min-width: 0; word-break: break-word;">+ ${sanitizeForThermal(e.name || '')}</span>
-              ${!isKitchenOnly ? `<span style="font-family: monospace; white-space: nowrap; flex-shrink: 0;">${Number(e.price) > 0 ? `+R$ ${Number(e.price).toFixed(2).replace('.', ',')}` : 'Incluso'}</span>` : ''}
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; padding: 1px 0; font-weight: 800; gap: 6px; color: #000;">
+              <span style="min-width: 0; word-break: break-word; font-weight: 800;">+ ${sanitizeForThermal(e.name || '')}</span>
+              ${!isKitchenOnly ? `<span style="font-family: monospace; white-space: nowrap; flex-shrink: 0; font-weight: 800;">${Number(e.price) > 0 ? `+R$ ${Number(e.price).toFixed(2).replace('.', ',')}` : 'Incluso'}</span>` : ''}
             </div>
           `).join('')}
         </div>
@@ -371,14 +372,17 @@ export function generateReceiptHtml(
       : '';
 
     const obsSnippet = settings.showItemObservations && item.observation && item.observation.trim()
-      ? `<div style="padding: 3px 6px; margin-top: 4px; font-weight: 900; background: #e5e5e5; border-left: 3px solid #000; text-transform: uppercase; font-size: 0.9em; word-break: break-word; line-height: 1.25;">>> OBS: ${sanitizeForThermal(item.observation.trim())}</div>`
+      ? `<div style="padding: 4px 6px; margin-top: 5px; font-weight: 900; background: #e5e5e5; border-left: 4px solid #000; text-transform: uppercase; font-size: 0.92em; word-break: break-word; line-height: 1.25; color: #000;">>> OBS: ${sanitizeForThermal(item.observation.trim())}</div>`
       : '';
 
     return `
-      <div style="border-bottom: 1px dashed #666; padding-bottom: 5px; margin-bottom: 5px; word-break: break-word;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; font-weight: 900; font-size: 1.02em; gap: 6px;">
-          <span style="flex: 1; min-width: 0; word-break: break-word; line-height: 1.25; text-transform: uppercase;">${item.quantity}x ${sanitizeForThermal(item.name || 'Item')}</span>
-          ${!isKitchenOnly ? `<span style="font-family: monospace; white-space: nowrap; flex-shrink: 0;">R$ ${itemTotal.toFixed(2).replace('.', ',')}</span>` : ''}
+      <div style="border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 6px; word-break: break-word;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; font-weight: 900; font-size: 1.15em; gap: 6px;">
+          <span style="flex: 1; min-width: 0; word-break: break-word; line-height: 1.25; text-transform: uppercase; font-weight: 900;">
+            <span style="background: #000; color: #fff; padding: 1px 5px; font-size: 0.88em; font-weight: 900; border-radius: 2px; margin-right: 4px;">${item.quantity}x</span>
+            ${sanitizeForThermal(item.name || 'Item')}
+          </span>
+          ${!isKitchenOnly ? `<span style="font-family: monospace; white-space: nowrap; flex-shrink: 0; font-weight: 900; font-size: 1.02em;">R$ ${itemTotal.toFixed(2).replace('.', ',')}</span>` : ''}
         </div>
         ${extrasSnippet}
         ${obsSnippet}
@@ -400,13 +404,15 @@ export function generateReceiptHtml(
         ${viaTitle ? `<div style="display: inline-block; background: #000; color: #fff; font-weight: 900; font-size: 0.8em; padding: 2px 6px; margin-top: 4px; text-transform: uppercase;">${viaTitle}</div>` : ''}
       </div>
 
-      <!-- DADOS DO PEDIDO E CLIENTE -->
-      <div style="border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-          <span style="font-weight: 900; font-size: 1.15em;">PEDIDO #${orderNum}</span>
-          ${settings.showPassword && order.id ? `<span style="border: 1px solid #000; padding: 1px 4px; font-weight: 900; font-size: 0.85em;">SENHA: ${order.id.substring(0, 4).toUpperCase()}</span>` : ''}
+      <!-- DADOS DO PEDIDO E NÚMERO DO PEDIDO EM ALTO DESTAQUE -->
+      <div style="border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 6px;">
+        <div style="background: #000; color: #fff; padding: 6px 4px; text-align: center; margin: 4px 0 6px 0; border-radius: 3px; border: 2px solid #000;">
+          <div style="font-weight: 900; font-size: 1.55em; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.1;">
+            PEDIDO #${orderNum}
+          </div>
+          ${settings.showPassword && order.id ? `<div style="font-weight: 900; font-size: 0.85em; color: #fde047; margin-top: 3px; letter-spacing: 1px;">SENHA: ${order.id.substring(0, 4).toUpperCase()}</div>` : ''}
         </div>
-        <div style="font-size: 0.85em; color: #222; font-weight: 600;">Data/Hora: ${dateStr}</div>
+        <div style="font-size: 0.88em; color: #000; font-weight: bold; text-align: center;">Data/Hora: ${dateStr}</div>
         
         <div style="margin-top: 6px; padding-top: 4px; border-top: 1px dotted #888; font-size: 0.92em; line-height: 1.35;">
           <div style="word-break: break-word;"><span style="font-weight: bold; color: #333;">Cliente: </span><span style="font-weight: 900; text-transform: uppercase;">${sanitizeForThermal(order.userName || 'Balcão / Cliente')}</span></div>
@@ -425,9 +431,9 @@ export function generateReceiptHtml(
         </div>
       </div>
 
-      <!-- ITENS -->
+      <!-- ITENS DO PEDIDO EM ALTO DESTAQUE E NEGRITO -->
       <div style="margin-bottom: 6px;">
-        <div style="background: #000; color: #fff; text-align: center; font-weight: 900; font-size: 0.85em; padding: 2px 0; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 1px;">
+        <div style="background: #000; color: #fff; text-align: center; font-weight: 900; font-size: 0.92em; padding: 3px 0; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 1px;">
           ${isKitchenOnly ? 'PREPARO DA COZINHA' : 'ITENS DO PEDIDO'}
         </div>
         <div>

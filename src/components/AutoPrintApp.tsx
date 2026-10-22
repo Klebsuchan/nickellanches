@@ -408,7 +408,9 @@ export default function AutoPrintApp({
                         {/* Cabeçalho da Comanda */}
                         <div className="flex justify-between items-start gap-2 border-b border-stone-200 pb-2.5 mb-2.5">
                           <div>
-                            <span className="font-black text-base text-stone-950 block">{orderNum}</span>
+                            <span className="font-black text-sm text-black bg-yellow-400 px-2 py-0.5 rounded border border-yellow-500 shadow-xs inline-block tracking-tight mb-1">
+                              {orderNum}
+                            </span>
                             <span className="text-[11px] font-bold text-stone-500 flex items-center gap-1">
                               <Clock size={11} /> {timeStr}
                             </span>
@@ -443,25 +445,26 @@ export default function AutoPrintApp({
                           </div>
                         </div>
 
-                        {/* Itens da Comanda */}
-                        <div className="space-y-1.5 mb-3 max-h-36 overflow-y-auto pr-1">
+                        {/* Itens da Comanda - Destaque e Negrito */}
+                        <div className="space-y-1.5 mb-3 max-h-40 overflow-y-auto pr-1">
                           {(order.items || []).map((item: any, idx: number) => (
-                            <div key={idx} className="text-xs bg-white p-2 rounded-lg border border-stone-200">
-                              <div className="font-bold text-stone-900 flex justify-between">
-                                <span>
-                                  {item.quantity}x {item.name}
+                            <div key={idx} className="text-xs bg-white p-2 rounded-lg border-2 border-stone-300 shadow-2xs">
+                              <div className="font-black text-stone-950 flex justify-between items-center text-sm">
+                                <span className="flex items-center gap-1.5">
+                                  <span className="bg-black text-white px-1.5 py-0.2 rounded text-[11px] font-black">{item.quantity}x</span>
+                                  <span className="font-black">{item.name}</span>
                                 </span>
                               </div>
                               {item.extras && item.extras.length > 0 && (
-                                <div className="text-[11px] text-stone-600 pl-2 mt-0.5">
+                                <div className="text-[11px] text-stone-800 font-bold pl-2 mt-1 border-l-2 border-amber-500">
                                   {item.extras.map((ex: any, i: number) => (
                                     <div key={i}>+ {ex.name}</div>
                                   ))}
                                 </div>
                               )}
                               {item.observation && (
-                                <div className="text-[11px] font-bold text-red-600 uppercase mt-0.5">
-                                  Obs: {item.observation}
+                                <div className="text-[11px] font-black text-red-600 uppercase mt-1 bg-red-50 p-1 rounded border-l-2 border-red-500">
+                                  &gt;&gt; Obs: {item.observation}
                                 </div>
                               )}
                             </div>

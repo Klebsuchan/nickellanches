@@ -185,11 +185,14 @@ export function buildReceiptEscPos(
 
   b.divider('=', width);
 
-  // Order identification
-  b.align('left');
+  // Order identification (Alto Destaque e Negrito)
   if (settings.showOrderNumber) {
     const num = order.orderNumber ? `#${order.orderNumber}` : `#${order.id ? order.id.substring(0, 4).toUpperCase() : '1'}`;
-    b.bold(true).twoColumns(`PEDIDO ${num}`, order.id ? `SENHA: ${order.id.substring(0, 4).toUpperCase()}` : '', width).bold(false);
+    b.align('center').bold(true).textSize('large').textLine(`PEDIDO ${num}`).textSize('normal').bold(false);
+    if (settings.showPassword && order.id) {
+      b.align('center').bold(true).textLine(`SENHA: ${order.id.substring(0, 4).toUpperCase()}`).bold(false);
+    }
+    b.align('left');
   }
 
   const timeStr = (() => {
@@ -217,10 +220,10 @@ export function buildReceiptEscPos(
     b.textLine(`Obs. Entrega: ${order.receiptNotes}`);
   }
 
-  // Items
+  // Items (Alto Destaque e Negrito)
   b.divider('=', width);
   b.align('center').bold(true).textLine(isKitchenOnly ? 'PREPARO DA COZINHA' : 'ITENS DO PEDIDO').align('left').bold(false);
-  b.divider('-', width);
+  b.divider('=', width);
 
   let subtotal = 0;
   order.items?.forEach(item => {
@@ -228,7 +231,7 @@ export function buildReceiptEscPos(
     const itemTotal = (Number(item.price) + extrasTotal) * Number(item.quantity);
     subtotal += itemTotal;
 
-    const itemLabel = `${item.quantity}x ${(item.name || 'Item').toUpperCase()}`;
+    const itemLabel = `[ ${item.quantity}X ] ${(item.name || 'Item').toUpperCase()}`;
     const priceLabel = !isKitchenOnly ? `R$ ${itemTotal.toFixed(2).replace('.', ',')}` : '';
     b.bold(true).twoColumns(itemLabel, priceLabel, width).bold(false);
 
@@ -237,9 +240,9 @@ export function buildReceiptEscPos(
         const extraName = `  + ${e.name}`;
         const extraPrice = !isKitchenOnly && Number(e.price) > 0 ? `+R$ ${Number(e.price).toFixed(2).replace('.', ',')}` : 'Incluso';
         if (!isKitchenOnly) {
-          b.twoColumns(extraName, extraPrice, width);
+          b.bold(true).twoColumns(extraName, extraPrice, width).bold(false);
         } else {
-          b.textLine(extraName);
+          b.bold(true).textLine(extraName).bold(false);
         }
       });
     }
@@ -247,6 +250,7 @@ export function buildReceiptEscPos(
     if (settings.showItemObservations && item.observation && item.observation.trim()) {
       b.bold(true).textLine(`  >> OBS: ${item.observation.trim().toUpperCase()}`).bold(false);
     }
+    b.divider('-', width);
   });
 
   // Financials if not kitchen only
