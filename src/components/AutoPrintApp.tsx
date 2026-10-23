@@ -124,19 +124,21 @@ export default function AutoPrintApp({
 
   const handleTestComandaPrint = async () => {
     const sampleOrder: Order = {
-      id: '9F8A-TESTE-01',
+      id: 'TESTE-9F8A-01',
       orderNumber: 1,
       userName: 'João da Silva (Pedido Teste)',
       whatsapp: '(54) 99123-4567',
       address: 'Av. Brasil, 1500 - Apto 302 (Centro)',
       region: 'Centro',
       deliveryNotes: 'Campainha não funciona, chamar no WhatsApp ao chegar na portaria.',
-      paymentMethod: 'PIX (Mercado Pago)',
+      paymentMethod: 'PIX (Aprovado)',
+      paymentStatus: 'pago',
+      isPaid: true,
       totalPrice: 78.5,
       totalPoints: 25,
       deliveryFee: 7.0,
       createdAt: new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      status: 'em preparo',
+      status: 'recebido',
       receiptAuthCode: 'MP-AUTH-9988776655',
       receiptTimestamp: new Date().toLocaleTimeString('pt-BR'),
       items: [
@@ -165,9 +167,14 @@ export default function AutoPrintApp({
         },
       ],
     };
+    (sampleOrder as any).isTest = true;
 
     playSound('coin');
-    await executeUniversalPrint(sampleOrder, settings, addToast, { force: true });
+    if (onPrintOrder) {
+      onPrintOrder(sampleOrder);
+    } else {
+      await executeUniversalPrint(sampleOrder, settings, addToast, { force: true });
+    }
   };
 
   return (

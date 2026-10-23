@@ -855,16 +855,39 @@ export async function sendToWindowsBridge(
  * 2. Hidden isolated IFrame 1-bit Bitmap print (standard browser spooler without font substitution)
  * 3. Popup window print (fallback if iframe printing is sandboxed/blocked)
  */
+/**
+ * Identifies whether an order is a test order (created for printer testing)
+ */
+export function isReceiptTestOrder(order: Partial<Order>): boolean {
+  if (!order) return false;
+  if ((order as any).isTest) return true;
+  const id = String(order.id || '').toUpperCase();
+  const name = String(order.userName || '').toUpperCase();
+  return (
+    id.includes('TESTE') ||
+    id.startsWith('TEST') ||
+    id.includes('SAMPLE') ||
+    name.includes('TESTE') ||
+    name.startsWith('TEST') ||
+    name.includes('CLIENTE TESTE')
+  );
+}
+
 export async function executeUniversalPrint(
   order: Order,
   settings: PrinterSettings,
   addToast?: (t: { message: string; type: 'success' | 'error' | 'info' | 'warning' }) => void,
   options?: { force?: boolean }
 ): Promise<{ success: boolean; method: string }> {
-  const isTestOrder =
-    String(order.id || '').startsWith('TESTE') ||
-    order.userName === 'CLIENTE TESTE' ||
-    order.userName === 'TESTE IMPRESSÃO AUTOMÁTICA';
+  const isTestOrder = isReceiptTestOrder(order);
+
+  // Garante que pedidos de teste nunca sejam bloqueados pelo filtro de pagamento
+  if (isTestOrder) {
+    order.isPaid = true;
+    if (!order.paymentStatus) {
+      (order as any).paymentStatus = 'pago';
+    }
+  }
 
   // REGRA DE OURO: Só pode ir para a comanda da impressora os pedidos que foram PAGOS!
   if (!isTestOrder && !isOrderPaid(order)) {
@@ -922,20 +945,23 @@ export async function executeUniversalPrint(
   // Build complete HTML with 1-bit Bitmap Image (autoPrintOnLoad = false because we trigger it cleanly below)
   const pageHtml = buildCompletePrintPageHtml(order, settings, false);
 
-  // 2. Isolated hidden Iframe print (waits for bitmap image to decode before calling print())
+  // 2. Isolated off-screen Iframe print (must have non-zero dimensions and not visibility:hidden so Chromium renders the print tree)
   try {
     const oldIframe = document.getElementById('nickel-print-frame');
     if (oldIframe) oldIframe.remove();
 
     const iframe = document.createElement('iframe');
     iframe.id = 'nickel-print-frame';
+    // Chromium suppresses window.print() on 0x0 or visibility:hidden iframes. Use off-screen placement:
     iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    iframe.style.visibility = 'hidden';
+    iframe.style.left = '-9999px';
+    iframe.style.top = '0';
+    iframe.style.width = '420px';
+    iframe.style.height = '600px';
+    iframe.style.border = 'none';
+    iframe.style.opacity = '0.01';
+    iframe.style.pointerEvents = 'none';
+    iframe.style.zIndex = '-9999';
     document.body.appendChild(iframe);
 
     const doc = iframe.contentWindow?.document || iframe.contentDocument;
@@ -945,41 +971,42 @@ export async function executeUniversalPrint(
       doc.close();
 
       const triggerIframePrint = () => {
+        let printTriggered = false;
         try {
           iframe.contentWindow?.focus();
           iframe.contentWindow?.print();
-          if (addToast) {
-            addToast({
-              message: bridgeResult.outdatedBridge
-                ? 'Comanda enviada no novo formato visual! (Dica: Baixe novamente o App Windows na aba Impressão Automática para atualizar o modo silencioso).'
-                : 'Comanda enviada para a impressora com o layout exato da pré-visualização!',
-              type: 'info',
-            });
-          }
+          printTriggered = true;
         } catch (iframePrintErr) {
-          console.warn('Iframe print bloqueado pelo sandbox, tentando popup ou fallback:', iframePrintErr);
+          console.warn('Iframe print bloqueado pelo sandbox, tentando popup ou window.print:', iframePrintErr);
+        }
+
+        if (!printTriggered) {
           try {
-            const popupHtml = buildCompletePrintPageHtml(order, settings, true);
-            const printWindow = window.open('', '_blank', 'width=420,height=650');
-            if (printWindow) {
-              printWindow.document.open();
-              printWindow.document.write(popupHtml);
-              printWindow.document.close();
-            } else {
-              window.print();
-            }
-          } catch (_) {
             window.print();
+            printTriggered = true;
+          } catch (winErr) {
+            console.warn('window.print falhou:', winErr);
           }
+        }
+
+        if (addToast) {
+          addToast({
+            message: bridgeResult.outdatedBridge
+              ? 'Comanda enviada no novo formato visual! (Dica: Baixe novamente o App Windows na aba Impressão Automática para atualizar o modo silencioso).'
+              : isTestOrder
+              ? 'Comanda de teste enviada! Diálogo de impressão aberto para a sua impressora.'
+              : 'Comanda enviada para a impressora com o layout exato da pré-visualização!',
+            type: 'info',
+          });
         }
       };
 
       const imgEl = doc.getElementById('comanda-bitmap-img') as HTMLImageElement | null;
       if (imgEl && !imgEl.complete) {
-        imgEl.onload = () => setTimeout(triggerIframePrint, 80);
-        imgEl.onerror = () => setTimeout(triggerIframePrint, 80);
+        imgEl.onload = () => setTimeout(triggerIframePrint, 100);
+        imgEl.onerror = () => setTimeout(triggerIframePrint, 100);
       } else {
-        setTimeout(triggerIframePrint, 120);
+        setTimeout(triggerIframePrint, 150);
       }
 
       return { success: true, method: 'iframe_spooler' };
@@ -991,11 +1018,17 @@ export async function executeUniversalPrint(
   // 3. Fallback: window.print()
   try {
     window.print();
+    if (addToast) {
+      addToast({
+        message: 'Diálogo de impressão aberto na tela!',
+        type: 'info',
+      });
+    }
     return { success: true, method: 'window_print' };
   } catch (finalErr) {
     console.error('Falha geral no window.print():', finalErr);
     if (addToast) {
-      addToast({ message: 'Não foi possível acionar a impressora automaticamente. Instale o app Impressão Automática no painel.', type: 'error' });
+      addToast({ message: 'Não foi possível acionar a impressora automaticamente. Verifique se pop-ups estão permitidos.', type: 'error' });
     }
     return { success: false, method: 'failed' };
   }

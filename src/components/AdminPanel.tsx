@@ -505,7 +505,9 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
                 whatsapp: '(54) 99106-4604',
                 address: 'Roberto Dalla Lana, 332 - Petrópolis',
                 region: 'Passo Fundo',
-                paymentMethod: 'Pix',
+                paymentMethod: 'Pix (Aprovado)',
+                paymentStatus: 'pago',
+                isPaid: true,
                 receiptAuthCode: 'AUT-NKL-PIX-9821',
                 receiptTimestamp: 'Hoje às 19:26',
                 receiptNotes: 'Tocar o interfone.',
@@ -530,6 +532,9 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
                   }
                 ]
               };
+              (testOrder as any).isTest = true;
+              setOrderToPrint(testOrder);
+              setModalOrderToPrint(testOrder);
               executePrintOrder(testOrder, printSettings, setOrderToPrint, addToast, { force: true });
             }}
           />

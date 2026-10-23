@@ -21,14 +21,16 @@ interface PrintSettingsEditorProps {
 }
 
 const SAMPLE_TEST_ORDER: Order = {
-  id: 'NKL849',
+  id: 'TESTE-NKL849',
   orderNumber: 1,
   createdAt: { toDate: () => new Date() },
-  userName: 'Braian Kleber',
+  userName: 'Braian Kleber (Teste)',
   whatsapp: '(54) 99106-4604',
   address: 'Roberto Dalla Lana, 332 - Petrópolis',
   region: 'Passo Fundo',
-  paymentMethod: 'Pix',
+  paymentMethod: 'Pix (Aprovado)',
+  paymentStatus: 'pago',
+  isPaid: true,
   receiptAuthCode: 'AUT-NKL-PIX-9821',
   receiptTimestamp: 'Hoje às 19:26',
   receiptNotes: 'Tocar a campainha duas vezes, portão preto.',
@@ -52,6 +54,7 @@ const SAMPLE_TEST_ORDER: Order = {
     }
   ]
 };
+(SAMPLE_TEST_ORDER as any).isTest = true;
 
 export default function PrintSettingsEditor({ settings, setSettings, onSaveSettings, onTestPrint, onOpenAutoPrintApp }: PrintSettingsEditorProps) {
   const { addToast } = useToast();
