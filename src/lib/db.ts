@@ -62,7 +62,14 @@ const getLocalCachedOrders = (): Order[] => {
     const raw = localStorage.getItem(LOCAL_ORDERS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.filter(o => 
+          o && 
+          o.id !== 'TESTE-PIX-1REAL' && 
+          o.id !== 'TESTE-ANTERIOR-PIX' && 
+          !o.items?.some((it: any) => it.id === 'teste_pix_1real' || (it.name && it.name.includes('Teste PIX')))
+        );
+      }
     }
   } catch {}
   return [];
@@ -348,7 +355,7 @@ export const getProducts = async (): Promise<Product[]> => {
   const productsRef = collection(db, "products");
   const snap = await getDocs(productsRef);
   return snap.docs
-    .filter(doc => doc.id !== 'teste_pagamento_10cts')
+    .filter(doc => doc.id !== 'teste_pagamento_10cts' && doc.id !== 'teste_pix_1real')
     .map(doc => ({ ...doc.data(), id: doc.id })) as Product[];
 };
 
@@ -523,7 +530,7 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
     // Also include any dynamically added products from Firestore
     const menuItemIds = new Set(MENU_ITEMS.map(i => i.id));
     for (const d of snap.docs) {
-      if (d.id === 'teste_pagamento_10cts') {
+      if (d.id === 'teste_pagamento_10cts' || d.id === 'teste_pix_1real') {
         deleteDoc(d.ref).catch(() => {});
         continue;
       }
@@ -532,7 +539,7 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
       }
     }
 
-    const finalProducts = merged.filter(p => p.id !== 'teste_pagamento_10cts');
+    const finalProducts = merged.filter(p => p.id !== 'teste_pagamento_10cts' && p.id !== 'teste_pix_1real');
     try {
       localStorage.setItem('nickel_cached_products', JSON.stringify(finalProducts));
     } catch {}
@@ -541,7 +548,7 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
     try {
       const cached = localStorage.getItem('nickel_cached_products');
       if (cached) {
-        const parsed: Product[] = JSON.parse(cached);
+        const parsed: Product[] = JSON.parse(cached).filter((p: any) => p.id !== 'teste_pagamento_10cts' && p.id !== 'teste_pix_1real');
         const cachedIds = new Set(parsed.map(p => p.id));
         const missing = MENU_ITEMS.filter(m => !cachedIds.has(m.id));
         callback([...missing, ...parsed]);
@@ -716,7 +723,7 @@ export const subscribeToAllOrders = (callback: (orders: Order[]) => void) => {
 };
 
 export const seedDatabase = async (initialProducts: Product[], initialPromos: { [key: string]: number }) => {
-  const TARGET_VERSION = 26;
+  const TARGET_VERSION = 27;
   try {
     if (localStorage.getItem('nickel_seed_version') === String(TARGET_VERSION)) {
       return;
@@ -736,9 +743,10 @@ export const seedDatabase = async (initialProducts: Product[], initialPromos: { 
     const productsSnap = await getDocs(productsRef);
     const existingDocs = new Map(productsSnap.docs.map(d => [d.id, d.data()]));
     
-    // Ensure obsolete test product is removed
+    // Ensure obsolete test products are removed from Firestore
     try {
       await deleteDoc(doc(db, "products", "teste_pagamento_10cts"));
+      await deleteDoc(doc(db, "products", "teste_pix_1real"));
     } catch {
       // ignore
     }

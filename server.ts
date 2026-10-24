@@ -96,46 +96,12 @@ async function startServer() {
       if (fs.existsSync(ORDERS_FILE)) {
         const raw = fs.readFileSync(ORDERS_FILE, 'utf-8');
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {
       console.warn('Erro ao ler orders-storage.json:', e);
     }
-    // Semente padrão com o Pedido de Teste PIX R$ 1,00
-    const now = new Date();
-    const defaultSeed = [
-      {
-        id: 'TESTE-PIX-1REAL',
-        orderNumber: 1,
-        userName: 'Braian Kleber (Teste PIX)',
-        whatsapp: '(54) 99959-8389',
-        address: 'Roberto Dalla Lana, 332 - Petrópolis',
-        region: 'Passo Fundo',
-        paymentMethod: 'PIX Imediato (Site: (54) 99959-8389)',
-        paymentStatus: 'pago',
-        isPaid: true,
-        deliveryFee: 0,
-        totalPrice: 1.00,
-        totalPoints: 1,
-        status: 'recebido',
-        createdAt: now.toISOString(),
-        receiptAuthCode: 'AUT-NKL-PIX-001',
-        receiptTimestamp: `${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
-        receiptSummary: 'R$ 1,00 via PIX Imediato',
-        items: [
-          {
-            id: 'teste_pix_1real',
-            name: '🧪 Item Teste PIX (R$ 1,00)',
-            price: 1,
-            quantity: 1,
-            extras: [],
-            observation: 'Teste de validação de envio para o Painel Admin e impressão automática.'
-          }
-        ]
-      }
-    ];
-    saveStoredOrders(defaultSeed);
-    return defaultSeed;
+    return [];
   }
 
   function saveStoredOrders(orders: any[]) {
