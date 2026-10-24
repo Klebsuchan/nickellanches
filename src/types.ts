@@ -47,6 +47,10 @@ export interface OrderInfo {
   pointsEarned: number;
   status: 'recebido' | 'preparando' | 'a_caminho' | 'entregue';
   timestamp: Date;
+  orderNumber?: number;
+  isPaid?: boolean;
+  paymentStatus?: 'pago' | 'pendente' | 'recusado' | string;
+  paymentMethod?: string;
   receiptAuthCode?: string;
   receiptTimestamp?: string;
   receiptNotes?: string;

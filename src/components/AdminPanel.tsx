@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Printer, CheckSquare, Lock, LogOut, X, Plus, Trash2, Edit2, Package, Tag, Clock, Save, Eye, EyeOff, Settings, List, Check, ArrowRight, ImagePlus, ChevronLeft, ChevronRight, RefreshCw, XCircle, Grid, Image as ImageIcon, Send, CreditCard, QrCode, ExternalLink, Volume2, Zap, Download, Users, PauseCircle, PlayCircle, Search, Calendar, Phone, MapPin, ShoppingBag } from 'lucide-react';
-import { Order, getProducts, saveProduct, toggleProductPause, deleteProduct, getPromos, savePromo, deletePromo, getAllOrders, updateOrderStatus, PromoCode, subscribeToAllOrders, Banner, getBanners, saveBanner, deleteBanner, subscribeToProducts, subscribeToPromos, subscribeToBanners, deleteOrder, saveOrderAdmin, subscribeToPaymentSettings, PaymentSettings, PrinterSettings, DEFAULT_PRINTER_SETTINGS, savePrinterSettings, subscribeToPrinterSettings, subscribeToStoreHours, saveStoreHoursSettings, isOrderPaid, markOrderAsPaid } from '../lib/db';
+import { Order, getProducts, saveProduct, toggleProductPause, deleteProduct, getPromos, savePromo, deletePromo, getAllOrders, updateOrderStatus, PromoCode, subscribeToAllOrders, Banner, getBanners, saveBanner, deleteBanner, subscribeToProducts, subscribeToPromos, subscribeToBanners, deleteOrder, saveOrderAdmin, saveOrder, subscribeToPaymentSettings, PaymentSettings, PrinterSettings, DEFAULT_PRINTER_SETTINGS, savePrinterSettings, subscribeToPrinterSettings, subscribeToStoreHours, saveStoreHoursSettings, isOrderPaid, markOrderAsPaid } from '../lib/db';
 import { Product, Extra } from '../types';
 import { useToast } from './Toast';
 import { playSound } from '../lib/audio';
@@ -457,6 +457,7 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
             printSettings={printSettings}
             setPrintSettings={setPrintSettings}
             onOpenAutoPrintApp={() => setActiveTab('autoprint')}
+            products={products}
           />
         )}
         {activeTab === 'history' && (
@@ -609,19 +610,22 @@ function TabButton({ icon, label, active, onClick }: { icon: React.ReactNode, la
 // ----------------------------------------------------------------------
 // ORDERS KANBAN
 // ----------------------------------------------------------------------
-function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings, onOpenAutoPrintApp }: any) {
+function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings, onOpenAutoPrintApp, products = [] }: any) {
   const { addToast } = useToast();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmPrintUnpaidOrder, setConfirmPrintUnpaidOrder] = useState<Order | null>(null);
+  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
 
   const handleMarkAsPaidAndPrint = async (order: Order) => {
     if (!order.id) return;
     try {
+      playSound('order_alert');
       await markOrderAsPaid(order.id, order.orderNumber);
       addToast({
-        message: `Pedido #${order.orderNumber || ''} marcado como PAGO! Comanda enviada para a impressora.`,
+        title: 'Pedido Confirmado!',
+        message: `Pedido #${order.orderNumber || ''} marcado como PAGO! Comanda impressa na cozinha.`,
         type: 'success'
       });
       const paidOrder = { ...order, isPaid: true, paymentStatus: 'pago' as const };
@@ -692,6 +696,18 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
     setSelectedIds(new Set());
   };
 
+  const formatOrderTime = (createdAt: any): string => {
+    if (!createdAt) return '';
+    if (typeof createdAt?.toDate === 'function') {
+      return createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    const d = new Date(createdAt);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    return '';
+  };
+
   const unpaidOrders = orders.filter((o: Order) => !isOrderPaid(o));
 
   const columns = [
@@ -713,6 +729,16 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setShowNewOrderModal(true)}
+            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-3.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all shadow-sm cursor-pointer"
+            title="Lançar novo pedido manualmente (Balcão, WhatsApp, Telefone)"
+          >
+            <Plus size={15} className="stroke-[3]" />
+            Lançar Pedido
+          </button>
+
           <button
             type="button"
             onClick={onOpenAutoPrintApp}
@@ -803,7 +829,7 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
                         {order.orderNumber ? `PEDIDO #${order.orderNumber}` : `#${order.id?.substring(0,6).toUpperCase()}`}
                       </span>
                       <span className="text-xs text-stone-500 font-bold bg-stone-100 px-2 py-1 rounded">
-                        {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}
+                        {formatOrderTime(order.createdAt)}
                       </span>
                     </div>
                     <div className="font-bold text-stone-800 mb-1">{order.userName || 'Anônimo'}</div>
@@ -841,11 +867,11 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
                         e.stopPropagation();
                         await handleMarkAsPaidAndPrint(order);
                       }}
-                      className="w-full mt-2.5 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                      title="Confirmar pagamento, avisar e enviar para a comanda"
+                      className="w-full mt-2.5 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                      title="Confirmar pagamento do PIX, disparar alerta sonoro e enviar para a comanda"
                     >
-                      <Check size={14} className="stroke-[3]" />
-                      <span>Confirmar Pgto & Enviar p/ Comanda</span>
+                      <Check size={15} className="stroke-[3]" />
+                      <span>Marcar como Pago (Confirmar Pedido)</span>
                     </button>
                   </div>
                 </div>
@@ -856,7 +882,14 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
 
         {/* COLUNAS OFICIAIS DA COMANDA (SOMENTE PEDIDOS PAGOS!) */}
         {columns.map(col => {
-          const colPaidOrders = orders.filter((o: Order) => isOrderPaid(o) && (o.status || 'recebido') === col.id);
+          const colPaidOrders = orders.filter((o: Order) => {
+            if (!isOrderPaid(o)) return false;
+            const s = (o.status || 'recebido').toLowerCase();
+            if (col.id === 'recebido') {
+              return s === 'recebido' || s === 'pendente' || s === 'novo' || s === 'aguardando' || (s !== 'preparando' && s !== 'a_caminho' && s !== 'entregue');
+            }
+            return s === col.id;
+          });
           return (
             <div key={col.id} className={`flex-none w-80 flex flex-col bg-stone-200/50 rounded-2xl border-2 border-stone-200/50 overflow-hidden`}>
               <div className={`p-3 border-b-2 flex justify-between items-center ${col.color}`}>
@@ -880,7 +913,7 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
                           {order.orderNumber ? `PEDIDO #${order.orderNumber}` : `#${order.id?.substring(0,6).toUpperCase()}`}
                         </span>
                         <span className="text-xs text-stone-500 font-bold bg-stone-100 px-2 py-1 rounded">
-                          {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}
+                          {formatOrderTime(order.createdAt)}
                         </span>
                       </div>
                       <div className="font-bold text-stone-800 mb-1">{order.userName || 'Anônimo'}</div>
@@ -945,6 +978,20 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
             onPrint={() => {
               executePrintOrder(editingOrder, printSettings, setOrderToPrint, addToast);
             }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Lançar Novo Pedido Manualmente */}
+      <AnimatePresence>
+        {showNewOrderModal && (
+          <NewOrderModal
+            isOpen={showNewOrderModal}
+            onClose={() => setShowNewOrderModal(false)}
+            orders={orders}
+            products={products}
+            setOrderToPrint={setOrderToPrint}
+            printSettings={printSettings}
           />
         )}
       </AnimatePresence>
@@ -1014,6 +1061,455 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
           </div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function NewOrderModal({ isOpen, onClose, orders, products = [], setOrderToPrint, printSettings }: any) {
+  const { addToast } = useToast();
+  const [userName, setUserName] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
+  const [orderType, setOrderType] = useState<'entrega' | 'balcao'>('entrega');
+  const [address, setAddress] = useState('');
+  const [region, setRegion] = useState('Passo Fundo');
+  const [paymentMethod, setPaymentMethod] = useState('PIX Imediato');
+  const [isPaid, setIsPaid] = useState(true);
+  const [deliveryFee, setDeliveryFee] = useState<number>(0);
+  const [adminNotes, setAdminNotes] = useState('');
+  
+  // Lista de itens do pedido
+  const [items, setItems] = useState<Array<{ name: string; quantity: number; price: number; observation?: string }>>([]);
+  
+  // Adicionar item do cardápio
+  const [selectedProdId, setSelectedProdId] = useState('');
+  
+  // Adicionar item customizado/livre
+  const [customItemName, setCustomItemName] = useState('');
+  const [customItemPrice, setCustomItemPrice] = useState('');
+  const [customItemQty, setCustomItemQty] = useState(1);
+  const [customItemObs, setCustomItemObs] = useState('');
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleAddProductFromCatalog = () => {
+    if (!selectedProdId) return;
+    const prod = products.find((p: any) => p.id === selectedProdId);
+    if (!prod) return;
+    setItems(prev => [...prev, {
+      name: prod.name,
+      quantity: 1,
+      price: Number(prod.price) || 0,
+      observation: ''
+    }]);
+    setSelectedProdId('');
+  };
+
+  const handleAddCustomItem = () => {
+    if (!customItemName.trim()) return;
+    const p = parseFloat(customItemPrice.replace(',', '.')) || 0;
+    setItems(prev => [...prev, {
+      name: customItemName.trim(),
+      quantity: customItemQty > 0 ? customItemQty : 1,
+      price: p,
+      observation: customItemObs.trim() || undefined
+    }]);
+    setCustomItemName('');
+    setCustomItemPrice('');
+    setCustomItemQty(1);
+    setCustomItemObs('');
+  };
+
+  const removeItem = (idx: number) => {
+    setItems(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const itemsSubtotal = items.reduce((sum, it) => sum + (it.price * it.quantity), 0);
+  const finalTotal = itemsSubtotal + (orderType === 'entrega' ? deliveryFee : 0);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userName.trim()) {
+      addToast({ title: 'Atenção', message: 'Informe o nome do cliente', type: 'warning' });
+      return;
+    }
+    if (items.length === 0 && finalTotal <= 0) {
+      addToast({ title: 'Atenção', message: 'Adicione pelo menos um item ou informe o valor', type: 'warning' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const nextNum = Math.max(0, ...orders.map((o: any) => o.orderNumber || 0)) + 1;
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('pt-BR');
+      const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const authCode = `AUT-MANUAL-${Date.now().toString(36).substring(2, 7).toUpperCase()}`;
+
+      const finalItems = items.length > 0 ? items : [{
+        name: 'Pedido Manual / Balcão',
+        quantity: 1,
+        price: finalTotal,
+        observation: adminNotes || ''
+      }];
+
+      const orderPayload: Omit<Order, 'createdAt' | 'id'> = {
+        orderNumber: nextNum,
+        userName: userName.trim(),
+        whatsapp: whatsapp.trim() || undefined,
+        address: orderType === 'entrega' ? (address.trim() || 'Entrega Passo Fundo') : 'Retirada no Balcão',
+        region: orderType === 'entrega' ? region : 'Balcão',
+        paymentMethod,
+        paymentStatus: isPaid ? 'pago' : 'pendente',
+        isPaid,
+        items: finalItems,
+        totalPrice: finalTotal,
+        totalPoints: Math.floor(finalTotal),
+        deliveryFee: orderType === 'entrega' ? deliveryFee : 0,
+        receiptAuthCode: authCode,
+        receiptTimestamp: `${dateStr} às ${timeStr}`,
+        receiptSummary: `R$ ${finalTotal.toFixed(2).replace('.', ',')} via ${paymentMethod}`,
+        adminNotes: adminNotes.trim() || undefined,
+        status: 'recebido'
+      };
+
+      const newId = await saveOrder('admin_manual', orderPayload);
+      const fullSavedOrder: Order = {
+        ...orderPayload,
+        id: newId,
+        createdAt: now.toISOString()
+      };
+
+      if (isPaid) {
+        playSound('order_alert');
+        try {
+          await executePrintOrder(fullSavedOrder, printSettings, setOrderToPrint, addToast, { force: true });
+        } catch (_) {}
+      }
+
+      addToast({
+        title: 'Pedido Lançado!',
+        message: `Pedido #${nextNum} (${userName}) lançado e enviado para a comanda!`,
+        type: 'success'
+      });
+
+      onClose();
+    } catch (err: any) {
+      console.error('Erro ao salvar pedido manual:', err);
+      addToast({ title: 'Erro', message: 'Erro ao cadastrar pedido: ' + err.message, type: 'error' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-white rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col text-stone-900"
+      >
+        <div className="p-5 border-b-2 border-stone-100 flex justify-between items-center sticky top-0 bg-white z-10 rounded-t-2xl">
+          <div className="flex items-center gap-2">
+            <span className="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
+              <Plus size={20} className="stroke-[3]" />
+            </span>
+            <div>
+              <h2 className="text-xl font-black uppercase tracking-tight">Lançar Novo Pedido</h2>
+              <p className="text-xs text-stone-500 font-medium">Balcão, WhatsApp, Telefone ou Recuperação de Pedido</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 bg-stone-100 rounded-full hover:bg-stone-200 transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-5 flex-1">
+          {/* Informações do Cliente */}
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold uppercase text-stone-500 mb-1">
+                Nome do Cliente <span className="text-red-500">*</span>
+              </label>
+              <input
+                required
+                type="text"
+                placeholder="Ex: Carlos Eduardo"
+                value={userName}
+                onChange={e => setUserName(e.target.value)}
+                className="w-full border-2 border-stone-200 rounded-lg p-2.5 font-bold focus:border-emerald-500 outline-none text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase text-stone-500 mb-1">
+                WhatsApp / Telefone
+              </label>
+              <input
+                type="text"
+                placeholder="(54) 99999-9999"
+                value={whatsapp}
+                onChange={e => setWhatsapp(e.target.value)}
+                className="w-full border-2 border-stone-200 rounded-lg p-2.5 font-bold focus:border-emerald-500 outline-none text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Tipo e Endereço */}
+          <div>
+            <div className="flex gap-2 mb-2">
+              <button
+                type="button"
+                onClick={() => setOrderType('entrega')}
+                className={`flex-1 py-2 rounded-lg text-xs font-black uppercase transition-all ${
+                  orderType === 'entrega'
+                    ? 'bg-amber-500 text-stone-900 shadow-xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                🛵 Entrega / Delivery
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrderType('balcao')}
+                className={`flex-1 py-2 rounded-lg text-xs font-black uppercase transition-all ${
+                  orderType === 'balcao'
+                    ? 'bg-amber-500 text-stone-900 shadow-xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                🏪 Retirada no Balcão
+              </button>
+            </div>
+
+            {orderType === 'entrega' && (
+              <div className="grid sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <input
+                    type="text"
+                    placeholder="Rua, Número, Bairro, Complemento"
+                    value={address}
+                    onChange={e => setAddress(e.target.value)}
+                    className="w-full border-2 border-stone-200 rounded-lg p-2.5 font-bold focus:border-emerald-500 outline-none text-sm"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1 border-2 border-stone-200 rounded-lg p-2 focus-within:border-emerald-500 bg-white">
+                    <span className="text-xs font-bold text-stone-400">Taxa R$</span>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      value={deliveryFee || ''}
+                      onChange={e => setDeliveryFee(parseFloat(e.target.value) || 0)}
+                      placeholder="0.00"
+                      className="w-full font-bold outline-none text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Pagamento */}
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold uppercase text-stone-500 mb-1">
+                Forma de Pagamento
+              </label>
+              <select
+                value={paymentMethod}
+                onChange={e => setPaymentMethod(e.target.value)}
+                className="w-full border-2 border-stone-200 rounded-lg p-2.5 font-bold focus:border-emerald-500 outline-none text-sm bg-white"
+              >
+                <option value="PIX Imediato">PIX Imediato</option>
+                <option value="Cartão de Crédito na Entrega">Cartão de Crédito na Entrega</option>
+                <option value="Cartão de Débito na Entrega">Cartão de Débito na Entrega</option>
+                <option value="Dinheiro">Dinheiro</option>
+                <option value="Cartão Online (Aprovado)">Cartão Online (Aprovado)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-stone-500 mb-1">
+                Status do Pagamento
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPaid(true)}
+                  className={`flex-1 py-2.5 px-3 rounded-lg text-xs font-black uppercase flex items-center justify-center gap-1.5 border-2 transition-all cursor-pointer ${
+                    isPaid
+                      ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
+                      : 'bg-stone-50 border-stone-200 text-stone-600 hover:border-emerald-300'
+                  }`}
+                >
+                  <Check size={14} className="stroke-[3]" />
+                  <span>Pago (Vai p/ Comanda)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPaid(false)}
+                  className={`flex-1 py-2.5 px-3 rounded-lg text-xs font-black uppercase flex items-center justify-center gap-1.5 border-2 transition-all cursor-pointer ${
+                    !isPaid
+                      ? 'bg-amber-500 border-amber-500 text-stone-900 shadow-xs'
+                      : 'bg-stone-50 border-stone-200 text-stone-600 hover:border-amber-300'
+                  }`}
+                >
+                  <Clock size={14} />
+                  <span>Pendente</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Itens do Pedido */}
+          <div className="border-2 border-stone-200 rounded-xl p-4 bg-stone-50/60 space-y-3">
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-black uppercase tracking-wider text-stone-700">
+                Itens do Pedido ({items.length})
+              </label>
+              <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                Subtotal: R$ {itemsSubtotal.toFixed(2).replace('.', ',')}
+              </span>
+            </div>
+
+            {/* Adicionar a partir do Cardápio */}
+            {products.length > 0 && (
+              <div className="flex gap-2">
+                <select
+                  value={selectedProdId}
+                  onChange={e => setSelectedProdId(e.target.value)}
+                  className="flex-1 border border-stone-300 rounded-lg p-2 text-xs font-bold bg-white"
+                >
+                  <option value="">➕ Selecionar produto do cardápio...</option>
+                  {products.map((p: any) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} - R$ {Number(p.price || 0).toFixed(2).replace('.', ',')}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleAddProductFromCatalog}
+                  disabled={!selectedProdId}
+                  className="bg-stone-900 text-yellow-400 px-3 py-1.5 rounded-lg text-xs font-black uppercase hover:bg-stone-800 disabled:opacity-40"
+                >
+                  Adicionar
+                </button>
+              </div>
+            )}
+
+            {/* Adicionar Item Livre / Manual */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-2 border-t border-stone-200">
+              <input
+                type="text"
+                placeholder="Nome do lanche/bebida ou item avulso"
+                value={customItemName}
+                onChange={e => setCustomItemName(e.target.value)}
+                className="sm:col-span-5 border border-stone-300 rounded-lg p-2 text-xs font-bold bg-white outline-none focus:border-emerald-500"
+              />
+              <input
+                type="number"
+                min="1"
+                value={customItemQty}
+                onChange={e => setCustomItemQty(parseInt(e.target.value) || 1)}
+                placeholder="Qtd"
+                className="sm:col-span-2 border border-stone-300 rounded-lg p-2 text-xs font-bold bg-white text-center"
+              />
+              <input
+                type="text"
+                placeholder="Preço (ex: 28,00)"
+                value={customItemPrice}
+                onChange={e => setCustomItemPrice(e.target.value)}
+                className="sm:col-span-3 border border-stone-300 rounded-lg p-2 text-xs font-bold bg-white"
+              />
+              <button
+                type="button"
+                onClick={handleAddCustomItem}
+                className="sm:col-span-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase rounded-lg p-2 transition-colors cursor-pointer"
+              >
+                Inserir
+              </button>
+            </div>
+            {customItemName && (
+              <input
+                type="text"
+                placeholder="Observação do item (opcional, ex: sem cebola)"
+                value={customItemObs}
+                onChange={e => setCustomItemObs(e.target.value)}
+                className="w-full border border-stone-300 rounded-lg p-1.5 text-xs bg-white"
+              />
+            )}
+
+            {/* Lista dos Itens inseridos */}
+            <div className="space-y-1.5 max-h-40 overflow-y-auto pt-1">
+              {items.map((it, idx) => (
+                <div key={idx} className="flex justify-between items-center bg-white border border-stone-200 rounded-lg p-2 text-xs">
+                  <div className="flex-1">
+                    <span className="font-bold text-stone-900">{it.quantity}x {it.name}</span>
+                    {it.observation && <p className="text-[11px] text-amber-600 font-medium italic">Obs: {it.observation}</p>}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold text-stone-900">R$ {(it.price * it.quantity).toFixed(2).replace('.', ',')}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeItem(idx)}
+                      className="text-red-500 hover:text-red-700 p-1"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {items.length === 0 && (
+                <p className="text-center py-2 text-xs text-stone-400 font-medium">Nenhum item adicionado ainda. Escolha do cardápio ou digite acima.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Observações / Notas do Pedido */}
+          <div>
+            <label className="block text-xs font-bold uppercase text-stone-500 mb-1">
+              Observações Gerais (Opcional)
+            </label>
+            <textarea
+              rows={2}
+              placeholder="Ex: Ponto de referência, observações da cozinha, etc."
+              value={adminNotes}
+              onChange={e => setAdminNotes(e.target.value)}
+              className="w-full border-2 border-stone-200 rounded-lg p-2.5 font-medium text-xs focus:border-emerald-500 outline-none"
+            />
+          </div>
+
+          {/* Resumo e Botão de Ação */}
+          <div className="border-t-2 border-stone-100 pt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <span className="text-xs text-stone-500 block uppercase font-bold">Valor Total a Cobrar</span>
+              <span className="text-2xl font-black text-stone-900 font-display">
+                R$ {finalTotal.toFixed(2).replace('.', ',')}
+              </span>
+            </div>
+
+            <div className="flex gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 sm:flex-none px-4 py-2.5 border-2 border-stone-200 rounded-xl font-bold text-stone-600 text-xs uppercase hover:bg-stone-100 transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-1 sm:flex-none px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+              >
+                <Plus size={16} className="stroke-[3]" />
+                <span>{isSubmitting ? 'Salvando...' : 'Criar e Enviar p/ Comanda'}</span>
+              </button>
+            </div>
+          </div>
+        </form>
+      </motion.div>
     </div>
   );
 }

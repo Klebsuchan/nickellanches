@@ -49,7 +49,8 @@ export default function FeedbacksSection({ user, orderHistory }: FeedbacksSectio
           setFeedbacks(merged);
         }
       } catch (error) {
-        console.error("Erro ao carregar feedbacks adicionais do Firestore", error);
+        // Mantém as 100 avaliações locais caso o Firestore esteja com cota diária esgotada ou offline
+        console.warn("Usando avaliações locais (Firestore temporariamente indisponível).");
       }
     }
     loadFeedbacks();

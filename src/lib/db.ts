@@ -40,88 +40,214 @@ export interface Order {
 
 export const isOrderPaid = (order: Partial<Order> | undefined | null): boolean => {
   if (!order) return false;
-  if (order.isPaid === true) return true;
-  if (order.paymentStatus === 'pago') return true;
+  // Pedidos marcados explicitamente como não pagos ou pendentes NÃO são pagos (aguardam confirmação do caixa)
   if (order.isPaid === false || order.paymentStatus === 'pendente' || order.paymentStatus === 'recusado') {
     return false;
   }
+  if (order.isPaid === true || order.paymentStatus === 'pago') {
+    return true;
+  }
   const method = (order.paymentMethod || '').toLowerCase();
-  if (method.includes('aprovado') || method.includes('pago online')) {
+  // Apenas transações confirmadas por gateway direto (ex: Stripe aprovado) entram pré-pagas
+  if (method.includes('aprovado') || method.includes('pago online') || method.includes('stripe')) {
     return true;
   }
   return false;
 };
 
-export const createUserProfile = async (user: FirebaseUser) => {
-  const userRef = doc(db, "users", user.uid);
-  const snap = await getDoc(userRef);
+const LOCAL_ORDERS_KEY = 'nickel_local_orders_v1';
 
-  if (!snap.exists()) {
-    await setDoc(userRef, {
-      name: user.displayName || "Sem Nome",
-      email: user.email || "",
-      avatarUrl: user.photoURL || "",
-      xp: 0,
-      createdAt: serverTimestamp()
-    });
-  }
+const getLocalCachedOrders = (): Order[] => {
+  try {
+    const raw = localStorage.getItem(LOCAL_ORDERS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
+};
+
+const saveLocalCachedOrder = (order: Order) => {
+  try {
+    const current = getLocalCachedOrders().filter(o => o.id !== order.id);
+    const updated = [order, ...current].slice(0, 100);
+    localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent('nickel-orders-updated'));
+  } catch {}
+};
+
+export const createUserProfile = async (user: FirebaseUser) => {
+  try {
+    const userRef = doc(db, "users", user.uid);
+    const snap = await getDoc(userRef);
+
+    if (!snap.exists()) {
+      await setDoc(userRef, {
+        name: user.displayName || "Sem Nome",
+        email: user.email || "",
+        avatarUrl: user.photoURL || "",
+        xp: 0,
+        createdAt: serverTimestamp()
+      });
+    }
+  } catch (_) {}
 };
 
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
-  const userRef = doc(db, "users", userId);
-  const snap = await getDoc(userRef);
-  if (snap.exists()) {
-    return snap.data() as UserProfile;
-  }
+  try {
+    const userRef = doc(db, "users", userId);
+    const snap = await getDoc(userRef);
+    if (snap.exists()) {
+      return snap.data() as UserProfile;
+    }
+  } catch (_) {}
   return null;
 };
 
 export const addXpToUser = async (userId: string, xpToAdd: number) => {
-  const userRef = doc(db, "users", userId);
-  const snap = await getDoc(userRef);
-  if (snap.exists()) {
-    const currentXp = snap.data().xp || 0;
-    await updateDoc(userRef, {
-      xp: currentXp + xpToAdd
-    });
+  try {
+    const userRef = doc(db, "users", userId);
+    const snap = await getDoc(userRef);
+    if (snap.exists()) {
+      const currentXp = snap.data().xp || 0;
+      await updateDoc(userRef, {
+        xp: currentXp + xpToAdd
+      });
+    }
+  } catch (_) {}
+};
+
+export const cleanObjectForFirestore = (obj: any): any => {
+  if (obj === null || obj === undefined) return null;
+  if (Array.isArray(obj)) {
+    return obj.map(item => cleanObjectForFirestore(item));
   }
+  if (typeof obj === 'object' && !(obj instanceof Date)) {
+    const res: any = {};
+    for (const key of Object.keys(obj)) {
+      const val = obj[key];
+      if (val !== undefined) {
+        res[key] = cleanObjectForFirestore(val);
+      }
+    }
+    return res;
+  }
+  return obj;
 };
 
 export const saveOrder = async (userId: string, orderData: Omit<Order, 'createdAt' | 'id'>) => {
-  const userOrdersRef = collection(db, "users", userId, "orders");
-  const globalOrdersRef = collection(db, "global_orders");
-  
   const paid = isOrderPaid(orderData);
-  const payload = {
+  const fallbackId = 'NKL' + Date.now().toString(36).toUpperCase();
+  const localOrder: Order = {
     ...orderData,
+    id: fallbackId,
     isPaid: paid,
     paymentStatus: paid ? 'pago' : (orderData.paymentStatus || 'pendente'),
     userId,
-    createdAt: serverTimestamp()
+    createdAt: new Date().toISOString()
   };
-  
-  const docRef = await addDoc(globalOrdersRef, payload);
-  if (userId !== 'guest') {
-    await setDoc(doc(db, "users", userId, "orders", docRef.id), payload);
+
+  // 1. Salva imediatamente no backend persistente (garante que todos os navegadores/admin vejam)
+  try {
+    await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(localOrder)
+    });
+  } catch (apiErr) {
+    console.warn("Aviso ao salvar pedido na API do servidor:", apiErr);
   }
 
-  // REGRA DE OURO: SÓ envia para a comanda e sinaliza impressão se o pedido foi PAGO!
+  // 2. Notifica sinal de impressão no backend caso seja pago (PIX ou Cartão)
   if (paid) {
     try {
-      await setDoc(doc(db, "settings", "print_signal"), {
-        latestOrderId: docRef.id,
-        orderNumber: orderData.orderNumber || 1,
-        isPaid: true,
-        updatedAtMs: Date.now()
-      }, { merge: true });
+      await fetch('/api/print-signal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          latestOrderId: localOrder.id,
+          orderNumber: orderData.orderNumber || 1,
+          isPaid: true
+        })
+      });
     } catch (_) {}
   }
 
-  return docRef.id;
+  // 3. Atualiza cache local
+  saveLocalCachedOrder(localOrder);
+
+  // 4. Salva no Firestore como camada adicional (com proteção contra cota diária ou offline)
+  try {
+    const globalOrdersRef = collection(db, "global_orders");
+    const sanitized = cleanObjectForFirestore(orderData);
+    const payload = {
+      ...sanitized,
+      isPaid: paid,
+      paymentStatus: paid ? 'pago' : (orderData.paymentStatus || 'pendente'),
+      userId,
+      createdAt: serverTimestamp()
+    };
+    
+    const docRef = await addDoc(globalOrdersRef, payload);
+    localOrder.id = docRef.id;
+    saveLocalCachedOrder(localOrder);
+
+    // Atualiza com o ID real do Firestore no backend
+    fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(localOrder)
+    }).catch(() => {});
+
+    if (userId !== 'guest') {
+      await setDoc(doc(db, "users", userId, "orders", docRef.id), payload).catch(() => {});
+    }
+
+    if (paid) {
+      try {
+        await setDoc(doc(db, "settings", "print_signal"), {
+          latestOrderId: docRef.id,
+          orderNumber: orderData.orderNumber || 1,
+          isPaid: true,
+          updatedAtMs: Date.now()
+        }, { merge: true });
+      } catch (_) {}
+    }
+
+    return docRef.id;
+  } catch (e) {
+    console.warn("Aviso ao salvar pedido no Firestore (usando servidor e cache local):", e);
+    return fallbackId;
+  }
 };
 
 export const markOrderAsPaid = async (orderId: string, orderNumber?: number) => {
   try {
+    const localOrders = getLocalCachedOrders();
+    const target = localOrders.find(o => o.id === orderId);
+    if (target) {
+      saveLocalCachedOrder({ ...target, isPaid: true, paymentStatus: 'pago', paidAt: new Date().toISOString() });
+    }
+
+    // Atualiza no servidor
+    try {
+      await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPaid: true, paymentStatus: 'pago', paidAt: new Date().toISOString() })
+      });
+      await fetch('/api/print-signal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          latestOrderId: orderId,
+          orderNumber: orderNumber || 1,
+          isPaid: true
+        })
+      });
+    } catch (_) {}
+
     const orderRef = doc(db, 'global_orders', orderId);
     await updateDoc(orderRef, {
       isPaid: true,
@@ -137,31 +263,38 @@ export const markOrderAsPaid = async (orderId: string, orderNumber?: number) => 
       updatedAtMs: Date.now()
     }, { merge: true });
   } catch (e) {
-    console.error("Erro ao marcar pedido como pago:", e);
-    throw e;
+    console.warn("Aviso ao marcar pedido como pago:", e);
   }
 };
 
 export const getLatestOrders = async (userId: string): Promise<Order[]> => {
-  const ordersRef = collection(db, "users", userId, "orders");
-  const q = query(ordersRef, orderBy("createdAt", "desc"), limit(5));
-  const snap = await getDocs(q);
-  
-  return snap.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  })) as Order[];
+  try {
+    const ordersRef = collection(db, "users", userId, "orders");
+    const q = query(ordersRef, orderBy("createdAt", "desc"), limit(5));
+    const snap = await getDocs(q);
+    
+    return snap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Order[];
+  } catch (_) {
+    return getLocalCachedOrders().filter(o => o.userId === userId).slice(0, 5);
+  }
 };
 
 export const getTopUsers = async (): Promise<(UserProfile & { id: string })[]> => {
-  const usersRef = collection(db, "users");
-  const q = query(usersRef, orderBy("xp", "desc"), limit(10));
-  const snap = await getDocs(q);
-  
-  return snap.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  })) as (UserProfile & { id: string })[];
+  try {
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, orderBy("xp", "desc"), limit(10));
+    const snap = await getDocs(q);
+    
+    return snap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as (UserProfile & { id: string })[];
+  } catch (_) {
+    return [];
+  }
 };
 
 export interface Feedback {
@@ -177,22 +310,28 @@ export interface Feedback {
 }
 
 export const addFeedback = async (feedbackData: Omit<Feedback, 'createdAt' | 'id'>) => {
-  const feedbacksRef = collection(db, "feedbacks");
-  await addDoc(feedbacksRef, {
-    ...feedbackData,
-    createdAt: serverTimestamp()
-  });
+  try {
+    const feedbacksRef = collection(db, "feedbacks");
+    await addDoc(feedbacksRef, {
+      ...feedbackData,
+      createdAt: serverTimestamp()
+    });
+  } catch (_) {}
 };
 
 export const getFeedbacks = async (): Promise<Feedback[]> => {
-  const feedbacksRef = collection(db, "feedbacks");
-  const q = query(feedbacksRef, orderBy("createdAt", "desc"), limit(100));
-  const snap = await getDocs(q);
-  
-  return snap.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  })) as Feedback[];
+  try {
+    const feedbacksRef = collection(db, "feedbacks");
+    const q = query(feedbacksRef, orderBy("createdAt", "desc"), limit(20));
+    const snap = await getDocs(q);
+    
+    return snap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Feedback[];
+  } catch (_) {
+    return [];
+  }
 };
 
 
@@ -260,8 +399,24 @@ export const getAllOrders = async (): Promise<Order[]> => {
 };
 
 export const updateOrderStatus = async (orderId: string, status: string) => {
-  const orderRef = doc(db, "global_orders", orderId);
-  await updateDoc(orderRef, { status });
+  try {
+    const local = getLocalCachedOrders();
+    const target = local.find(o => o.id === orderId);
+    if (target) {
+      saveLocalCachedOrder({ ...target, status });
+    }
+    fetch(`/api/orders/${orderId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    }).catch(() => {});
+  } catch {}
+  try {
+    const orderRef = doc(db, "global_orders", orderId);
+    await updateDoc(orderRef, { status });
+  } catch (e) {
+    console.warn("Aviso ao atualizar status no Firestore:", e);
+  }
 };
 
 import { onSnapshot } from "firebase/firestore";
@@ -377,9 +532,22 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
       }
     }
 
-    callback(merged.filter(p => p.id !== 'teste_pagamento_10cts'));
-  }, (error) => {
-    console.error("Error subscribing to products (offline or missing rules):", error);
+    const finalProducts = merged.filter(p => p.id !== 'teste_pagamento_10cts');
+    try {
+      localStorage.setItem('nickel_cached_products', JSON.stringify(finalProducts));
+    } catch {}
+    callback(finalProducts);
+  }, () => {
+    try {
+      const cached = localStorage.getItem('nickel_cached_products');
+      if (cached) {
+        const parsed: Product[] = JSON.parse(cached);
+        const cachedIds = new Set(parsed.map(p => p.id));
+        const missing = MENU_ITEMS.filter(m => !cachedIds.has(m.id));
+        callback([...missing, ...parsed]);
+        return;
+      }
+    } catch {}
     callback(MENU_ITEMS);
   });
 };
@@ -387,40 +555,183 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
 export const subscribeToPromos = (callback: (promos: PromoCode[]) => void) => {
   const promosRef = collection(db, "promos");
   return onSnapshot(promosRef, (snap) => {
-    callback(snap.docs.map(doc => ({ ...doc.data(), id: doc.id })) as PromoCode[]);
-  }, (error) => {
-    console.error("Error subscribing to promos:", error);
+    const list = snap.docs.map(doc => ({ ...doc.data(), id: doc.id })) as PromoCode[];
+    try {
+      localStorage.setItem('nickel_cached_promos', JSON.stringify(list));
+    } catch {}
+    callback(list);
+  }, () => {
+    try {
+      const cached = localStorage.getItem('nickel_cached_promos');
+      if (cached) {
+        callback(JSON.parse(cached));
+        return;
+      }
+    } catch {}
+    callback([]);
   });
 };
 
 export const subscribeToOrder = (orderId: string, callback: (order: Order) => void) => {
   const orderRef = doc(db, "global_orders", orderId);
-  return onSnapshot(orderRef, (doc) => {
-    if (doc.exists()) {
-      callback({ id: doc.id, ...doc.data() } as Order);
+  const unsubFirestore = onSnapshot(orderRef, (docSnap) => {
+    if (docSnap.exists()) {
+      const data = { id: docSnap.id, ...docSnap.data() } as Order;
+      saveLocalCachedOrder(data);
+      callback(data);
     }
-  }, (error) => {
-    console.error("Error subscribing to order:", error);
+  }, () => {
+    const local = getLocalCachedOrders().find(o => o.id === orderId);
+    if (local) callback(local);
   });
+
+  // Escuta atualizações locais disparadas no navegador
+  const handleLocalUpdate = () => {
+    const local = getLocalCachedOrders().find(o => o.id === orderId);
+    if (local) callback(local);
+  };
+  window.addEventListener('nickel-orders-updated', handleLocalUpdate);
+
+  // Sincronização periódica com a API do servidor (garante atualização entre abas e dispositivos)
+  const pollTimer = setInterval(async () => {
+    try {
+      const res = await fetch('/api/orders');
+      if (res.ok) {
+        const orders: Order[] = await res.json();
+        const found = orders.find(o => o.id === orderId);
+        if (found) {
+          callback(found);
+        }
+      }
+    } catch (_) {}
+  }, 2500);
+
+  return () => {
+    unsubFirestore();
+    window.removeEventListener('nickel-orders-updated', handleLocalUpdate);
+    clearInterval(pollTimer);
+  };
 };
 
 export const subscribeToAllOrders = (callback: (orders: Order[]) => void) => {
-  const ordersRef = collection(db, "global_orders");
-  const q = query(ordersRef, orderBy("createdAt", "desc"), limit(300));
-  return onSnapshot(q, (snap) => {
-    callback(snap.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Order[]);
+  const orderMap = new Map<string, Order>();
+
+  const getSortTime = (createdAt: any): number => {
+    if (!createdAt) return 0;
+    if (typeof createdAt?.toMillis === 'function') return createdAt.toMillis();
+    if (typeof createdAt?.toDate === 'function') return createdAt.toDate().getTime();
+    if (createdAt instanceof Date) return createdAt.getTime();
+    const t = new Date(createdAt).getTime();
+    return isNaN(t) ? 0 : t;
+  };
+
+  const notify = () => {
+    const list = Array.from(orderMap.values()).sort((a, b) => {
+      const timeA = getSortTime(a.createdAt);
+      const timeB = getSortTime(b.createdAt);
+      if (timeA && timeB && timeA !== timeB) return timeB - timeA;
+      return (b.orderNumber || 0) - (a.orderNumber || 0);
+    });
+    try {
+      localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(list.slice(0, 100)));
+    } catch {}
+    callback(list);
+  };
+
+  // 1. Carrega imediatamente os pedidos em cache local
+  const initialLocal = getLocalCachedOrders();
+  initialLocal.forEach(o => {
+    if (o.id) orderMap.set(o.id, o);
   });
+  if (orderMap.size > 0) notify();
+
+  // 2. Sincroniza pedidos locais não enviados para o servidor
+  if (initialLocal.length > 0) {
+    fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(initialLocal)
+    }).catch(() => {});
+  }
+
+  // 3. Busca pedidos do servidor imediatamente e inicia polling em tempo real
+  const fetchServerOrders = async () => {
+    try {
+      const res = await fetch('/api/orders');
+      if (res.ok) {
+        const serverOrders: Order[] = await res.json();
+        let changed = false;
+        serverOrders.forEach(o => {
+          if (!o.id) return;
+          const existing = orderMap.get(o.id);
+          if (!existing || JSON.stringify(existing) !== JSON.stringify(o)) {
+            orderMap.set(o.id, { ...existing, ...o });
+            changed = true;
+          }
+        });
+        if (changed || orderMap.size === 0) {
+          notify();
+        }
+      }
+    } catch (_) {}
+  };
+  fetchServerOrders();
+  const pollInterval = setInterval(fetchServerOrders, 2000);
+
+  // 4. Escuta eventos locais na mesma aba ou em abas diferentes
+  const onLocalUpdate = () => {
+    const fresh = getLocalCachedOrders();
+    fresh.forEach(o => {
+      if (o.id) orderMap.set(o.id, { ...orderMap.get(o.id), ...o });
+    });
+    notify();
+  };
+  window.addEventListener('nickel-orders-updated', onLocalUpdate);
+  window.addEventListener('storage', onLocalUpdate);
+
+  // 5. Camada Firestore em tempo real
+  let unsubFirestore = () => {};
+  try {
+    const ordersRef = collection(db, "global_orders");
+    const q = query(ordersRef, orderBy("createdAt", "desc"), limit(50));
+    unsubFirestore = onSnapshot(q, (snap) => {
+      snap.docs.forEach(doc => {
+        const remote = { ...doc.data(), id: doc.id } as Order;
+        orderMap.set(remote.id!, remote);
+      });
+      notify();
+    }, (err) => {
+      console.warn("Aviso na escuta de pedidos do Firestore (mantendo servidor e cache ativo):", err);
+    });
+  } catch (err) {
+    console.warn("Erro ao inicializar escuta do Firestore:", err);
+  }
+
+  return () => {
+    clearInterval(pollInterval);
+    window.removeEventListener('nickel-orders-updated', onLocalUpdate);
+    window.removeEventListener('storage', onLocalUpdate);
+    unsubFirestore();
+  };
 };
 
 export const seedDatabase = async (initialProducts: Product[], initialPromos: { [key: string]: number }) => {
+  const TARGET_VERSION = 26;
   try {
+    if (localStorage.getItem('nickel_seed_version') === String(TARGET_VERSION)) {
+      return;
+    }
+
     const productsRef = collection(db, "products");
     const promosRef = collection(db, "promos");
     const metaRef = doc(db, "system", "metadata");
     
     const metaSnap = await getDoc(metaRef);
     const currentVersion = metaSnap.exists() ? metaSnap.data().seedVersion : 0;
-    const TARGET_VERSION = 26;
+    if (currentVersion >= TARGET_VERSION) {
+      localStorage.setItem('nickel_seed_version', String(TARGET_VERSION));
+      return;
+    }
   
     const productsSnap = await getDocs(productsRef);
     const existingDocs = new Map(productsSnap.docs.map(d => [d.id, d.data()]));
@@ -438,11 +749,8 @@ export const seedDatabase = async (initialProducts: Product[], initialPromos: { 
           const existing = existingDocs.get(p.id!);
           const preservedPaused = existing && typeof existing.paused === 'boolean' ? existing.paused : false;
           await setDoc(doc(db, "products", p.id!), { ...p, paused: preservedPaused }, { merge: true });
-        } catch (e) {
-          console.error("Failed to seed product:", p.id, p, e);
-        }
+        } catch (_) {}
       }
-      // Garante que os pagamentos online (PIX e Cartão Online Stripe) estejam 100% ativos
       try {
         await setDoc(doc(db, "settings", "payments"), {
           onlinePaymentsEnabled: true,
@@ -458,7 +766,6 @@ export const seedDatabase = async (initialProducts: Product[], initialPromos: { 
           }
         }, { merge: true });
       } catch (_) {}
-      // Garante que o horário de funcionamento oficial (18:30 às 22:30 em modo automático) seja salvo
       try {
         await setDoc(doc(db, "settings", "store_hours"), {
           mode: 'auto',
@@ -475,19 +782,18 @@ export const seedDatabase = async (initialProducts: Product[], initialPromos: { 
       } catch (_) {}
       try {
         await setDoc(metaRef, { seedVersion: TARGET_VERSION }, { merge: true });
-      } catch(e) {
-        console.error("Failed to update seed version:", e);
-      }
+        localStorage.setItem('nickel_seed_version', String(TARGET_VERSION));
+      } catch (_) {}
     }
     
     const promosSnap = await getDocs(promosRef);
     if (promosSnap.empty) {
       for (const [code, discount] of Object.entries(initialPromos)) {
-        await setDoc(doc(db, "promos", code), { code, discount });
+        await setDoc(doc(db, "promos", code), { code, discount }).catch(() => {});
       }
     }
-  } catch (error) {
-    console.error("Erro ao sincronizar banco de dados (provavelmente offline ou sem permissão):", error);
+  } catch (_) {
+    // Silencia erro caso a cota diária gratuita do Firestore tenha sido atingida
   }
 };
 
@@ -525,17 +831,20 @@ export const saveSiteSettings = async (settings: SiteSettings) => {
 };
 
 export const subscribeToSettings = (callback: (settings: SiteSettings) => void) => {
+  const defaultSettings: SiteSettings = {
+    heroVideoUrl: '/videobackground.mp4',
+    heroTitle: 'O MELHOR XIS E CACHORRO-QUENTE',
+    heroSubtitle: 'Sabor de verdade que mata a sua fome e te deixa com gostinho de quero mais.'
+  };
   const docRef = doc(db, 'settings', 'main');
   return onSnapshot(docRef, (snap) => {
     if (snap.exists()) {
       callback(snap.data() as SiteSettings);
     } else {
-      callback({
-        heroVideoUrl: '/videobackground.mp4',
-        heroTitle: 'O MELHOR XIS E CACHORRO-QUENTE',
-        heroSubtitle: 'Sabor de verdade que mata a sua fome e te deixa com gostinho de quero mais.'
-      });
+      callback(defaultSettings);
     }
+  }, () => {
+    callback(defaultSettings);
   });
 };
 
@@ -555,8 +864,7 @@ export const getBanners = async (): Promise<Banner[]> => {
       banners.push({ id: doc.id, ...doc.data() } as Banner);
     });
     return banners;
-  } catch (e) {
-    console.error("Error getting banners: ", e);
+  } catch (_) {
     return [];
   }
 };
@@ -571,7 +879,7 @@ export const saveBanner = async (banner: Banner, id?: string) => {
       return docRef.id;
     }
   } catch (e) {
-    console.error("Error saving banner: ", e);
+    console.warn("Aviso ao salvar banner:", e);
     throw e;
   }
 };
@@ -580,12 +888,20 @@ export const deleteBanner = async (id: string) => {
   try {
     await deleteDoc(doc(db, 'banners', id));
   } catch (e) {
-    console.error("Error deleting banner: ", e);
+    console.warn("Aviso ao excluir banner:", e);
     throw e;
   }
 };
 
 export const subscribeToBanners = (callback: (banners: Banner[]) => void) => {
+  const defaultBanners: Banner[] = [
+    {
+      id: '1',
+      image: "/images/comboloucura.jpg",
+      title: "Promoção Loucura",
+      description: "4 X-Especiais por R$ 90 + Refri 2L Charrua"
+    }
+  ];
   const q = query(collection(db, 'banners'));
   return onSnapshot(q, (querySnapshot) => {
     const banners: Banner[] = [];
@@ -593,32 +909,44 @@ export const subscribeToBanners = (callback: (banners: Banner[]) => void) => {
       banners.push({ id: doc.id, ...doc.data() } as Banner);
     });
     if (banners.length === 0) {
-      callback([
-        {
-          id: '1',
-          image: "/images/comboloucura.jpg",
-          title: "Promoção Loucura",
-          description: "4 X-Especiais por R$ 90 + Refri 2L Charrua"
-        }
-      ]);
+      callback(defaultBanners);
     } else {
       callback(banners);
     }
+  }, () => {
+    callback(defaultBanners);
   });
 };
 
 export const deleteOrder = async (orderId: string) => {
   try {
+    const remaining = getLocalCachedOrders().filter(o => o.id !== orderId);
+    localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(remaining));
+    window.dispatchEvent(new CustomEvent('nickel-orders-updated'));
+    fetch(`/api/orders/${orderId}`, { method: 'DELETE' }).catch(() => {});
+  } catch {}
+  try {
     await deleteDoc(doc(db, 'global_orders', orderId));
   } catch (e) {
-    console.error("Error deleting order: ", e);
-    throw e;
+    console.warn("Aviso ao remover pedido no Firestore:", e);
   }
 };
 
 export const saveOrderAdmin = async (orderId: string, updates: Partial<Order>) => {
   try {
-    await updateDoc(doc(db, 'global_orders', orderId), updates);
+    const localOrders = getLocalCachedOrders();
+    const target = localOrders.find(o => o.id === orderId);
+    if (target) {
+      saveLocalCachedOrder({ ...target, ...updates });
+    }
+    fetch(`/api/orders/${orderId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    }).catch(() => {});
+  } catch {}
+  try {
+    await updateDoc(doc(db, 'global_orders', orderId), cleanObjectForFirestore(updates));
     if (updates.isPaid === true || updates.paymentStatus === 'pago') {
       try {
         await setDoc(doc(db, "settings", "print_signal"), {
@@ -630,8 +958,7 @@ export const saveOrderAdmin = async (orderId: string, updates: Partial<Order>) =
       } catch (_) {}
     }
   } catch (e) {
-    console.error("Error updating order: ", e);
-    throw e;
+    console.warn("Aviso ao atualizar pedido no Firestore:", e);
   }
 };
 

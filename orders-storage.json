@@ -1,0 +1,50 @@
+[
+  {
+    "id": "TESTE-ANTERIOR-PIX",
+    "orderNumber": 2,
+    "userName": "Cliente Anterior PIX",
+    "whatsapp": "(54) 99959-8389",
+    "address": "Passo Fundo - Centro",
+    "paymentMethod": "PIX Imediato",
+    "paymentStatus": "pago",
+    "isPaid": true,
+    "totalPrice": 1,
+    "status": "recebido",
+    "items": [
+      {
+        "name": "🧪 Item Teste PIX (R$ 1,00)",
+        "quantity": 1,
+        "price": 1
+      }
+    ]
+  },
+  {
+    "id": "TESTE-PIX-1REAL",
+    "orderNumber": 1,
+    "userName": "Braian Kleber (Teste PIX)",
+    "whatsapp": "(54) 99959-8389",
+    "address": "Roberto Dalla Lana, 332 - Petrópolis",
+    "region": "Passo Fundo",
+    "paymentMethod": "PIX Imediato (Site: (54) 99959-8389)",
+    "paymentStatus": "pago",
+    "isPaid": true,
+    "deliveryFee": 0,
+    "totalPrice": 1,
+    "totalPoints": 1,
+    "status": "recebido",
+    "createdAt": "2026-10-24T00:04:28.254Z",
+    "receiptAuthCode": "AUT-NKL-PIX-001",
+    "receiptTimestamp": "24/10/2026 às 00:04",
+    "receiptSummary": "R$ 1,00 via PIX Imediato",
+    "items": [
+      {
+        "id": "teste_pix_1real",
+        "name": "🧪 Item Teste PIX (R$ 1,00)",
+        "price": 1,
+        "quantity": 1,
+        "extras": [],
+        "observation": "Teste de validação de envio para o Painel Admin e impressão automática."
+      }
+    ]
+  }
+]

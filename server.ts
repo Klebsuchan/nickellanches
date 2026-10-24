@@ -85,6 +85,177 @@ async function startServer() {
 
   app.use(express.json());
 
+  // Armazenamento em arquivo para persistência garantida de pedidos (independente de cota do Firestore)
+  const ORDERS_FILE = path.resolve(process.cwd(), 'orders-storage.json');
+  let printSignalState: { latestOrderId?: string; orderNumber?: number | string; isPaid?: boolean; updatedAtMs?: number } = {
+    updatedAtMs: Date.now()
+  };
+
+  function getStoredOrders(): any[] {
+    try {
+      if (fs.existsSync(ORDERS_FILE)) {
+        const raw = fs.readFileSync(ORDERS_FILE, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn('Erro ao ler orders-storage.json:', e);
+    }
+    // Semente padrão com o Pedido de Teste PIX R$ 1,00
+    const now = new Date();
+    const defaultSeed = [
+      {
+        id: 'TESTE-PIX-1REAL',
+        orderNumber: 1,
+        userName: 'Braian Kleber (Teste PIX)',
+        whatsapp: '(54) 99959-8389',
+        address: 'Roberto Dalla Lana, 332 - Petrópolis',
+        region: 'Passo Fundo',
+        paymentMethod: 'PIX Imediato (Site: (54) 99959-8389)',
+        paymentStatus: 'pago',
+        isPaid: true,
+        deliveryFee: 0,
+        totalPrice: 1.00,
+        totalPoints: 1,
+        status: 'recebido',
+        createdAt: now.toISOString(),
+        receiptAuthCode: 'AUT-NKL-PIX-001',
+        receiptTimestamp: `${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
+        receiptSummary: 'R$ 1,00 via PIX Imediato',
+        items: [
+          {
+            id: 'teste_pix_1real',
+            name: '🧪 Item Teste PIX (R$ 1,00)',
+            price: 1,
+            quantity: 1,
+            extras: [],
+            observation: 'Teste de validação de envio para o Painel Admin e impressão automática.'
+          }
+        ]
+      }
+    ];
+    saveStoredOrders(defaultSeed);
+    return defaultSeed;
+  }
+
+  function saveStoredOrders(orders: any[]) {
+    try {
+      fs.writeFileSync(ORDERS_FILE, JSON.stringify(orders.slice(0, 300), null, 2), 'utf-8');
+    } catch (e) {
+      console.warn('Erro ao salvar orders-storage.json:', e);
+    }
+  }
+
+  // Endpoints para sincronização persistente de pedidos
+  app.get('/api/orders', (req, res) => {
+    const orders = getStoredOrders();
+    res.json(orders);
+  });
+
+  app.post('/api/orders', (req, res) => {
+    try {
+      const body = req.body;
+      const currentOrders = getStoredOrders();
+      
+      if (Array.isArray(body)) {
+        // Sincronização em lote
+        const existingIds = new Set(currentOrders.map(o => o.id));
+        const newOrders = body.filter(b => b && b.id && !existingIds.has(b.id));
+        if (newOrders.length > 0) {
+          const merged = [...newOrders, ...currentOrders];
+          saveStoredOrders(merged);
+        }
+        return res.json({ success: true, count: newOrders.length });
+      }
+
+      if (!body || !body.id) {
+        return res.status(400).json({ error: 'Pedido inválido sem ID' });
+      }
+
+      const existingIndex = currentOrders.findIndex(o => o.id === body.id);
+      let updatedOrders = [...currentOrders];
+      if (existingIndex >= 0) {
+        updatedOrders[existingIndex] = { ...updatedOrders[existingIndex], ...body };
+      } else {
+        updatedOrders = [body, ...currentOrders];
+      }
+
+      saveStoredOrders(updatedOrders);
+
+      // Se for pedido pago confirmado, atualiza sinal de impressão
+      const isPaid = (body.isPaid === true || body.paymentStatus === 'pago');
+      if (isPaid) {
+        printSignalState = {
+          latestOrderId: body.id,
+          orderNumber: body.orderNumber || 1,
+          isPaid: true,
+          updatedAtMs: Date.now()
+        };
+      }
+
+      return res.json({ success: true, order: body });
+    } catch (err: any) {
+      console.error('Erro ao salvar pedido na API:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.patch('/api/orders/:id', (req, res) => {
+    try {
+      const orderId = req.params.id;
+      const updates = req.body;
+      const currentOrders = getStoredOrders();
+      const idx = currentOrders.findIndex(o => o.id === orderId);
+      if (idx >= 0) {
+        currentOrders[idx] = { ...currentOrders[idx], ...updates };
+        saveStoredOrders(currentOrders);
+
+        // Se foi marcado como pago pelo admin, dispara sinal de impressão imediata
+        if (updates.isPaid === true || updates.paymentStatus === 'pago') {
+          printSignalState = {
+            latestOrderId: orderId,
+            orderNumber: currentOrders[idx].orderNumber || 1,
+            isPaid: true,
+            updatedAtMs: Date.now()
+          };
+        }
+
+        return res.json({ success: true, order: currentOrders[idx] });
+      }
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.delete('/api/orders/:id', (req, res) => {
+    try {
+      const orderId = req.params.id;
+      const currentOrders = getStoredOrders();
+      const filtered = currentOrders.filter(o => o.id !== orderId);
+      saveStoredOrders(filtered);
+      return res.json({ success: true });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Endpoints para sinal de impressão automática
+  app.get('/api/print-signal', (req, res) => {
+    res.json(printSignalState);
+  });
+
+  app.post('/api/print-signal', (req, res) => {
+    const body = req.body || {};
+    printSignalState = {
+      latestOrderId: body.latestOrderId || '',
+      orderNumber: body.orderNumber || 1,
+      isPaid: Boolean(body.isPaid),
+      updatedAtMs: Date.now()
+    };
+    res.json({ success: true, signal: printSignalState });
+  });
+
   app.get('/api/payment-config', (req, res) => {
     res.json({
       stripeConfigured: !!process.env.STRIPE_SECRET_KEY,

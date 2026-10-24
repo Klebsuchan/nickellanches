@@ -531,10 +531,12 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
       }
     }
 
+    const isPixPayment = paymentMethod === 'pix_online';
     onConfirm({
       ...orderPayload,
       isPaid: false,
-      paymentStatus: 'pendente'
+      paymentStatus: 'pendente',
+      skipWhatsApp: isPixPayment
     });
   };
 
@@ -1078,14 +1080,14 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                                 </div>
                               </div>
 
-                              {/* Instrução */}
-                              <div className="p-3 bg-white/80 rounded-xl border border-orange-100 text-xs text-stone-600 space-y-1">
-                                <div className="flex items-center gap-1.5 font-bold text-stone-900">
-                                  <ShieldCheck size={15} className="text-green-600" />
-                                  <span>Como confirmar?</span>
+                               {/* Instrução do PIX com confirmação direta pelo Painel da Lancheria */}
+                              <div className="p-3.5 bg-amber-50 rounded-xl border-2 border-amber-300 text-xs text-amber-950 space-y-1.5">
+                                <div className="flex items-center gap-1.5 font-black text-amber-900 uppercase">
+                                  <Clock size={16} className="text-amber-600 shrink-0" />
+                                  <span>Confirmação Direta no Caixa da Lancheria</span>
                                 </div>
-                                <p className="text-[11px] leading-relaxed">
-                                  {paymentSettings.pix.instructions || 'Faça o PIX no valor exato do seu pedido. Ao clicar no botão abaixo, envie o pedido pelo WhatsApp e anexe o comprovante na conversa para agilizar a preparação!'}
+                                <p className="text-[11px] font-medium leading-relaxed text-amber-900">
+                                  Faça a transferência PIX da chave acima no valor de <strong>R$ {currentFinalTotal.toFixed(2).replace('.', ',')}</strong>. Ao finalizar abaixo, seu pedido entra diretamente no Painel Administrativo da lancheria e o caixa confirma o pagamento com 1 clique para iniciar o preparo na chapa! <strong>Não precisa mandar nada no WhatsApp!</strong>
                                 </p>
                               </div>
                             </motion.div>
@@ -1357,8 +1359,10 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                     className={`w-full ${
                       paymentMethod === 'credit_online' || paymentMethod === 'debit_online'
                         ? 'bg-purple-700 hover:bg-purple-800'
+                        : paymentMethod === 'pix_online'
+                        ? 'bg-emerald-600 hover:bg-emerald-700'
                         : 'bg-[#4E2A84] hover:bg-[#3D1F6B]'
-                    } disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-2xl py-4 px-4 font-black uppercase tracking-wider shadow-lg hover:shadow-purple-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-3 text-lg cursor-pointer`}
+                    } disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-2xl py-4 px-4 font-black uppercase tracking-wider shadow-lg hover:shadow-emerald-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-3 text-lg cursor-pointer`}
                   >
                     {isProcessingStripe ? (
                       <>
@@ -1370,17 +1374,24 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                         <CreditCard size={22} className="shrink-0 text-amber-300" />
                         <span>Pagar com Stripe (R$ {currentFinalTotal.toFixed(2).replace('.', ',')})</span>
                       </>
+                    ) : paymentMethod === 'pix_online' ? (
+                      <>
+                        <Check size={24} className="shrink-0 text-emerald-200 stroke-[3]" />
+                        <span>Finalizar Pedido com PIX (R$ {currentFinalTotal.toFixed(2).replace('.', ',')})</span>
+                      </>
                     ) : (
                       <>
-                        <Sparkles size={24} className="shrink-0 text-amber-300" />
-                        <span>Confirmar Pedido & Jogar Minigame</span>
+                        <Check size={24} className="shrink-0 text-amber-300 stroke-[3]" />
+                        <span>Finalizar Pedido (R$ {currentFinalTotal.toFixed(2).replace('.', ',')})</span>
                       </>
                     )}
                   </button>
-                  <p className="text-center text-[11px] text-stone-500 mt-2 font-medium">
+                  <p className="text-center text-[11px] text-stone-600 mt-2 font-semibold">
                     {(paymentMethod === 'credit_online' || paymentMethod === 'debit_online')
                       ? '🔒 Pagamento processado pela plataforma oficial do Stripe com criptografia bancária e certificação PCI-DSS. Ao aprovar, você avança para o minigame!'
-                      : 'Você confirmará seu pedido, poderá se divertir no joguinho do cachorrinho e, ao sair dele, o pedido será encaminhado para o WhatsApp!'}
+                      : paymentMethod === 'pix_online'
+                      ? '⚡ Pedido enviado diretamente para a lancheria! O pagamento do PIX é confirmado no painel da loja pelo caixa para iniciar a cozinha.'
+                      : '📋 Pedido enviado diretamente para o sistema da lancheria! A comanda será preparada na cozinha.'}
                   </p>
                 </>
               )}

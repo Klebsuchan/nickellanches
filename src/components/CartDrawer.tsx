@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Trash2, Lock, AlertCircle, CreditCard, QrCode, Banknote, ShieldCheck } from 'lucide-react';
+import { X, Trash2, Lock, AlertCircle, CreditCard, QrCode, Banknote, ShieldCheck, Sparkles } from 'lucide-react';
 import { CartItem } from '../types';
 import RenderWithNickel from './RenderWithNickel';
 import { getStoreStatus } from '../lib/storeHours';
@@ -18,7 +18,7 @@ interface CartDrawerProps {
   totalCartBase: number;
   discountAmount: number;
   totalCart: number;
-  onCheckout: () => void;
+  onCheckout: (isTest?: boolean) => void;
 }
 
 export default function CartDrawer({
@@ -205,8 +205,8 @@ export default function CartDrawer({
                 </div>
 
                 {!getStoreStatus().isOpen ? (
-                  <div className="space-y-3">
-                    <div className="p-3.5 bg-red-50 border-2 border-red-500 rounded-xl text-center space-y-1">
+                  <div className="space-y-2.5">
+                    <div className="p-3 bg-red-50 border-2 border-red-500 rounded-xl text-center space-y-1">
                       <div className="text-xs font-black uppercase text-red-700 flex items-center justify-center gap-1.5">
                         <AlertCircle size={16} className="shrink-0" />
                         <span>{getStoreStatus().title}</span>
@@ -219,23 +219,45 @@ export default function CartDrawer({
                     <button 
                       type="button"
                       disabled
-                      className="w-full py-4 bg-stone-300 border-2 border-stone-400 text-stone-600 font-display tracking-widest uppercase rounded-xl cursor-not-allowed flex items-center justify-center gap-2 text-base opacity-90 shadow-none"
+                      className="w-full py-3.5 bg-stone-300 border-2 border-stone-400 text-stone-600 font-display tracking-widest uppercase rounded-xl cursor-not-allowed flex items-center justify-center gap-2 text-sm opacity-90 shadow-none"
                     >
-                      <Lock size={18} /> Loja Fechada
+                      <Lock size={16} /> Loja Fechada
+                    </button>
+
+                    {/* Botão de teste mesmo com loja fechada */}
+                    <button 
+                      type="button"
+                      onClick={() => onCheckout(true)}
+                      className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-stone-950 font-black uppercase tracking-wider rounded-xl border-2 border-black shadow-[3px_3px_0px_#000] flex items-center justify-center gap-2 text-xs transition-all cursor-pointer"
+                    >
+                      <Sparkles size={16} className="fill-stone-950" />
+                      <span>🧪 Testar Pedido (Pular Pagamento)</span>
                     </button>
                   </div>
                 ) : (
-                  <button 
-                    onClick={onCheckout}
-                    className="w-full py-4 bg-yellow-400 border-2 border-black text-black font-display tracking-widest uppercase rounded-xl hover:bg-yellow-500 shadow-[4px_4px_0px_#000] hover:shadow-[6px_6px_0px_#000] hover:-translate-y-1 transition-all flex items-center justify-center gap-2 text-lg cursor-pointer"
-                  >
-                    Finalizar Pedido
-                  </button>
+                  <div className="space-y-2">
+                    <button 
+                      onClick={() => onCheckout(false)}
+                      className="w-full py-4 bg-yellow-400 border-2 border-black text-black font-display tracking-widest uppercase rounded-xl hover:bg-yellow-500 shadow-[4px_4px_0px_#000] hover:shadow-[6px_6px_0px_#000] hover:-translate-y-1 transition-all flex items-center justify-center gap-2 text-lg cursor-pointer"
+                    >
+                      Finalizar Pedido
+                    </button>
+
+                    {/* Botão de teste direto no carrinho */}
+                    <button 
+                      type="button"
+                      onClick={() => onCheckout(true)}
+                      className="w-full py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-black uppercase tracking-wider rounded-xl border border-emerald-300 flex items-center justify-center gap-2 text-xs transition-all cursor-pointer"
+                    >
+                      <Sparkles size={14} className="text-emerald-600" />
+                      <span>🧪 Modo Teste: Pular Pagamento & Imprimir</span>
+                    </button>
+                  </div>
                 )}
 
                 <button 
                   onClick={onClose}
-                  className="w-full py-3 mt-3 bg-white border-2 border-stone-200 text-stone-600 font-bold tracking-wide uppercase rounded-xl hover:bg-stone-50 transition-colors flex items-center justify-center text-sm"
+                  className="w-full py-2.5 mt-2 bg-white border-2 border-stone-200 text-stone-600 font-bold tracking-wide uppercase rounded-xl hover:bg-stone-50 transition-colors flex items-center justify-center text-xs"
                 >
                   Continuar Comprando
                 </button>

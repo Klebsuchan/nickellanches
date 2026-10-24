@@ -32,11 +32,11 @@ export const signOut = async () => {
 
 export const getNextOrderNumber = async (): Promise<number> => {
   const counterRef = doc(db, 'system', 'daily_order_counter');
+  const today = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
   
   try {
     const newNumber = await runTransaction(db, async (transaction) => {
       const sfDoc = await transaction.get(counterRef);
-      const today = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }); // Use local timezone date string
       
       if (!sfDoc.exists()) {
         transaction.set(counterRef, { count: 1, date: today });
@@ -45,20 +45,33 @@ export const getNextOrderNumber = async (): Promise<number> => {
       
       const data = sfDoc.data();
       if (data.date !== today) {
-        // Reset for new day
         transaction.update(counterRef, { count: 1, date: today });
         return 1;
       } else {
-        // Increment
         const newCount = (data.count || 0) + 1;
         transaction.update(counterRef, { count: newCount });
         return newCount;
       }
     });
+    try {
+      localStorage.setItem('nickel_daily_counter', JSON.stringify({ date: today, count: newNumber }));
+    } catch {}
     return newNumber;
   } catch (e) {
-    console.error("Transaction failed: ", e);
-    // Fallback if transaction fails
-    return Math.floor(Math.random() * 1000) + 1000;
+    try {
+      const raw = localStorage.getItem('nickel_daily_counter');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.date === today && typeof parsed.count === 'number') {
+          const next = parsed.count + 1;
+          localStorage.setItem('nickel_daily_counter', JSON.stringify({ date: today, count: next }));
+          return next;
+        }
+      }
+      localStorage.setItem('nickel_daily_counter', JSON.stringify({ date: today, count: 1 }));
+      return 1;
+    } catch {
+      return Math.floor(Math.random() * 900) + 100;
+    }
   }
 };

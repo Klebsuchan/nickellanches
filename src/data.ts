@@ -24,6 +24,19 @@ export const DISCOUNT_CODES: Record<string, number> = {
 
 export const MENU_ITEMS: Product[] = [
   {
+    id: "teste_pix_1real",
+    name: "🧪 Item Teste PIX (R$ 1,00)",
+    description: "Item especial para validação de comanda, envio ao Painel Admin e impressão automática via PIX.",
+    price: 1,
+    points: 1,
+    emoji: "🧪",
+    image: "/images/x-salada-1.jpg",
+    category: "lanches",
+    badge: "Teste R$ 1",
+    freeShipping: true,
+    paused: false
+  },
+  {
     "id": "b_agua",
     "name": "Água Mineral",
     "description": "Água mineral 500ml.",

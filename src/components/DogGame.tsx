@@ -12,7 +12,9 @@ import {
   Shield,
   Magnet,
   Keyboard,
-  Heart
+  Heart,
+  Clock,
+  Copy
 } from 'lucide-react';
 import { useToast } from './Toast';
 import { subscribeToOrder, addXpToUser } from '../lib/db';
@@ -114,6 +116,7 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
   const { addToast } = useToast();
 
   const [orderStatus, setOrderStatus] = useState<'pendente' | 'cozinha_confirmou' | 'em_preparo' | 'a_caminho' | 'entregue'>('pendente');
+  const [isPaidState, setIsPaidState] = useState<boolean>(Boolean(order?.isPaid || order?.paymentStatus === 'pago'));
   const [progress, setProgress] = useState(0);
   const [gameId, setGameId] = useState(0);
 
@@ -134,27 +137,26 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
     });
   };
 
-  // Helper de WhatsApp
+  // Helper de WhatsApp (opcional apenas se o cliente clicar)
   const handleSendToWhatsApp = () => {
     if (order?.whatsappMessage) {
       const phone = '5554999598389';
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(order.whatsappMessage)}`, '_blank');
       addToast({
         title: 'Abrindo WhatsApp...',
-        message: 'Pedido encaminhado com sucesso!',
-        type: 'success'
+        message: 'Pedido encaminhado para o WhatsApp da lanchonete!',
+        type: 'info'
       });
     }
   };
 
   const handleExitGame = () => {
-    handleSendToWhatsApp();
     if (onClose) {
       onClose();
     }
   };
 
-  // Status do Pedido via Firestore (jogo nunca fecha sozinho)
+  // Status do Pedido via Firestore e Servidor (atualização ao vivo de pagamento e status)
   useEffect(() => {
     if (!order?.id) return;
     const unsub = subscribeToOrder(order.id, (orderData) => {
@@ -168,6 +170,9 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
           case 'a_caminho': setProgress(85); break;
           case 'entregue': setProgress(100); break;
         }
+      }
+      if (orderData.isPaid !== undefined || orderData.paymentStatus !== undefined) {
+        setIsPaidState(Boolean(orderData.isPaid || orderData.paymentStatus === 'pago'));
       }
     });
     return () => unsub();
@@ -1224,72 +1229,133 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
         >
           {/* Status Header Badge */}
           <div className="flex items-center gap-2 mb-3">
-            <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
-              (orderStatus === 'entregue' || (orderStatus as string) === 'concluido')
-                ? 'bg-green-500 text-white shadow-sm'
-                : ((orderStatus as string) === 'a_caminho' || (orderStatus as string) === 'enviado' || (orderStatus as string) === 'saiu_entrega')
-                ? 'bg-purple-600 text-white shadow-sm animate-pulse'
-                : ((orderStatus as string) === 'em_preparo' || (orderStatus as string) === 'preparando' || (orderStatus as string) === 'cozinha')
-                ? 'bg-amber-500 text-stone-900 shadow-sm'
-                : 'bg-blue-600 text-white'
-            }`}>
-              {(orderStatus === 'entregue' || (orderStatus as string) === 'concluido') && '✅ 4. Pedido Entregue!'}
-              {((orderStatus as string) === 'a_caminho' || (orderStatus as string) === 'enviado' || (orderStatus as string) === 'saiu_entrega') && '🛵 3. Pedido Enviado / A Caminho!'}
-              {((orderStatus as string) === 'em_preparo' || (orderStatus as string) === 'preparando' || (orderStatus as string) === 'cozinha') && '👨‍🍳 2. Em Preparo na Chapa!'}
-              {((orderStatus as string) === 'recebido' || (orderStatus as string) === 'pendente' || (orderStatus as string) === 'cozinha_confirmou') && '📋 1. Pedido Confirmado'}
-            </span>
+            {!isPaidState ? (
+              <span className="px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500 text-stone-950 shadow-sm flex items-center gap-1.5 animate-pulse">
+                <Clock size={13} className="shrink-0" />
+                <span>Aguardando Confirmação do PIX pela Lancheria</span>
+              </span>
+            ) : (
+              <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
+                (orderStatus === 'entregue' || (orderStatus as string) === 'concluido')
+                  ? 'bg-green-500 text-white shadow-sm'
+                  : ((orderStatus as string) === 'a_caminho' || (orderStatus as string) === 'enviado' || (orderStatus as string) === 'saiu_entrega')
+                  ? 'bg-purple-600 text-white shadow-sm animate-pulse'
+                  : ((orderStatus as string) === 'em_preparo' || (orderStatus as string) === 'preparando' || (orderStatus as string) === 'cozinha')
+                  ? 'bg-amber-500 text-stone-900 shadow-sm'
+                  : 'bg-emerald-600 text-white'
+              }`}>
+                {(orderStatus === 'entregue' || (orderStatus as string) === 'concluido') && '✅ 4. Pedido Entregue!'}
+                {((orderStatus as string) === 'a_caminho' || (orderStatus as string) === 'enviado' || (orderStatus as string) === 'saiu_entrega') && '🛵 3. Pedido Enviado / A Caminho!'}
+                {((orderStatus as string) === 'em_preparo' || (orderStatus as string) === 'preparando' || (orderStatus as string) === 'cozinha') && '👨‍🍳 2. Em Preparo na Chapa!'}
+                {((orderStatus as string) === 'recebido' || (orderStatus as string) === 'pendente' || (orderStatus as string) === 'cozinha_confirmou') && '📋 1. Pedido Confirmado & Pago'}
+              </span>
+            )}
           </div>
 
           <h3 className="font-display font-black uppercase text-xl sm:text-2xl mb-1 text-stone-900 flex items-center gap-2">
-            {(orderStatus === 'entregue' || (orderStatus as string) === 'concluido') && <span>Pedido Entregue! Bom Apetite! 🍔🎉</span>}
-            {((orderStatus as string) === 'a_caminho' || (orderStatus as string) === 'enviado' || (orderStatus as string) === 'saiu_entrega') && <span>Pedido Enviado! A Caminho! 🛵💨</span>}
-            {((orderStatus as string) === 'em_preparo' || (orderStatus as string) === 'preparando' || (orderStatus as string) === 'cozinha') && <span>Pedido Em Preparo! 👨‍🍳🔥</span>}
-            {((orderStatus as string) === 'recebido' || (orderStatus as string) === 'pendente' || (orderStatus as string) === 'cozinha_confirmou') && <span>Pedido Confirmado & Na Fila! 📋</span>}
+            {!isPaidState && <span>Pedido Recebido! Aguardando PIX... ⏳</span>}
+            {isPaidState && (orderStatus === 'entregue' || (orderStatus as string) === 'concluido') && <span>Pedido Entregue! Bom Apetite! 🍔🎉</span>}
+            {isPaidState && ((orderStatus as string) === 'a_caminho' || (orderStatus as string) === 'enviado' || (orderStatus as string) === 'saiu_entrega') && <span>Pedido Enviado! A Caminho! 🛵💨</span>}
+            {isPaidState && ((orderStatus as string) === 'em_preparo' || (orderStatus as string) === 'preparando' || (orderStatus as string) === 'cozinha') && <span>Pedido Em Preparo! 👨‍🍳🔥</span>}
+            {isPaidState && ((orderStatus as string) === 'recebido' || (orderStatus as string) === 'pendente' || (orderStatus as string) === 'cozinha_confirmou') && <span>Pagamento Confirmado & Na Chapa! 📋</span>}
           </h3>
 
           <p className="text-stone-600 font-medium max-w-lg mx-auto text-xs sm:text-sm leading-relaxed mb-4">
-            {(orderStatus === 'entregue' || (orderStatus as string) === 'concluido')
+            {!isPaidState
+              ? 'Seu pedido foi registrado no sistema. Assim que a transferência do PIX for confirmada no Painel pelo caixa, seu pedido entra automaticamente na chapa! Fique à vontade jogando enquanto isso.'
+              : (orderStatus === 'entregue' || (orderStatus as string) === 'concluido')
               ? 'Seu lanche chegou! Agradecemos a preferência pela Nickel Lanches. Pode fechar o jogo ou continuar jogando à vontade!'
               : ((orderStatus as string) === 'a_caminho' || (orderStatus as string) === 'enviado' || (orderStatus as string) === 'saiu_entrega')
               ? 'O motoboy já saiu com o seu lanche e está a caminho do seu endereço! Fique atento ao toque do portão/interfone.'
               : ((orderStatus as string) === 'em_preparo' || (orderStatus as string) === 'preparando' || (orderStatus as string) === 'cozinha')
               ? 'O chef já está preparando o seu lanche com receitas exclusivas! Enquanto isso, divirta-se correndo com o cachorrinho.'
-              : 'Seu pedido foi registrado na cozinha! Jogue enquanto preparamos seu lanche.'}
+              : 'Pagamento confirmado pelo caixa! A comanda foi impressa e o lanche está na fila da chapa.'}
           </p>
 
           {/* Linha do Tempo do Pedido */}
           <div className="w-full max-w-md bg-stone-100 p-3 rounded-2xl border border-stone-200 mb-4">
             <div className="flex justify-between items-center text-[10px] sm:text-xs font-black uppercase tracking-tight text-stone-500 mb-2">
-              <span className={((orderStatus as string) === 'recebido' || (orderStatus as string) === 'pendente' || (orderStatus as string) === 'cozinha_confirmou' || (orderStatus as string) === 'em_preparo' || (orderStatus as string) === 'preparando' || (orderStatus as string) === 'a_caminho' || orderStatus === 'entregue' || (orderStatus as string) === 'concluido') ? 'text-blue-600 font-bold' : ''}>1. Confirmado</span>
-              <span className={((orderStatus as string) === 'em_preparo' || (orderStatus as string) === 'preparando' || (orderStatus as string) === 'cozinha' || (orderStatus as string) === 'a_caminho' || orderStatus === 'entregue' || (orderStatus as string) === 'concluido') ? 'text-amber-600 font-bold' : ''}>2. Preparo</span>
-              <span className={((orderStatus as string) === 'a_caminho' || (orderStatus as string) === 'enviado' || (orderStatus as string) === 'saiu_entrega' || orderStatus === 'entregue' || (orderStatus as string) === 'concluido') ? 'text-purple-600 font-bold' : ''}>3. Enviado</span>
-              <span className={(orderStatus === 'entregue' || (orderStatus as string) === 'concluido') ? 'text-green-600 font-bold' : ''}>4. Entregue</span>
+              <span className={!isPaidState ? 'text-amber-600 font-black' : 'text-emerald-600 font-bold'}>
+                {!isPaidState ? '1. Aguardando PIX' : '1. Confirmado'}
+              </span>
+              <span className={(isPaidState && ((orderStatus as string) === 'em_preparo' || (orderStatus as string) === 'preparando' || (orderStatus as string) === 'cozinha' || (orderStatus as string) === 'a_caminho' || orderStatus === 'entregue' || (orderStatus as string) === 'concluido')) ? 'text-amber-600 font-bold' : ''}>
+                2. Preparo
+              </span>
+              <span className={(isPaidState && ((orderStatus as string) === 'a_caminho' || (orderStatus as string) === 'enviado' || (orderStatus as string) === 'saiu_entrega' || orderStatus === 'entregue' || (orderStatus as string) === 'concluido')) ? 'text-purple-600 font-bold' : ''}>
+                3. Enviado
+              </span>
+              <span className={(isPaidState && (orderStatus === 'entregue' || (orderStatus as string) === 'concluido')) ? 'text-green-600 font-bold' : ''}>
+                4. Entregue
+              </span>
             </div>
 
             <div className="w-full h-2.5 bg-stone-200 rounded-full overflow-hidden p-0.5">
               <div 
                 className="h-full bg-gradient-to-r from-blue-500 via-amber-500 via-purple-500 to-green-500 rounded-full transition-all duration-500"
                 style={{
-                  width: (orderStatus === 'entregue' || (orderStatus as string) === 'concluido') ? '100%'
+                  width: !isPaidState ? '15%'
+                    : (orderStatus === 'entregue' || (orderStatus as string) === 'concluido') ? '100%'
                     : ((orderStatus as string) === 'a_caminho' || (orderStatus as string) === 'enviado' || (orderStatus as string) === 'saiu_entrega') ? '75%'
                     : ((orderStatus as string) === 'em_preparo' || (orderStatus as string) === 'preparando' || (orderStatus as string) === 'cozinha') ? '50%'
-                    : '25%'
+                    : '30%'
                 }}
               />
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-2.5">
-            <button
-              onClick={handleSendToWhatsApp}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
-            >
-              <MessageCircle size={15} /> Encaminhar p/ WhatsApp
-            </button>
+          {/* Banner Informativo (PIX pendente ou Confirmado) */}
+          {!isPaidState ? (
+            <div className="w-full max-w-lg bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 mb-4 text-left shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="bg-amber-500 text-stone-950 p-2 rounded-xl shrink-0 mt-0.5">
+                  <Clock size={20} />
+                </div>
+                <div className="flex-1">
+                  <p className="font-black text-amber-950 text-xs sm:text-sm uppercase tracking-tight">
+                    Chave PIX: (54) 99959-8389
+                  </p>
+                  <p className="text-amber-900 text-xs font-medium mt-1 leading-relaxed">
+                    Valor a pagar: <strong>R$ {order.total?.toFixed(2).replace('.', ',') || '0,00'}</strong>. A lancheria confirmará o pagamento diretamente no Painel Administrativo. <strong>Não é necessário enviar comprovante no WhatsApp!</strong>
+                  </p>
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText('54999598389');
+                        addToast({ message: 'Chave PIX copiada: (54) 99959-8389', type: 'success' });
+                      }}
+                      className="bg-stone-900 hover:bg-black text-yellow-400 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-sm transition-all"
+                    >
+                      <Copy size={14} />
+                      <span>Copiar Chave PIX</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="w-full max-w-lg bg-emerald-50 border-2 border-emerald-500 rounded-2xl p-3.5 mb-4 text-left shadow-sm">
+              <div className="flex items-start gap-2.5">
+                <div className="bg-emerald-600 text-white p-2 rounded-xl shrink-0 mt-0.5">
+                  <CheckCircle size={18} />
+                </div>
+                <div className="flex-1">
+                  <p className="font-black text-emerald-950 text-xs sm:text-sm uppercase tracking-tight">
+                    🍔 Pagamento Confirmado & Pedido em Preparo!
+                  </p>
+                  <p className="text-emerald-800 text-[11px] sm:text-xs font-medium mt-0.5 leading-snug">
+                    O caixa confirmou o pagamento no painel! A comanda foi impressa na cozinha e seu lanche já está sendo preparado.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-center gap-2.5 w-full">
             {(orderStatus === 'entregue' || (orderStatus as string) === 'concluido') ? (
               <button
                 onClick={handleExitGame}
-                className="bg-green-500 hover:bg-green-600 text-white px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                className="bg-green-500 hover:bg-green-600 text-white px-5 py-3 rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-md transition-all cursor-pointer"
               >
                 <span>Concluir e Voltar ao Início</span>
                 <CheckCircle size={15} />
@@ -1297,7 +1363,7 @@ export default function DogGame({ order, onFinishOrder, onClose, onViewAbout }: 
             ) : onClose ? (
               <button
                 onClick={handleExitGame}
-                className="bg-stone-100 hover:bg-stone-200 text-stone-800 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer"
+                className="bg-stone-900 hover:bg-black text-white px-5 py-3 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-sm"
               >
                 <span>Voltar ao Cardápio</span>
                 <ArrowRight size={14} />

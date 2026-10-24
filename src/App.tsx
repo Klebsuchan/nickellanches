@@ -30,7 +30,8 @@ import { useToast } from './components/Toast';
 import { isStoreClosedMonday, getStoreStatus, STORE_CLOSED_MESSAGE, StoreHoursSettings, DEFAULT_STORE_HOURS } from './lib/storeHours';
 import { auth, signInWithGoogle, signOut, getNextOrderNumber } from './lib/firebase';
 import { User as FirebaseUser } from 'firebase/auth';
-import { subscribeToOrder, getLatestOrders, subscribeToProducts, subscribeToPromos, subscribeToStoreHours, seedDatabase, createUserProfile, getUserProfile, addXpToUser, saveOrder, UserProfile, Order, getPrinterSettings, subscribeToAllOrders } from './lib/db';
+import { subscribeToOrder, getLatestOrders, subscribeToProducts, subscribeToPromos, subscribeToStoreHours, seedDatabase, createUserProfile, getUserProfile, addXpToUser, saveOrder, UserProfile, Order, getPrinterSettings, subscribeToAllOrders, enqueueCloudPrintJob, DEFAULT_PRINTER_SETTINGS } from './lib/db';
+import { renderFullOrderToImage } from './lib/receiptCanvas';
 import { playSound } from './lib/audio';
 
 export default function App() {
@@ -371,11 +372,34 @@ export default function App() {
 
   
   const prevStatusRef = useRef<string | null>(null);
+  const prevPaidRef = useRef<boolean | null>(null);
 
   useEffect(() => {
     if (!activeOrder?.id) return;
     
     const unsub = subscribeToOrder(activeOrder.id, (orderData) => {
+      if (orderData) {
+        const isNowPaid = orderData.isPaid === true || orderData.paymentStatus === 'pago';
+        
+        // Notifica o cliente imediatamente assim que o admin clica em "Pago" no painel!
+        if (prevPaidRef.current === false && isNowPaid) {
+          addToast({
+            title: '🎉 PIX Confirmado pela Lancheria!',
+            message: 'O caixa confirmou o seu pagamento no painel! Seu pedido entrou em preparo na chapa.',
+            type: 'success'
+          });
+          playSound('powerup');
+        }
+        prevPaidRef.current = isNowPaid;
+
+        setActiveOrder(prev => prev ? {
+          ...prev,
+          isPaid: isNowPaid,
+          paymentStatus: orderData.paymentStatus || (isNowPaid ? 'pago' : 'pendente'),
+          status: (orderData.status as any) || prev.status
+        } : null);
+      }
+
       if (orderData.status && orderData.status !== prevStatusRef.current) {
         const newStatus = orderData.status;
         
@@ -583,11 +607,10 @@ export default function App() {
     const clientName = (details.name || 'Cliente').trim();
     const clientNameUpper = clientName.toUpperCase();
 
-    let msg = `Me chamo ${clientNameUpper}\n\n`;
-    msg += `e gostaria de fazer um pedido aqui pelo whatsapp!\n\n`;
+    let msg = `Olá! Me chamo *${clientNameUpper}*\n\ne gostaria de fazer um pedido aqui pelo WhatsApp! 🍔\n\n`;
     msg += `═══════════════════════════\n`;
     msg += `🍔 *PEDIDO #${orderNumber} - NICKEL LANCHES*\n`;
-    msg += `📅 *Gerado às:* ${timeNow} (${dateNow})\n`;
+    msg += `📅 *Data/Hora:* ${timeNow} (${dateNow})\n`;
     msg += `═══════════════════════════\n\n`;
     msg += `📋 *ITENS DO PEDIDO:*\n\n`;
 
@@ -648,6 +671,7 @@ export default function App() {
     if (paymentText.toLowerCase().includes('pix')) {
       msg += `• *Chave PIX (WhatsApp): (54) 99959-8389*\n`;
       msg += `• Favorecido: Nickel Lanches\n`;
+      msg += `• 📎 *Estou enviando o comprovante do PIX anexado a esta mensagem!*\n`;
     }
     
     msg += `\n🔐 *CÓDIGO DE AUTENTICAÇÃO DO PEDIDO:*\n`;
@@ -658,11 +682,16 @@ export default function App() {
     let orderId = Math.random().toString(36).substring(2, 9).toUpperCase();
     try {
       const uid = user ? user.uid : 'guest';
+      const methodLower = (details.paymentMethod || '').toLowerCase();
+      const isPix = methodLower.includes('pix');
+      // PIX não inicia pago automaticamente: precisa ser confirmado no Painel Adm pela lancheria
       const isPaid = Boolean(
-        details.isPaid || 
-        (details.isOnlinePayment && details.paymentMethod?.toLowerCase().includes('aprovado'))
+        !isPix && (
+          details.isPaid === true || 
+          (details.isOnlinePayment && methodLower.includes('aprovado'))
+        )
       );
-      orderId = await saveOrder(uid, {
+      const orderPayload: Omit<Order, 'createdAt' | 'id'> = {
         items: activeCart,
         totalPrice: finalTotal,
         totalPoints: earnedPoints,
@@ -682,12 +711,36 @@ export default function App() {
         receiptNotes: details.receiptNotes || '',
         receiptFileName: details.receiptFileName || '',
         receiptSummary: `R$ ${finalTotal.toFixed(2).replace('.', ',')} via ${details.paymentMethod}`
-      });
+      };
 
-      // Pedido registrado no banco de dados e pronto para acompanhamento no minigame
+      orderId = await saveOrder(uid, orderPayload);
+
+      // Enfileira comanda se já estiver pago (ex: Cartão aprovado)
+      if (isPaid) {
+        try {
+          const pSettings = await getPrinterSettings().catch(() => DEFAULT_PRINTER_SETTINGS);
+          const fullOrderObj: Order = {
+            ...orderPayload,
+            id: orderId,
+            createdAt: new Date()
+          };
+          const { base64 } = renderFullOrderToImage(fullOrderObj, pSettings);
+          await enqueueCloudPrintJob({
+            orderId,
+            orderNumber,
+            imageBase64: base64,
+            force: false
+          });
+        } catch (printErr) {
+          console.warn('Aviso ao enfileirar impressão automática na nuvem:', printErr);
+        }
+      }
     } catch(e) {
       console.error("Error saving order", e);
     }
+
+    const isPixOrder = (details.paymentMethod || '').toLowerCase().includes('pix');
+    const isPaidFinal = Boolean(!isPixOrder && details.isPaid);
 
     const newOrder: OrderInfo = {
       id: orderId,
@@ -697,6 +750,10 @@ export default function App() {
       total: finalTotal,
       pointsEarned: earnedPoints,
       status: 'recebido',
+      orderNumber,
+      isPaid: isPaidFinal,
+      paymentStatus: isPaidFinal ? 'pago' : 'pendente',
+      paymentMethod: details.paymentMethod,
       timestamp: new Date(),
       receiptAuthCode: authCode,
       receiptTimestamp: details.receiptTimestamp || `${dateNow} às ${timeNow}`,
@@ -706,6 +763,7 @@ export default function App() {
       whatsappMessage: msg
     };
     
+    prevPaidRef.current = isPaidFinal;
     setActiveOrder(newOrder);
     setOrderHistory(prev => [newOrder, ...prev]);
     setCart([]);
@@ -714,31 +772,44 @@ export default function App() {
     setIsCartOpen(false);
     setIsCheckoutOpen(false);
     
-    // Direct directly to minigame of the dog
+    // Sem mandar nada para o WhatsApp para pedidos PIX ou pedidos com skipWhatsApp
+    const skipWhatsApp = Boolean(details.skipWhatsApp || isPixOrder);
+    if (!skipWhatsApp) {
+      const phone = '5554999598389';
+      try {
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+      } catch (_) {}
+    }
+
+    // Direciona para o minigame do cachorrinho e acompanhamento em tempo real
     navigateToView('game');
-    window.scrollTo(0,0);
+    window.scrollTo(0, 0);
     
-    addToast({
-      title: 'Pedido Confirmado!',
-      message: 'Divirta-se com o minigame do cachorrinho! Seu pedido será enviado ao WhatsApp.',
-      type: 'success'
-    });
+    if (isPixOrder) {
+      addToast({
+        title: `Pedido #${orderNumber} Enviado!`,
+        message: 'Aguardando confirmação do pagamento PIX pela lancheria no painel.',
+        type: 'info'
+      });
+    } else {
+      addToast({
+        title: 'Pedido Confirmado!',
+        message: `Pedido #${orderNumber} registrado com sucesso!`,
+        type: 'success'
+      });
+    }
   };
 
   const handleFinishOrder = async () => {
     if (activeOrder) {
-      if (activeOrder.whatsappMessage) {
-        const phone = '5554999598389';
-        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(activeOrder.whatsappMessage)}`, '_blank');
-      }
       setUserPoints(prev => prev + activeOrder.pointsEarned);
       if (user) {
         await addXpToUser(user.uid, activeOrder.pointsEarned);
       }
       playSound('powerup');
       addToast({
-        title: 'Pedido Encaminhado ao WhatsApp!',
-        message: `Pedido enviado e você ganhou +${activeOrder.pointsEarned} XP!`,
+        title: 'Pedido Concluído!',
+        message: `Você ganhou +${activeOrder.pointsEarned} XP! Agradecemos sua preferência.`,
         type: 'xp'
       });
     }
@@ -761,6 +832,8 @@ export default function App() {
           let badge = null;
           if (isPaused) {
             badge = <span className="bg-red-600 text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Indisponível</span>;
+          } else if (item.badge) {
+            badge = <span className="bg-emerald-600 text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm animate-pulse">{item.badge}</span>;
           } else if (index === 0) badge = <span className="bg-[#4E2A84] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Bestseller</span>;
           else if (index === 1) badge = <span className="bg-[#F28B20] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Popular</span>;
           else if (index === 2) badge = <span className="bg-[#4E2A84] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Save 15%</span>;
