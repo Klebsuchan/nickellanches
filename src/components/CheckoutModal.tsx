@@ -78,22 +78,36 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
   const [copiedKey, setCopiedKey] = useState(false);
   const [copiedBankField, setCopiedBankField] = useState<string | null>(null);
 
-  // Sessão ativa do Stripe Checkout para evitar tela em branco por iframe cross-origin
+  // Sessão ativa do Stripe Checkout para evitar tela em branco por bloqueio de iframe
   const [stripeSession, setStripeSession] = useState<{
     id: string;
     url: string;
     orderPayload: any;
+    isPix?: boolean;
   } | null>(null);
   const [isCheckingStripePayment, setIsCheckingStripePayment] = useState(false);
+  const [stripePixActive, setStripePixActive] = useState<boolean>(true);
+  const [stripePixNeedsActivation, setStripePixNeedsActivation] = useState<boolean>(false);
 
   const { addToast } = useToast();
 
-  // Garante que uma nova sessão seja sempre gerada ao abrir o checkout
+  // Garante que uma nova sessão seja sempre gerada ao abrir o checkout e verifica status do PIX na Stripe
   useEffect(() => {
     setStripeSession(null);
+    if (isOpen) {
+      fetch('/api/payment-config')
+        .then(r => r.json())
+        .then(cfg => {
+          if (typeof cfg.pixStripeActive === 'boolean') {
+            setStripePixActive(cfg.pixStripeActive);
+            setStripePixNeedsActivation(!cfg.pixStripeActive);
+          }
+        })
+        .catch(() => {});
+    }
   }, [isOpen]);
 
-  // Polling automático para detectar conclusão do pagamento no Stripe sem precisar recarregar
+  // Polling automático para detectar conclusão do pagamento no Stripe (PIX ou Cartão) sem precisar recarregar
   useEffect(() => {
     if (!stripeSession?.id) return;
 
@@ -106,19 +120,26 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
           if (data.payment_status === 'paid' && isMounted) {
             clearInterval(interval);
             playSound('powerup');
+            const isPixPaid = Boolean(stripeSession.isPix || data?.usedPix);
             addToast({
-              title: 'Pagamento Aprovado no Cartão!',
-              message: 'Seu pagamento foi confirmado pelo Stripe! Pedido registrado com sucesso.',
+              title: isPixPaid ? 'Pagamento PIX Confirmado!' : 'Pagamento Aprovado!',
+              message: 'Seu pagamento foi confirmado e seu pedido já foi enviado para a cozinha!',
               type: 'success'
             });
             sessionStorage.removeItem('nickel_pending_stripe_order');
             localStorage.removeItem('nickel_pending_stripe_order');
             const updatedPayload = {
               ...stripeSession.orderPayload,
-              paymentMethod: data?.realMethodLabel || stripeSession.orderPayload.paymentMethod || 'Cartão Online (Aprovado via Stripe)',
+              paymentMethod:
+                data?.realMethodLabel ||
+                (isPixPaid
+                  ? 'PIX Online (Aprovado Automaticamente via Stripe)'
+                  : stripeSession.orderPayload.paymentMethod || 'Cartão Online (Aprovado via Stripe)'),
               isOnlinePayment: true,
               isPaid: true,
-              paymentStatus: 'pago'
+              isStripeApproved: true,
+              paymentStatus: 'pago',
+              skipWhatsApp: isPixPaid
             };
             setStripeSession(null);
             onConfirm(updatedPayload);
@@ -144,27 +165,34 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
         const data = await res.json();
         if (data.payment_status === 'paid') {
           playSound('powerup');
+          const isPixPaid = Boolean(stripeSession.isPix || data?.usedPix);
           addToast({
-            title: 'Pagamento Confirmado!',
-            message: 'O pagamento no Stripe foi aprovado com sucesso!',
+            title: isPixPaid ? 'Pagamento PIX Confirmado!' : 'Pagamento Confirmado!',
+            message: 'Seu pagamento foi confirmado e seu pedido já foi enviado para a cozinha!',
             type: 'success'
           });
           sessionStorage.removeItem('nickel_pending_stripe_order');
           localStorage.removeItem('nickel_pending_stripe_order');
           const updatedPayload = {
             ...stripeSession.orderPayload,
-            paymentMethod: data?.realMethodLabel || stripeSession.orderPayload.paymentMethod || 'Cartão Online (Aprovado via Stripe)',
+            paymentMethod:
+              data?.realMethodLabel ||
+              (isPixPaid
+                ? 'PIX Online (Aprovado Automaticamente via Stripe)'
+                : stripeSession.orderPayload.paymentMethod || 'Cartão Online (Aprovado via Stripe)'),
             isOnlinePayment: true,
             isPaid: true,
-            paymentStatus: 'pago'
+            isStripeApproved: true,
+            paymentStatus: 'pago',
+            skipWhatsApp: isPixPaid
           };
           setStripeSession(null);
           onConfirm(updatedPayload);
           return;
         } else {
           addToast({
-            title: 'Aguardando Pagamento no Stripe',
-            message: 'O pagamento ainda não consta como concluído no Stripe. Conclua o pagamento na aba do Stripe e tente novamente.',
+            title: 'Aguardando Confirmação na Stripe',
+            message: 'O pagamento ainda não consta como concluído na Stripe. Conclua o pagamento na aba da Stripe e aguarde alguns segundos.',
             type: 'info'
           });
         }
@@ -409,7 +437,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
     let isOnline = false;
 
     if (paymentMethod === 'pix_online') {
-      finalPaymentLabel = 'PIX Imediato (Site: (54) 99959-8389)';
+      finalPaymentLabel = 'PIX Online (Via Stripe)';
       isOnline = true;
     } else if (paymentMethod === 'bank_transfer') {
       const b = paymentSettings.bankAccount;
@@ -450,12 +478,11 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
       receiptNotes: orderNotes.trim() || undefined
     };
 
-    // Processamento de cartão online seguro via Stripe Checkout
-    if (paymentMethod === 'credit_online' || paymentMethod === 'debit_online') {
+    // Processamento de PIX e Cartão Online seguro via Stripe Checkout com baixa automática
+    if (paymentMethod === 'pix_online' || paymentMethod === 'credit_online' || paymentMethod === 'debit_online') {
       setIsProcessingStripe(true);
       setErrorMessage('');
 
-      // Salva os dados do pedido no localStorage para restaurar e confirmar assim que retornar do Stripe
       try {
         const pendingData = {
           orderPayload,
@@ -485,10 +512,14 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
 
         if (response.ok && data.url) {
           setIsProcessingStripe(false);
+          setStripePixActive(true);
+          setStripePixNeedsActivation(false);
+          const isPixSession = paymentMethod === 'pix_online';
           setStripeSession({
             id: data.id,
             url: data.url,
-            orderPayload
+            orderPayload,
+            isPix: isPixSession
           });
 
           try {
@@ -502,14 +533,29 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
           }
 
           addToast({
-            title: 'Sessão do Stripe Aberta!',
-            message: 'Acesse o Stripe para efetuar o pagamento. Seu pedido será aprovado e confirmado automaticamente!',
+            title: isPixSession ? 'Pagamento PIX Aberto' : 'Página de Pagamento Aberta',
+            message: isPixSession
+              ? 'Escaneie o QR Code ou copie o código PIX para concluir seu pedido.'
+              : 'Conclua o pagamento na página aberta para confirmar seu pedido.',
             type: 'info'
+          });
+          return;
+        } else if (data?.pixNotEnabledInDashboard && paymentMethod === 'pix_online') {
+          setIsProcessingStripe(false);
+          setStripePixActive(false);
+          setStripePixNeedsActivation(true);
+          setErrorMessage(
+            'Para o PIX gerar QR Code pela Stripe com baixa automática, clique em "Ativar" ao lado de "Pix" no seu Painel da Stripe (Configurações > Formas de Pagamento). Enquanto não ativar lá, você pode concluir usando o botão de PIX Direto abaixo!'
+          );
+          addToast({
+            title: 'Ative a opção PIX no Painel da Stripe',
+            message: 'Acesse Configurações > Formas de Pagamento no painel da Stripe e clique em "Ativar" ao lado de Pix.',
+            type: 'warning'
           });
           return;
         } else {
           setIsProcessingStripe(false);
-          const errorMsg = data.error || 'Não foi possível iniciar o Stripe Checkout. Tente novamente ou selecione PIX.';
+          const errorMsg = data.error || 'Não foi possível iniciar o Stripe Checkout. Tente novamente.';
           setErrorMessage(errorMsg);
           addToast({
             title: 'Atenção com o Pagamento',
@@ -540,6 +586,39 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
     });
   };
 
+  const handleDirectPixFallbackConfirm = () => {
+    const status = getStoreStatus();
+    if (!status.isOpen) {
+      playSound('error');
+      addToast({ title: status.title, message: status.description, type: 'error' });
+      return;
+    }
+    if (!validateForm()) return;
+
+    const now = new Date();
+    const receiptTimestamp = `${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+    const effectiveAddress = `${address.trim()}, Nº ${addressNumber.trim()} - Bairro ${neighborhood.trim()}`;
+
+    onConfirm({
+      name: name.trim(),
+      whatsapp: whatsapp.trim(),
+      address: effectiveAddress,
+      paymentMethod: 'PIX Imediato (Site: (54) 99959-8389)',
+      changeFor: '',
+      region: regionLabel || 'Outros bairros (Cidade)',
+      deliveryFee,
+      isOnlinePayment: true,
+      pixKey: paymentSettings.pix.key,
+      totalToPay: currentFinalTotal,
+      receiptAuthCode: authCode,
+      receiptTimestamp,
+      receiptNotes: orderNotes.trim() || undefined,
+      isPaid: false,
+      paymentStatus: 'pendente',
+      skipWhatsApp: true
+    });
+  };
+
   const showOnlineSection = true;
 
   return (
@@ -560,42 +639,42 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
             transition={{ type: "spring", bounce: 0, duration: 0.4 }}
             className="w-full h-full md:h-auto md:max-h-[92vh] md:max-w-2xl bg-[#FCF9F5] md:rounded-3xl shadow-2xl relative z-10 flex flex-col overflow-hidden"
           >
-            {/* Stripe Checkout Safe Window (Evita tela em branco por bloqueio de iframe) */}
+            {/* Stripe Checkout Safe Window */}
             {stripeSession && (
               <div className="absolute inset-0 bg-[#FCF9F5] z-50 flex flex-col p-6 overflow-y-auto animate-in fade-in duration-200">
                 <div className="max-w-md mx-auto my-auto w-full space-y-5 text-center">
-                  <div className="w-16 h-16 bg-purple-100 text-purple-700 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
-                    <CreditCard size={32} />
+                  <div className={`w-16 h-16 ${stripeSession.isPix ? 'bg-emerald-100 text-emerald-700' : 'bg-purple-100 text-purple-700'} rounded-2xl flex items-center justify-center mx-auto shadow-sm`}>
+                    {stripeSession.isPix ? <QrCode size={32} /> : <CreditCard size={32} />}
                   </div>
 
                   <div>
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-800 text-xs font-black uppercase mb-2">
-                      <Lock size={12} /> Checkout Criptografado Stripe
+                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${stripeSession.isPix ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'} text-xs font-black uppercase mb-2`}>
+                      <Lock size={12} /> Pagamento Seguro
                     </div>
                     <h3 className="text-2xl font-black uppercase text-stone-900 tracking-tight">
-                      Pagamento no Cartão
+                      {stripeSession.isPix ? 'Pagamento via PIX' : 'Pagamento no Cartão'}
                     </h3>
                     <p className="text-xs text-stone-600 mt-1 max-w-sm mx-auto">
-                      Para sua segurança bancária e para evitar telas em branco do navegador, o Stripe abre em uma página oficial segura em nova aba:
+                      {stripeSession.isPix
+                        ? 'Escaneie o QR Code ou utilize o PIX Copia e Cola na página de pagamento para concluir seu pedido.'
+                        : 'Conclua o pagamento na página segura para confirmar seu pedido.'}
                     </p>
                   </div>
 
                   <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm text-left space-y-2">
                     <div className="flex justify-between items-center text-xs">
-                      <span className="text-stone-500 font-bold uppercase">Total a Pagar no Cartão:</span>
-                      <span className="text-xl font-black text-purple-700">
+                      <span className="text-stone-500 font-bold uppercase">
+                        Total a Pagar:
+                      </span>
+                      <span className={`text-xl font-black ${stripeSession.isPix ? 'text-emerald-700' : 'text-purple-700'}`}>
                         R$ {currentFinalTotal.toFixed(2).replace('.', ',')}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-stone-500 font-medium">Bandeiras Aceitas:</span>
-                      <span className="text-stone-800 font-semibold">Visa, Mastercard, Elo, Hiper</span>
-                    </div>
                     <div className="flex justify-between items-center text-xs pt-1 border-t border-stone-100">
-                      <span className="text-stone-500 font-medium">Status do Pagamento:</span>
+                      <span className="text-stone-500 font-medium">Status:</span>
                       <span className="flex items-center gap-1.5 text-amber-600 font-bold text-[11px]">
                         <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-                        Aguardando conclusão no Stripe...
+                        Aguardando confirmação do pagamento...
                       </span>
                     </div>
                   </div>
@@ -606,9 +685,9 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                       href={stripeSession.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full bg-purple-700 hover:bg-purple-800 text-white font-black uppercase tracking-wider py-4 px-6 rounded-2xl shadow-xl hover:shadow-purple-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-base cursor-pointer"
+                      className={`w-full ${stripeSession.isPix ? 'bg-emerald-600 hover:bg-emerald-700 hover:shadow-emerald-500/25' : 'bg-purple-700 hover:bg-purple-800 hover:shadow-purple-500/25'} text-white font-black uppercase tracking-wider py-4 px-6 rounded-2xl shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-base cursor-pointer`}
                     >
-                      <span>Abrir Página do Stripe</span>
+                      <span>{stripeSession.isPix ? 'Abrir QR Code PIX' : 'Abrir Página de Pagamento'}</span>
                       <ExternalLink size={18} />
                     </a>
 
@@ -616,48 +695,19 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                       type="button"
                       onClick={handleCheckStripePaymentManually}
                       disabled={isCheckingStripePayment}
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-wider py-3.5 px-4 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-[0.98] disabled:opacity-60"
+                      className="w-full bg-stone-900 hover:bg-stone-800 text-white font-black uppercase tracking-wider py-3.5 px-4 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-[0.98] disabled:opacity-60"
                     >
                       {isCheckingStripePayment ? (
                         <>
                           <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                          <span>Consultando confirmação no Stripe...</span>
+                          <span>Verificando pagamento...</span>
                         </>
                       ) : (
                         <>
-                          <Check size={16} className="text-white stroke-[3]" />
-                          <span>Já realizei o pagamento (Verificar e Avançar)</span>
+                          <Check size={16} className="text-emerald-400 stroke-[3]" />
+                          <span>Já paguei! Confirmar Pedido</span>
                         </>
                       )}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(stripeSession.url);
-                        playSound('coin');
-                        addToast({
-                          title: 'Link Copiado!',
-                          message: 'Link seguro do Stripe copiado para sua área de transferência!',
-                          type: 'success'
-                        });
-                      }}
-                      className="w-full bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold uppercase tracking-wider py-3 px-4 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                    >
-                      <Copy size={15} />
-                      <span>Copiar Link de Pagamento</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setStripeSession(null);
-                        handleWhatsAppCheckout();
-                      }}
-                      className="w-full bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold uppercase tracking-wider py-2.5 px-4 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer border border-purple-200"
-                    >
-                      <RefreshCw size={14} />
-                      <span>Gerar Novo Link Atualizado do Stripe</span>
                     </button>
 
                     <button
@@ -665,7 +715,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                       onClick={() => setStripeSession(null)}
                       className="text-xs text-stone-500 hover:text-stone-800 font-bold uppercase tracking-wider pt-1 block mx-auto transition-colors cursor-pointer"
                     >
-                      Voltar e escolher outra forma (PIX / Cartão)
+                      Voltar e escolher outra forma de pagamento
                     </button>
                   </div>
                 </div>
@@ -935,169 +985,45 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                     </div>
                   </div>
 
-                  {/* 1. SEÇÃO DE PAGAMENTOS ONLINE / ANTECIPADO */}
                   {showOnlineSection && (
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-xs font-black text-stone-700 uppercase tracking-wider">
-                        <Sparkles size={14} className="text-[#F28B20]" />
-                        <span>Pagar Agora (Online / Antecipado)</span>
-                        <span className="bg-green-100 text-green-800 text-[10px] px-2 py-0.5 rounded-full font-black uppercase">
-                          Cai Direto na Conta
-                        </span>
-                      </div>
-
-                      {/* Opção PIX ONLINE */}
+                      {/* Opção PIX */}
                       {paymentSettings.pix.enabled && (
-                        <div className="space-y-2">
+                        <div>
                           <label 
                             onClick={() => setPaymentMethod('pix_online')}
                             className={`flex items-center justify-between p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
                               paymentMethod === 'pix_online'
-                                ? 'border-[#F28B20] bg-orange-50/70 shadow-sm'
+                                ? 'border-emerald-600 bg-emerald-50/70 shadow-sm'
                                 : 'border-stone-200 hover:border-stone-300 bg-stone-50/50'
                             }`}
                           >
                             <div className="flex items-center gap-3">
                               <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                                paymentMethod === 'pix_online' ? 'border-[#F28B20] bg-white' : 'border-stone-300 bg-white'
+                                paymentMethod === 'pix_online' ? 'border-emerald-600 bg-white' : 'border-stone-300 bg-white'
                               }`}>
-                                {paymentMethod === 'pix_online' && <div className="w-2.5 h-2.5 rounded-full bg-[#F28B20]" />}
+                                {paymentMethod === 'pix_online' && <div className="w-2.5 h-2.5 rounded-full bg-emerald-600" />}
                               </div>
-                              <div className={`p-2 rounded-lg ${paymentMethod === 'pix_online' ? 'bg-[#F28B20] text-white' : 'bg-green-100 text-green-700'}`}>
+                              <div className={`p-2 rounded-lg ${paymentMethod === 'pix_online' ? 'bg-emerald-600 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
                                 <QrCode size={18} />
                               </div>
                               <div>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-bold text-sm text-stone-900 block">PIX Imediato</span>
-                                  <span className="text-[10px] font-black bg-green-100 text-green-700 px-2 py-0.5 rounded-md uppercase">
-                                    Cai na Hora
-                                  </span>
-                                </div>
-                                <span className="text-xs text-stone-500 font-medium">QR Code e Copia e Cola no valor exato</span>
+                                <span className="font-bold text-sm text-stone-900 block">PIX</span>
+                                <span className="text-xs text-stone-500 font-medium">
+                                  QR Code ou PIX Copia e Cola
+                                </span>
                               </div>
                             </div>
-                            <span className="font-black text-sm text-[#F28B20]">
+                            <span className="font-black text-sm text-emerald-700">
                               R$ {currentFinalTotal.toFixed(2).replace('.', ',')}
                             </span>
                           </label>
-
-                          {/* Bloco expandido do PIX ONLINE */}
-                          {paymentMethod === 'pix_online' && (
-                            <motion.div 
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: 'auto' }}
-                              className="p-4 bg-orange-50/50 rounded-2xl border border-orange-200 space-y-4"
-                            >
-                              <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-orange-100">
-                                <div>
-                                  <span className="text-xs text-stone-500 font-bold uppercase block">Valor Exato a Pagar</span>
-                                  <span className="text-2xl font-black text-stone-900">
-                                    R$ {currentFinalTotal.toFixed(2).replace('.', ',')}
-                                  </span>
-                                </div>
-                                <div className="text-right text-xs">
-                                  <span className="text-stone-500 font-medium block">Beneficiário:</span>
-                                  <span className="font-bold text-stone-900">{paymentSettings.pix.merchantName || 'NICKEL LANCHES'}</span>
-                                </div>
-                              </div>
-
-                              {/* QR Code */}
-                              <div className="flex flex-col items-center justify-center p-3 bg-white rounded-xl border border-stone-200 text-center">
-                                {pixQrCodeUrl ? (
-                                  <img 
-                                    src={pixQrCodeUrl} 
-                                    alt="QR Code PIX com valor do pedido" 
-                                    className="w-48 h-48 object-contain rounded-lg"
-                                  />
-                                ) : (
-                                  <div className="w-48 h-48 flex items-center justify-center text-xs text-stone-400">
-                                    Gerando QR Code...
-                                  </div>
-                                )}
-                                <p className="text-[11px] text-stone-500 font-medium mt-1">
-                                  Abra o app do seu banco e aponte a câmera para pagar
-                                </p>
-                              </div>
-
-                              {/* Código Copia e Cola */}
-                              <div>
-                                <label className="text-xs font-bold text-stone-700 uppercase block mb-1">
-                                  PIX Copia e Cola (com valor de R$ {currentFinalTotal.toFixed(2).replace('.', ',')})
-                                </label>
-                                <div className="flex gap-2">
-                                  <input 
-                                    type="text" 
-                                    readOnly 
-                                    value={pixPayload} 
-                                    className="flex-1 bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs font-mono text-stone-600 select-all outline-none"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => handleCopy(pixPayload, 'code')}
-                                    className="bg-[#F28B20] hover:bg-[#d97a1c] text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer shadow-sm"
-                                  >
-                                    {copiedCode ? <Check size={14} /> : <Copy size={14} />}
-                                    <span>{copiedCode ? 'Copiado!' : 'Copiar Código'}</span>
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Chave PIX Avulsa */}
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 bg-white rounded-xl border border-stone-200 text-xs gap-3">
-                                <div>
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="text-stone-500 font-bold uppercase text-[10px]">Chave PIX (Telefone)</span>
-                                    <span className="bg-emerald-100 text-emerald-800 font-bold text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1">
-                                      <span>📱</span> Mesmo WhatsApp da Lanchonete
-                                    </span>
-                                  </div>
-                                  <span className="font-black text-stone-900 text-base block mt-0.5 tracking-tight">
-                                    {paymentSettings.pix.key === '54999598389' ? '(54) 99959-8389' : paymentSettings.pix.key}
-                                  </span>
-                                  <span className="text-[11px] text-stone-500 font-medium">
-                                    Beneficiário: {paymentSettings.pix.merchantName || 'NICKEL LANCHES'}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleCopy(paymentSettings.pix.key, 'key')}
-                                    className="bg-[#F28B20] hover:bg-[#d97a1c] text-white px-3.5 py-2 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer text-xs shadow-sm"
-                                  >
-                                    {copiedKey ? <Check size={14} className="text-white" /> : <Copy size={14} />}
-                                    <span>{copiedKey ? 'Copiada!' : 'Copiar Chave'}</span>
-                                  </button>
-                                  {paymentSettings.pix.key === '54999598389' && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleCopy('(54) 99959-8389', 'key_fmt')}
-                                      className="bg-stone-100 hover:bg-stone-200 text-stone-700 px-3 py-2 rounded-xl font-bold flex items-center gap-1 transition-all cursor-pointer text-xs"
-                                      title="Copiar com formatação de telefone"
-                                    >
-                                      <span>(54) 99959-8389</span>
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-
-                               {/* Instrução do PIX com confirmação direta pelo Painel da Lancheria */}
-                              <div className="p-3.5 bg-amber-50 rounded-xl border-2 border-amber-300 text-xs text-amber-950 space-y-1.5">
-                                <div className="flex items-center gap-1.5 font-black text-amber-900 uppercase">
-                                  <Clock size={16} className="text-amber-600 shrink-0" />
-                                  <span>Confirmação Direta no Caixa da Lancheria</span>
-                                </div>
-                                <p className="text-[11px] font-medium leading-relaxed text-amber-900">
-                                  Faça a transferência PIX da chave acima no valor de <strong>R$ {currentFinalTotal.toFixed(2).replace('.', ',')}</strong>. Ao finalizar abaixo, seu pedido entra diretamente no Painel Administrativo da lancheria e o caixa confirma o pagamento com 1 clique para iniciar o preparo na chapa! <strong>Não precisa mandar nada no WhatsApp!</strong>
-                                </p>
-                              </div>
-                            </motion.div>
-                          )}
                         </div>
                       )}
 
-                      {/* Opção CARTÃO DE CRÉDITO ONLINE */}
+                      {/* Opção CARTÃO DE CRÉDITO */}
                       {paymentSettings.cardOnline.enabled && paymentSettings.cardOnline.acceptCredit && (
-                        <div className="space-y-2">
+                        <div>
                           <label 
                             onClick={() => setPaymentMethod('credit_online')}
                             className={`flex items-center justify-between p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
@@ -1116,60 +1042,20 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                                 <CreditCard size={18} />
                               </div>
                               <div>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-bold text-sm text-stone-900 block">Cartão de Crédito Online</span>
-                                  <span className="text-[10px] font-black bg-purple-100 text-purple-700 px-2 py-0.5 rounded-md uppercase">
-                                    Stripe
-                                  </span>
-                                </div>
-                                <span className="text-xs text-stone-500 font-medium">Checkout oficial seguro via Stripe</span>
+                                <span className="font-bold text-sm text-stone-900 block">Cartão de Crédito</span>
+                                <span className="text-xs text-stone-500 font-medium">Visa, Mastercard, Elo e Hipercard</span>
                               </div>
                             </div>
                             <span className="font-black text-sm text-purple-700">
                               R$ {currentFinalTotal.toFixed(2).replace('.', ',')}
                             </span>
                           </label>
-
-                          {paymentMethod === 'credit_online' && (
-                            <motion.div 
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: 'auto' }}
-                              className="p-4 bg-purple-50/60 rounded-2xl border border-purple-200 space-y-3"
-                            >
-                              <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-purple-100 shadow-sm">
-                                <div>
-                                  <span className="text-xs text-stone-500 font-bold uppercase block">Total no Cartão de Crédito</span>
-                                  <span className="text-2xl font-black text-purple-800">
-                                    R$ {currentFinalTotal.toFixed(2).replace('.', ',')}
-                                  </span>
-                                </div>
-                                <div className="text-right">
-                                  <span className="text-[10px] font-black uppercase bg-purple-100 text-purple-800 px-2.5 py-1 rounded-full block">
-                                    Stripe Oficial
-                                  </span>
-                                  <span className="text-[11px] text-stone-500 font-medium block mt-1">
-                                    Visa, Master, Elo, Hiper
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="p-3 bg-white/80 rounded-xl border border-purple-100 text-xs text-stone-600 space-y-1.5">
-                                <div className="flex items-center gap-1.5 font-bold text-stone-900">
-                                  <ShieldCheck size={16} className="text-purple-700 shrink-0" />
-                                  <span>Pagamento 100% Protegido pelo Stripe</span>
-                                </div>
-                                <p className="text-[11px] leading-relaxed text-stone-600">
-                                  Ao clicar em <strong>Pagar com Stripe</strong> abaixo, você acessa o checkout oficial criptografado para digitar seu cartão com total segurança bancária.
-                                </p>
-                              </div>
-                            </motion.div>
-                          )}
                         </div>
                       )}
 
-                      {/* Opção CARTÃO DE DÉBITO ONLINE */}
+                      {/* Opção CARTÃO DE DÉBITO */}
                       {paymentSettings.cardOnline.enabled && paymentSettings.cardOnline.acceptDebit && (
-                        <div className="space-y-2">
+                        <div>
                           <label 
                             onClick={() => setPaymentMethod('debit_online')}
                             className={`flex items-center justify-between p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
@@ -1188,69 +1074,20 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                                 <CreditCard size={18} />
                               </div>
                               <div>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-bold text-sm text-stone-900 block">Cartão de Débito Online</span>
-                                  <span className="text-[10px] font-black bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md uppercase">
-                                    Stripe
-                                  </span>
-                                </div>
-                                <span className="text-xs text-stone-500 font-medium">Débito oficial seguro via Stripe</span>
+                                <span className="font-bold text-sm text-stone-900 block">Cartão de Débito</span>
+                                <span className="text-xs text-stone-500 font-medium">Débito online</span>
                               </div>
                             </div>
                             <span className="font-black text-sm text-blue-700">
                               R$ {currentFinalTotal.toFixed(2).replace('.', ',')}
                             </span>
                           </label>
-
-                          {paymentMethod === 'debit_online' && (
-                            <motion.div 
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: 'auto' }}
-                              className="p-4 bg-blue-50/60 rounded-2xl border border-blue-200 space-y-3"
-                            >
-                              <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-blue-100 shadow-sm">
-                                <div>
-                                  <span className="text-xs text-stone-500 font-bold uppercase block">Total no Cartão de Débito</span>
-                                  <span className="text-2xl font-black text-blue-800">
-                                    R$ {currentFinalTotal.toFixed(2).replace('.', ',')}
-                                  </span>
-                                </div>
-                                <div className="text-right">
-                                  <span className="text-[10px] font-black uppercase bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full block">
-                                    Stripe Oficial
-                                  </span>
-                                  <span className="text-[11px] text-stone-500 font-medium block mt-1">
-                                    Débito Bancário
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="p-3 bg-white/80 rounded-xl border border-blue-100 text-xs text-stone-600 space-y-1.5">
-                                <div className="flex items-center gap-1.5 font-bold text-stone-900">
-                                  <ShieldCheck size={16} className="text-blue-700 shrink-0" />
-                                  <span>Pagamento 100% Protegido pelo Stripe</span>
-                                </div>
-                                <p className="text-[11px] leading-relaxed text-stone-600">
-                                  Ao clicar em <strong>Pagar com Stripe</strong> abaixo, você acessa o checkout oficial criptografado para pagar no Débito com total segurança.
-                                </p>
-                              </div>
-
-                              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 space-y-1">
-                                <div className="font-bold flex items-center gap-1.5 text-amber-900">
-                                  <span>💡 Atenção com Cartões Múltiplos (Nubank, Inter, etc.):</span>
-                                </div>
-                                <p className="text-[11px] leading-relaxed">
-                                  Cartões múltiplos (débito e crédito no mesmo cartão plástico) de bancos como Nubank costumam ser roteados pelas bandeiras de cartão online na função crédito. Se você deseja pagar utilizando o saldo em conta corrente/débito sem usar limite, recomendamos fortemente utilizar o <strong>PIX Imediato</strong>!
-                                </p>
-                              </div>
-                            </motion.div>
-                          )}
                         </div>
                       )}
                     </div>
                   )}
 
-                  {/* 2. OUTRAS OPÇÕES */}
+                  {/* OUTRAS OPÇÕES */}
                   <div className="space-y-3 pt-2">
                     {/* Fiado Prank */}
                     <label 
@@ -1348,52 +1185,43 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                   </div>
                 </div>
               ) : (
-                <>
-                  <button 
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleWhatsAppCheckout();
-                    }}
-                    disabled={isProcessingStripe}
-                    className={`w-full ${
-                      paymentMethod === 'credit_online' || paymentMethod === 'debit_online'
-                        ? 'bg-purple-700 hover:bg-purple-800'
-                        : paymentMethod === 'pix_online'
-                        ? 'bg-emerald-600 hover:bg-emerald-700'
-                        : 'bg-[#4E2A84] hover:bg-[#3D1F6B]'
-                    } disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-2xl py-4 px-4 font-black uppercase tracking-wider shadow-lg hover:shadow-emerald-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-3 text-lg cursor-pointer`}
-                  >
-                    {isProcessingStripe ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        <span>Conectando ao Stripe Checkout...</span>
-                      </>
-                    ) : (paymentMethod === 'credit_online' || paymentMethod === 'debit_online') ? (
-                      <>
-                        <CreditCard size={22} className="shrink-0 text-amber-300" />
-                        <span>Pagar com Stripe (R$ {currentFinalTotal.toFixed(2).replace('.', ',')})</span>
-                      </>
-                    ) : paymentMethod === 'pix_online' ? (
-                      <>
-                        <Check size={24} className="shrink-0 text-emerald-200 stroke-[3]" />
-                        <span>Finalizar Pedido com PIX (R$ {currentFinalTotal.toFixed(2).replace('.', ',')})</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check size={24} className="shrink-0 text-amber-300 stroke-[3]" />
-                        <span>Finalizar Pedido (R$ {currentFinalTotal.toFixed(2).replace('.', ',')})</span>
-                      </>
-                    )}
-                  </button>
-                  <p className="text-center text-[11px] text-stone-600 mt-2 font-semibold">
-                    {(paymentMethod === 'credit_online' || paymentMethod === 'debit_online')
-                      ? '🔒 Pagamento processado pela plataforma oficial do Stripe com criptografia bancária e certificação PCI-DSS. Ao aprovar, você avança para o minigame!'
+                <button 
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleWhatsAppCheckout();
+                  }}
+                  disabled={isProcessingStripe}
+                  className={`w-full ${
+                    paymentMethod === 'credit_online' || paymentMethod === 'debit_online'
+                      ? 'bg-purple-700 hover:bg-purple-800'
                       : paymentMethod === 'pix_online'
-                      ? '⚡ Pedido enviado diretamente para a lancheria! O pagamento do PIX é confirmado no painel da loja pelo caixa para iniciar a cozinha.'
-                      : '📋 Pedido enviado diretamente para o sistema da lancheria! A comanda será preparada na cozinha.'}
-                  </p>
-                </>
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : 'bg-[#4E2A84] hover:bg-[#3D1F6B]'
+                  } disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-2xl py-4 px-4 font-black uppercase tracking-wider shadow-lg hover:shadow-emerald-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-3 text-lg cursor-pointer`}
+                >
+                  {isProcessingStripe ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Gerando pagamento...</span>
+                    </>
+                  ) : (paymentMethod === 'credit_online' || paymentMethod === 'debit_online') ? (
+                    <>
+                      <CreditCard size={22} className="shrink-0 text-amber-300" />
+                      <span>Pagar com Cartão (R$ {currentFinalTotal.toFixed(2).replace('.', ',')})</span>
+                    </>
+                  ) : paymentMethod === 'pix_online' ? (
+                    <>
+                      <QrCode size={22} className="shrink-0 text-emerald-200" />
+                      <span>Pagar com PIX (R$ {currentFinalTotal.toFixed(2).replace('.', ',')})</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check size={24} className="shrink-0 text-amber-300 stroke-[3]" />
+                      <span>Finalizar Pedido (R$ {currentFinalTotal.toFixed(2).replace('.', ',')})</span>
+                    </>
+                  )}
+                </button>
               )}
             </div>
 

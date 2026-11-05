@@ -57,6 +57,8 @@ export default function PaymentSettingsEditor({ initialSettings }: PaymentSettin
     configured: boolean;
     mode: string;
     publishableKey?: string;
+    pixStripeActive?: boolean;
+    pixCapabilityStatus?: string;
     message?: string;
     loading: boolean;
   }>({ configured: false, mode: 'loading', loading: true });
@@ -75,6 +77,8 @@ export default function PaymentSettingsEditor({ initialSettings }: PaymentSettin
           configured: !!data.configured,
           mode: data.mode || 'none',
           publishableKey: data.publishableKey || '',
+          pixStripeActive: !!data.pixStripeActive,
+          pixCapabilityStatus: data.pixCapabilityStatus || 'unrequested',
           message: data.message || '',
           loading: false
         });
@@ -900,13 +904,42 @@ export default function PaymentSettingsEditor({ initialSettings }: PaymentSettin
                 <span className="font-bold text-white text-xs">BRL (R$ Real Brasileiro)</span>
               </div>
 
-              <div className="bg-white/5 p-2.5 rounded-xl col-span-2">
-                <span className="text-[10px] text-purple-300 font-bold block uppercase">Bandeiras & Carteiras</span>
+              <div className="bg-white/5 p-2.5 rounded-xl">
+                <span className="text-[10px] text-purple-300 font-bold block uppercase">Status PIX Stripe</span>
+                <span className={`font-black text-xs ${stripeStatus.pixStripeActive ? 'text-emerald-300' : 'text-amber-300'}`}>
+                  {stripeStatus.pixStripeActive ? '✅ PIX Automático Ativo' : '⚡ Falta Ativar no Painel'}
+                </span>
+              </div>
+
+              <div className="bg-white/5 p-2.5 rounded-xl">
+                <span className="text-[10px] text-purple-300 font-bold block uppercase">Bandeiras & Métodos</span>
                 <span className="font-medium text-purple-100 text-[11px]">
-                  Visa, Master, Elo, Hiper, Amex, Apple Pay, Google Pay
+                  PIX, Visa, Master, Elo, Hiper
                 </span>
               </div>
             </div>
+
+            {!stripeStatus.pixStripeActive && stripeStatus.configured && (
+              <div className="bg-amber-400/20 border border-amber-300/40 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="text-xs text-amber-100 space-y-0.5">
+                  <div className="font-black text-white uppercase">
+                    ⚡ Ative o PIX com 1 clique no seu Painel da Stripe para Baixa Automática:
+                  </div>
+                  <p className="text-[11px] text-purple-100">
+                    Acesse as Formas de Pagamento da sua conta Stripe, procure <strong>Pix</strong> e clique em <strong>Ativar</strong>. Assim que ativado lá, o PIX terá baixa 100% automática sem precisar olhar comprovante!
+                  </p>
+                </div>
+                <a
+                  href="https://dashboard.stripe.com/settings/payment_methods"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-amber-400 hover:bg-amber-300 text-stone-950 font-black uppercase text-xs px-4 py-2.5 rounded-xl shrink-0 inline-flex items-center gap-1.5 shadow-sm transition-all"
+                >
+                  <span>Ativar PIX na Stripe</span>
+                  <ExternalLink size={14} />
+                </a>
+              </div>
+            )}
           </div>
 
           {/* Formulário para Atualização e Inserção das Chaves de Produção/Live */}

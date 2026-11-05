@@ -105,7 +105,7 @@ function drawSingleReceiptOnContext(
   const S = is58 ? 384 / 576 : 1;
   const fontScale =
     settings.fontSize === 'small' ? 0.9 : settings.fontSize === 'large' ? 1.12 : 1.0;
-  const f = (px: number) => Math.round(px * S * fontScale);
+  const f = (px: number) => Math.round((px + 2) * S * fontScale);
   const s = (px: number) => Math.max(1, Math.round(px * S));
 
   const FONT_FAMILY = '"Consolas", "Courier New", "Lucida Console", monospace';

@@ -1290,4 +1290,246 @@ export const enqueueCloudPrintJob = async (job: {
   }
 };
 
+// ============================================================================
+// CONTABILIZAÇÃO DE VISITAS / ABERTURAS DO SITE (ESTILO GOOGLE SEARCH CONSOLE)
+// ============================================================================
+export interface SiteAnalytics {
+  totalVisits: number;
+  dailyVisits: Record<string, number>; // "YYYY-MM-DD": count
+  hourlyVisits?: Record<string, Record<string, number>>; // "YYYY-MM-DD": { "00": count }
+  lastVisitAt?: string;
+  todayKey?: string;
+  updatedAtMs?: number;
+}
+
+const LOCAL_ANALYTICS_KEY = 'nickel_site_analytics_v1';
+
+export const getSaoPauloDateKeyClient = (d: Date = new Date()): { dateKey: string; hourKey: string } => {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(d);
+    const year = parts.find((p) => p.type === 'year')?.value || '2026';
+    const month = parts.find((p) => p.type === 'month')?.value || '01';
+    const day = parts.find((p) => p.type === 'day')?.value || '01';
+    const rawHour = parseInt(parts.find((p) => p.type === 'hour')?.value || '0', 10) % 24;
+    const hour = String(rawHour).padStart(2, '0');
+    return { dateKey: `${year}-${month}-${day}`, hourKey: hour };
+  } catch {
+    const iso = d.toISOString();
+    return { dateKey: iso.slice(0, 10), hourKey: iso.slice(11, 13) };
+  }
+};
+
+const mergeAnalyticsSources = (...sources: (Partial<SiteAnalytics> | null | undefined)[]): SiteAnalytics => {
+  const dailyVisits: Record<string, number> = {};
+  const hourlyVisits: Record<string, Record<string, number>> = {};
+  let maxTotal = 0;
+  let latestVisitAt: string | undefined = undefined;
+  let latestUpdatedMs = 0;
+
+  for (const src of sources) {
+    if (!src || typeof src !== 'object') continue;
+    if (typeof src.totalVisits === 'number' && src.totalVisits > maxTotal) {
+      maxTotal = src.totalVisits;
+    }
+    if (src.lastVisitAt && (!latestVisitAt || src.lastVisitAt > latestVisitAt)) {
+      latestVisitAt = src.lastVisitAt;
+    }
+    if (typeof src.updatedAtMs === 'number' && src.updatedAtMs > latestUpdatedMs) {
+      latestUpdatedMs = src.updatedAtMs;
+    }
+    if (src.dailyVisits && typeof src.dailyVisits === 'object') {
+      for (const [k, v] of Object.entries(src.dailyVisits)) {
+        const num = Number(v) || 0;
+        if (num > (dailyVisits[k] || 0)) {
+          dailyVisits[k] = num;
+        }
+      }
+    }
+    if (src.hourlyVisits && typeof src.hourlyVisits === 'object') {
+      for (const [dateK, hoursObj] of Object.entries(src.hourlyVisits)) {
+        if (!hoursObj || typeof hoursObj !== 'object') continue;
+        if (!hourlyVisits[dateK]) hourlyVisits[dateK] = {};
+        for (const [hK, hVal] of Object.entries(hoursObj)) {
+          const num = Number(hVal) || 0;
+          if (num > (hourlyVisits[dateK][hK] || 0)) {
+            hourlyVisits[dateK][hK] = num;
+          }
+        }
+      }
+    }
+  }
+
+  const sumDaily = Object.values(dailyVisits).reduce((acc, v) => acc + (Number(v) || 0), 0);
+  const { dateKey } = getSaoPauloDateKeyClient();
+
+  return {
+    totalVisits: Math.max(maxTotal, sumDaily),
+    dailyVisits,
+    hourlyVisits,
+    lastVisitAt: latestVisitAt,
+    todayKey: dateKey,
+    updatedAtMs: latestUpdatedMs || Date.now(),
+  };
+};
+
+const getLocalCachedAnalytics = (): SiteAnalytics => {
+  try {
+    const raw = localStorage.getItem(LOCAL_ANALYTICS_KEY);
+    if (raw) {
+      return mergeAnalyticsSources(JSON.parse(raw));
+    }
+  } catch {}
+  return mergeAnalyticsSources({});
+};
+
+const saveLocalCachedAnalytics = (data: SiteAnalytics) => {
+  try {
+    localStorage.setItem(LOCAL_ANALYTICS_KEY, JSON.stringify(data));
+  } catch {}
+};
+
+/**
+ * Contabiliza +1 abertura do site (independente de quem abriu).
+ * Salva simultaneamente no servidor (/api/analytics/visit), no Firestore (settings/site_analytics) e no cache local.
+ */
+export const recordSiteVisit = async (): Promise<SiteAnalytics> => {
+  const { dateKey, hourKey } = getSaoPauloDateKeyClient();
+  const nowIso = new Date().toISOString();
+
+  // 1. Incrementa no servidor backend
+  let serverData: Partial<SiteAnalytics> | null = null;
+  try {
+    const res = await fetch('/api/analytics/visit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (res.ok) {
+      serverData = await res.json();
+    }
+  } catch {}
+
+  // 2. Incrementa/Sincroniza com o Firestore (settings/site_analytics)
+  let firestoreData: Partial<SiteAnalytics> | null = null;
+  try {
+    const docRef = doc(db, 'settings', 'site_analytics');
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      firestoreData = snap.data() as Partial<SiteAnalytics>;
+    }
+  } catch {}
+
+  const localCurrent = getLocalCachedAnalytics();
+  const baseMerged = mergeAnalyticsSources(localCurrent, firestoreData);
+
+  // Se o servidor não respondeu, incrementa localmente sobre a base mesclada
+  if (!serverData) {
+    baseMerged.dailyVisits[dateKey] = (Number(baseMerged.dailyVisits[dateKey]) || 0) + 1;
+    if (!baseMerged.hourlyVisits) baseMerged.hourlyVisits = {};
+    if (!baseMerged.hourlyVisits[dateKey]) baseMerged.hourlyVisits[dateKey] = {};
+    baseMerged.hourlyVisits[dateKey][hourKey] = (Number(baseMerged.hourlyVisits[dateKey][hourKey]) || 0) + 1;
+    const sumDaily = Object.values(baseMerged.dailyVisits).reduce((a, b) => a + b, 0);
+    baseMerged.totalVisits = Math.max(baseMerged.totalVisits + 1, sumDaily);
+    baseMerged.lastVisitAt = nowIso;
+    baseMerged.updatedAtMs = Date.now();
+  } else if (firestoreData) {
+    // Se o Firestore tinha contagens anteriores maiores que o servidor, garante que o dia de hoje some +1 sobre o maior valor
+    const fsToday = Number(firestoreData.dailyVisits?.[dateKey]) || 0;
+    const srvToday = Number(serverData.dailyVisits?.[dateKey]) || 0;
+    if (fsToday >= srvToday) {
+      serverData.dailyVisits = {
+        ...(serverData.dailyVisits || {}),
+        [dateKey]: fsToday + 1,
+      };
+    }
+  }
+
+  const finalMerged = mergeAnalyticsSources(baseMerged, serverData, {
+    lastVisitAt: nowIso,
+    updatedAtMs: Date.now(),
+  });
+
+  saveLocalCachedAnalytics(finalMerged);
+
+  // Salva de volta no Firestore e sincroniza com o servidor em segundo plano
+  try {
+    await setDoc(doc(db, 'settings', 'site_analytics'), cleanObjectForFirestore(finalMerged), { merge: true });
+  } catch {}
+
+  try {
+    fetch('/api/analytics/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(finalMerged),
+    }).catch(() => {});
+  } catch {}
+
+  return finalMerged;
+};
+
+/**
+ * Escuta em tempo real as estatísticas de visitas/aberturas do site para o Painel Admin.
+ */
+export const subscribeToSiteAnalytics = (callback: (data: SiteAnalytics) => void) => {
+  let latestFirestore: Partial<SiteAnalytics> | null = null;
+  let latestServer: Partial<SiteAnalytics> | null = null;
+
+  const emitMerged = () => {
+    const local = getLocalCachedAnalytics();
+    const merged = mergeAnalyticsSources(local, latestFirestore, latestServer);
+    saveLocalCachedAnalytics(merged);
+    callback(merged);
+  };
+
+  const fetchFromServer = async () => {
+    try {
+      const res = await fetch('/api/analytics');
+      if (res.ok) {
+        latestServer = await res.json();
+        emitMerged();
+      }
+    } catch {}
+  };
+
+  fetchFromServer();
+  const pollInterval = setInterval(fetchFromServer, 5000);
+
+  const docRef = doc(db, 'settings', 'site_analytics');
+  const unsubFirestore = onSnapshot(
+    docRef,
+    (snap) => {
+      if (snap.exists()) {
+        latestFirestore = snap.data() as Partial<SiteAnalytics>;
+        emitMerged();
+        // Sincroniza com servidor se necessário
+        if (latestFirestore) {
+          fetch('/api/analytics/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(latestFirestore),
+          }).catch(() => {});
+        }
+      } else {
+        emitMerged();
+      }
+    },
+    () => {
+      emitMerged();
+    }
+  );
+
+  return () => {
+    clearInterval(pollInterval);
+    unsubFirestore();
+  };
+};
+
+
 

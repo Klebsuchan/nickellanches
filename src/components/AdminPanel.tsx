@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Printer, CheckSquare, Lock, LogOut, X, Plus, Trash2, Edit2, Package, Tag, Clock, Save, Eye, EyeOff, Settings, List, Check, ArrowRight, ImagePlus, ChevronLeft, ChevronRight, RefreshCw, XCircle, Grid, Image as ImageIcon, Send, CreditCard, QrCode, ExternalLink, Volume2, Zap, Download, Users, PauseCircle, PlayCircle, Search, Calendar, Phone, MapPin, ShoppingBag } from 'lucide-react';
-import { Order, getProducts, saveProduct, toggleProductPause, deleteProduct, getPromos, savePromo, deletePromo, getAllOrders, updateOrderStatus, PromoCode, subscribeToAllOrders, Banner, getBanners, saveBanner, deleteBanner, subscribeToProducts, subscribeToPromos, subscribeToBanners, deleteOrder, saveOrderAdmin, saveOrder, subscribeToPaymentSettings, PaymentSettings, PrinterSettings, DEFAULT_PRINTER_SETTINGS, savePrinterSettings, subscribeToPrinterSettings, subscribeToStoreHours, saveStoreHoursSettings, isOrderPaid, markOrderAsPaid } from '../lib/db';
+import { Printer, CheckSquare, Lock, LogOut, X, Plus, Trash2, Edit2, Package, Tag, Clock, Save, Eye, EyeOff, Settings, List, Check, ArrowRight, ImagePlus, ChevronLeft, ChevronRight, RefreshCw, XCircle, Grid, Image as ImageIcon, Send, CreditCard, QrCode, ExternalLink, Volume2, Zap, Download, Users, PauseCircle, PlayCircle, Search, Calendar, Phone, MapPin, ShoppingBag, BarChart3 } from 'lucide-react';
+import { Order, getProducts, saveProduct, toggleProductPause, deleteProduct, getPromos, savePromo, deletePromo, getAllOrders, updateOrderStatus, PromoCode, subscribeToAllOrders, Banner, getBanners, saveBanner, deleteBanner, subscribeToProducts, subscribeToPromos, subscribeToBanners, deleteOrder, saveOrderAdmin, saveOrder, subscribeToPaymentSettings, PaymentSettings, PrinterSettings, DEFAULT_PRINTER_SETTINGS, savePrinterSettings, subscribeToPrinterSettings, subscribeToStoreHours, saveStoreHoursSettings, isOrderPaid, markOrderAsPaid, SiteAnalytics, subscribeToSiteAnalytics } from '../lib/db';
 import { Product, Extra } from '../types';
 import { useToast } from './Toast';
 import { playSound } from '../lib/audio';
@@ -11,11 +11,12 @@ import PrintSettingsEditor from './PrintSettingsEditor';
 import PrintableReceipt from './PrintableReceipt';
 import PrintModal from './PrintModal';
 import AutoPrintApp from './AutoPrintApp';
+import SiteVisitsAnalytics, { SiteVisitsCompactBanner } from './SiteVisitsAnalytics';
 import { getConnectedUsbPrinter, sendRawToUsbPrinter, buildReceiptEscPos } from '../lib/escpos';
 import { executeUniversalPrint } from '../lib/printerService';
 import { isStoreClosedMonday, getStoreStatus, StoreHoursSettings, DEFAULT_STORE_HOURS, getSaoPauloNow } from '../lib/storeHours';
 
-type AdminTab = 'orders' | 'history' | 'autoprint' | 'products' | 'hours' | 'promos' | 'banners' | 'payments' | 'settings';
+type AdminTab = 'orders' | 'analytics' | 'history' | 'autoprint' | 'products' | 'hours' | 'promos' | 'banners' | 'payments' | 'settings';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -59,6 +60,11 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
   const [banners, setBanners] = useState<Banner[]>([]);
   const [paymentSettings, setPaymentSettings] = useState<PaymentSettings | undefined>(undefined);
   const [storeHours, setStoreHours] = useState<StoreHoursSettings>(DEFAULT_STORE_HOURS);
+  const [siteAnalytics, setSiteAnalytics] = useState<SiteAnalytics>({
+    totalVisits: 0,
+    dailyVisits: {},
+    hourlyVisits: {},
+  });
   
   const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
   const [modalOrderToPrint, setModalOrderToPrint] = useState<Order | null>(null);
@@ -212,6 +218,7 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
       const unsubBanners = subscribeToBanners(setBanners);
       const unsubPaymentSettings = subscribeToPaymentSettings(setPaymentSettings);
       const unsubStoreHours = subscribeToStoreHours(setStoreHours);
+      const unsubAnalytics = subscribeToSiteAnalytics(setSiteAnalytics);
 
       return () => {
         unsubOrders();
@@ -220,6 +227,7 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
         unsubBanners();
         unsubPaymentSettings();
         unsubStoreHours();
+        unsubAnalytics();
       };
     }
   }, [isAuthenticated]);
@@ -337,6 +345,7 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
         
         <nav className="flex flex-col gap-1.5 flex-1 overflow-y-auto">
           <TabButton icon={<CheckSquare size={20}/>} label="Pedidos" active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
+          <TabButton icon={<BarChart3 size={20}/>} label="Visitas (Site)" active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} />
           <TabButton icon={<Users size={20}/>} label="Histórico Clientes" active={activeTab === 'history'} onClick={() => setActiveTab('history')} />
           <button
             type="button"
@@ -458,7 +467,12 @@ export default function AdminPanel({ onClose, initialTab = 'orders', standaloneA
             setPrintSettings={setPrintSettings}
             onOpenAutoPrintApp={() => setActiveTab('autoprint')}
             products={products}
+            siteAnalytics={siteAnalytics}
+            onOpenAnalytics={() => setActiveTab('analytics')}
           />
+        )}
+        {activeTab === 'analytics' && (
+          <SiteVisitsAnalytics analytics={siteAnalytics} />
         )}
         {activeTab === 'history' && (
           <CustomerOrderHistory
@@ -610,7 +624,7 @@ function TabButton({ icon, label, active, onClick }: { icon: React.ReactNode, la
 // ----------------------------------------------------------------------
 // ORDERS KANBAN
 // ----------------------------------------------------------------------
-function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings, onOpenAutoPrintApp, products = [] }: any) {
+function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings, onOpenAutoPrintApp, products = [], siteAnalytics, onOpenAnalytics }: any) {
   const { addToast } = useToast();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
@@ -719,6 +733,12 @@ function OrdersKanban({ orders, setOrderToPrint, printSettings, setPrintSettings
 
   return (
     <div className="h-full flex flex-col">
+      {siteAnalytics && (
+        <SiteVisitsCompactBanner
+          analytics={siteAnalytics}
+          onOpenFullReport={onOpenAnalytics}
+        />
+      )}
       <div className="flex justify-between items-center mb-6 flex-wrap gap-4 bg-white p-4 rounded-xl shadow-sm border border-stone-200">
         <div>
           <h2 className="text-2xl font-display uppercase font-bold flex items-center gap-2">

@@ -329,9 +329,9 @@ export function generateReceiptHtml(
   const is58 = settings.printerType === 'thermal_58';
   const paperWidth = is58 ? '48mm' : '72mm';
   const fontSize = 
-    settings.fontSize === 'small' ? (is58 ? '10px' : '11.5px') :
-    settings.fontSize === 'large' ? (is58 ? '13px' : '15px') :
-    (is58 ? '11.5px' : '13px');
+    settings.fontSize === 'small' ? (is58 ? '12px' : '13.5px') :
+    settings.fontSize === 'large' ? (is58 ? '15px' : '17px') :
+    (is58 ? '13.5px' : '15px');
 
   let dateStr = '';
   if (order.createdAt?.toDate) {

@@ -222,14 +222,246 @@ async function startServer() {
     res.json({ success: true, signal: printSignalState });
   });
 
-  app.get('/api/payment-config', (req, res) => {
+  // ====================================================================
+  // CONTABILIZAÇÃO DE VISITAS / ABERTURAS DO SITE (ESTILO SEARCH CONSOLE)
+  // ====================================================================
+  const ANALYTICS_FILE = path.resolve(process.cwd(), 'site-analytics.json');
+
+  interface SiteAnalyticsData {
+    totalVisits: number;
+    dailyVisits: Record<string, number>;
+    hourlyVisits: Record<string, Record<string, number>>;
+    lastVisitAt?: string;
+    updatedAtMs?: number;
+  }
+
+  function getSaoPauloDateHour(d: Date = new Date()): { dateKey: string; hourKey: string } {
+    try {
+      const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        hour12: false
+      });
+      const parts = formatter.formatToParts(d);
+      const year = parts.find(p => p.type === 'year')?.value || '2026';
+      const month = parts.find(p => p.type === 'month')?.value || '01';
+      const day = parts.find(p => p.type === 'day')?.value || '01';
+      const rawHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10) % 24;
+      const hour = String(rawHour).padStart(2, '0');
+      return { dateKey: `${year}-${month}-${day}`, hourKey: hour };
+    } catch {
+      const iso = d.toISOString();
+      return { dateKey: iso.slice(0, 10), hourKey: iso.slice(11, 13) };
+    }
+  }
+
+  function getStoredAnalytics(): SiteAnalyticsData {
+    try {
+      if (fs.existsSync(ANALYTICS_FILE)) {
+        const raw = fs.readFileSync(ANALYTICS_FILE, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          const dailyVisits = parsed.dailyVisits && typeof parsed.dailyVisits === 'object' ? parsed.dailyVisits : {};
+          const hourlyVisits = parsed.hourlyVisits && typeof parsed.hourlyVisits === 'object' ? parsed.hourlyVisits : {};
+          const sumDaily = Object.values(dailyVisits).reduce<number>((acc, v) => acc + (Number(v) || 0), 0);
+          return {
+            totalVisits: Math.max(Number(parsed.totalVisits) || 0, sumDaily),
+            dailyVisits,
+            hourlyVisits,
+            lastVisitAt: parsed.lastVisitAt || undefined,
+            updatedAtMs: Number(parsed.updatedAtMs) || Date.now()
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao ler site-analytics.json:', e);
+    }
+    return {
+      totalVisits: 0,
+      dailyVisits: {},
+      hourlyVisits: {},
+      updatedAtMs: Date.now()
+    };
+  }
+
+  function saveStoredAnalytics(data: SiteAnalyticsData) {
+    try {
+      fs.writeFileSync(ANALYTICS_FILE, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (e) {
+      console.warn('Erro ao salvar site-analytics.json:', e);
+    }
+  }
+
+  app.get('/api/analytics', (req, res) => {
+    const data = getStoredAnalytics();
+    const { dateKey } = getSaoPauloDateHour();
+    res.json({ ...data, todayKey: dateKey });
+  });
+
+  app.post('/api/analytics/visit', (req, res) => {
+    try {
+      const data = getStoredAnalytics();
+      const { dateKey, hourKey } = getSaoPauloDateHour();
+
+      data.dailyVisits[dateKey] = (Number(data.dailyVisits[dateKey]) || 0) + 1;
+      if (!data.hourlyVisits[dateKey]) {
+        data.hourlyVisits[dateKey] = {};
+      }
+      data.hourlyVisits[dateKey][hourKey] = (Number(data.hourlyVisits[dateKey][hourKey]) || 0) + 1;
+
+      const sumDaily = Object.values(data.dailyVisits).reduce((acc, v) => acc + (Number(v) || 0), 0);
+      data.totalVisits = Math.max((Number(data.totalVisits) || 0) + 1, sumDaily);
+      data.lastVisitAt = new Date().toISOString();
+      data.updatedAtMs = Date.now();
+
+      saveStoredAnalytics(data);
+      res.json({ success: true, ...data, todayKey: dateKey });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/analytics/sync', (req, res) => {
+    try {
+      const incoming = req.body || {};
+      const current = getStoredAnalytics();
+      const incomingDaily = incoming.dailyVisits && typeof incoming.dailyVisits === 'object' ? incoming.dailyVisits : {};
+      const incomingHourly = incoming.hourlyVisits && typeof incoming.hourlyVisits === 'object' ? incoming.hourlyVisits : {};
+
+      const allDates = new Set([...Object.keys(current.dailyVisits), ...Object.keys(incomingDaily)]);
+      allDates.forEach(date => {
+        current.dailyVisits[date] = Math.max(
+          Number(current.dailyVisits[date]) || 0,
+          Number(incomingDaily[date]) || 0
+        );
+      });
+
+      const allHourDates = new Set([...Object.keys(current.hourlyVisits), ...Object.keys(incomingHourly)]);
+      allHourDates.forEach(date => {
+        if (!current.hourlyVisits[date]) current.hourlyVisits[date] = {};
+        const incH = incomingHourly[date] || {};
+        Object.keys(incH).forEach(h => {
+          current.hourlyVisits[date][h] = Math.max(
+            Number(current.hourlyVisits[date][h]) || 0,
+            Number(incH[h]) || 0
+          );
+        });
+      });
+
+      const sumDaily = Object.values(current.dailyVisits).reduce((acc, v) => acc + (Number(v) || 0), 0);
+      current.totalVisits = Math.max(Number(current.totalVisits) || 0, Number(incoming.totalVisits) || 0, sumDaily);
+      if (incoming.lastVisitAt && (!current.lastVisitAt || incoming.lastVisitAt > current.lastVisitAt)) {
+        current.lastVisitAt = incoming.lastVisitAt;
+      }
+      current.updatedAtMs = Date.now();
+
+      saveStoredAnalytics(current);
+      const { dateKey } = getSaoPauloDateHour();
+      res.json({ success: true, ...current, todayKey: dateKey });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Função utilitária para dar baixa automática em pedidos pagos via Stripe (PIX ou Cartão)
+  function markOrderPaidByStripe(sessionId: string, metadata: any, realMethodLabel: string) {
+    try {
+      const currentOrders = getStoredOrders();
+      const idx = currentOrders.findIndex(o =>
+        (sessionId && o.stripeSessionId === sessionId) ||
+        (metadata?.orderId && o.id === metadata.orderId) ||
+        (metadata?.receiptAuthCode && o.receiptAuthCode === metadata.receiptAuthCode)
+      );
+      if (idx >= 0) {
+        const wasAlreadyPaid = currentOrders[idx].isPaid === true && currentOrders[idx].paymentStatus === 'pago';
+        currentOrders[idx] = {
+          ...currentOrders[idx],
+          isPaid: true,
+          paymentStatus: 'pago',
+          paidAt: currentOrders[idx].paidAt || new Date().toISOString(),
+          paymentMethod: realMethodLabel || currentOrders[idx].paymentMethod || 'PIX Online (Aprovado Automaticamente via Stripe)',
+          stripeSessionId: sessionId || currentOrders[idx].stripeSessionId
+        };
+        saveStoredOrders(currentOrders);
+
+        if (!wasAlreadyPaid) {
+          printSignalState = {
+            latestOrderId: currentOrders[idx].id,
+            orderNumber: currentOrders[idx].orderNumber || 1,
+            isPaid: true,
+            updatedAtMs: Date.now()
+          };
+          console.log(`[Stripe Auto-Baixa] Pedido #${currentOrders[idx].orderNumber || currentOrders[idx].id} confirmado automaticamente via Stripe!`);
+        }
+        return currentOrders[idx];
+      }
+    } catch (e) {
+      console.warn('Erro ao dar baixa automática no pedido Stripe:', e);
+    }
+    return null;
+  }
+
+  // Reconciliador automático em segundo plano: verifica sessões Stripe pendentes a cada 4s e dá baixa sozinho
+  setInterval(async () => {
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeSecretKey) return;
+    try {
+      const currentOrders = getStoredOrders();
+      const pendingStripeOrders = currentOrders.filter(
+        o => o && o.stripeSessionId && (o.paymentStatus === 'pendente' || o.isPaid === false)
+      );
+      if (pendingStripeOrders.length === 0) return;
+
+      const stripe = new Stripe(stripeSecretKey);
+      for (const ord of pendingStripeOrders.slice(0, 10)) {
+        try {
+          const session = await stripe.checkout.sessions.retrieve(ord.stripeSessionId, {
+            expand: ['payment_intent.payment_method']
+          });
+          if (session.payment_status === 'paid') {
+            const isPix = session.metadata?.paymentType === 'pix_online' ||
+              (session.payment_method_types && session.payment_method_types.includes('pix'));
+            const isDebit = session.metadata?.paymentType === 'debito_online';
+            const label = isPix
+              ? 'PIX Online (Aprovado Automaticamente via Stripe)'
+              : isDebit
+              ? 'Cartão de DÉBITO Online (Aprovado via Stripe)'
+              : 'Cartão de CRÉDITO Online (Aprovado via Stripe)';
+            markOrderPaidByStripe(session.id, session.metadata, label);
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }, 4000);
+
+  app.get('/api/payment-config', async (req, res) => {
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+    let pixStripeActive = false;
+    let pixCapabilityStatus = 'unrequested';
+    if (stripeSecretKey) {
+      try {
+        const stripe = new Stripe(stripeSecretKey);
+        const acc = await (stripe.accounts as any).retrieve();
+        const capStatus = (acc.capabilities as any)?.pix_payments;
+        if (capStatus) {
+          pixCapabilityStatus = capStatus;
+          pixStripeActive = capStatus === 'active';
+        }
+      } catch (_) {}
+    }
     res.json({
-      stripeConfigured: !!process.env.STRIPE_SECRET_KEY,
-      publishableKey: process.env.VITE_STRIPE_PUBLIC_KEY || ''
+      stripeConfigured: !!stripeSecretKey,
+      publishableKey: process.env.VITE_STRIPE_PUBLIC_KEY || '',
+      pixStripeActive,
+      pixCapabilityStatus,
+      pixActivationUrl: 'https://dashboard.stripe.com/settings/payment_methods'
     });
   });
 
-  // Diagnóstico em tempo real da conexão com a Stripe
+  // Diagnóstico em tempo real da conexão com a Stripe (incluindo status do PIX Automático)
   app.get('/api/stripe-status', async (req, res) => {
     try {
       const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -239,27 +471,51 @@ async function startServer() {
           configured: false,
           mode: 'none',
           publishableKey,
+          pixStripeActive: false,
+          pixCapabilityStatus: 'unrequested',
+          pixActivationUrl: 'https://dashboard.stripe.com/settings/payment_methods',
           message: 'STRIPE_SECRET_KEY não encontrada nas variáveis de ambiente (.env).'
         });
       }
       const isTest = stripeSecretKey.startsWith('sk_test_') || stripeSecretKey.startsWith('rk_test_');
       const stripe = new Stripe(stripeSecretKey);
       const balance = await stripe.balance.retrieve();
+
+      let pixStripeActive = false;
+      let pixCapabilityStatus = 'unrequested';
+      try {
+        const acc = await (stripe.accounts as any).retrieve();
+        const caps = await stripe.accounts.listCapabilities(acc.id);
+        const pixCap = caps.data.find(c => c.id === 'pix_payments');
+        if (pixCap) {
+          pixCapabilityStatus = pixCap.status;
+          pixStripeActive = pixCap.status === 'active';
+        }
+      } catch (_) {}
+
       return res.json({
         configured: true,
         mode: isTest ? 'test' : 'live',
         livemode: balance.livemode,
         publishableKey,
+        pixStripeActive,
+        pixCapabilityStatus,
+        pixActivationUrl: 'https://dashboard.stripe.com/settings/payment_methods',
         availableCurrencies: balance.available?.map(b => b.currency.toUpperCase()) || ['BRL'],
         message: isTest
-          ? 'Stripe conectado com sucesso em Modo Teste! Cartões de teste aceitos.'
-          : '🚀 Stripe 100% ativo e operacional em MODO PRODUÇÃO (LIVE)! Pagamentos reais ativados!'
+          ? 'Stripe conectado com sucesso em Modo Teste! Cartões e PIX de teste aceitos.'
+          : pixStripeActive
+          ? '🚀 Stripe 100% ativo em MODO PRODUÇÃO (LIVE) com Cartão e PIX Automático habilitados!'
+          : '🚀 Stripe ativo em MODO PRODUÇÃO (LIVE)! Para baixa automática de PIX, ative a opção "Pix" com 1 clique no painel da Stripe.'
       });
     } catch (err: any) {
       return res.json({
         configured: false,
         mode: 'error',
         error: err.message,
+        pixStripeActive: false,
+        pixCapabilityStatus: 'error',
+        pixActivationUrl: 'https://dashboard.stripe.com/settings/payment_methods',
         message: `Erro na comunicação com a API da Stripe: ${err.message}`
       });
     }
@@ -324,18 +580,39 @@ async function startServer() {
         publishableKey: cleanPublic,
         message: isTest
           ? 'Chaves Stripe de TESTE salvas e validadas com sucesso!'
-          : '🚀 Chaves Stripe de PRODUÇÃO (LIVE) salvas e validadas com sucesso! O site já está pronto para aceitar vendas reais com cartão!'
+          : '🚀 Chaves Stripe de PRODUÇÃO (LIVE) salvas e validadas com sucesso! O site já está pronto para aceitar vendas reais!'
       });
     } catch (err: any) {
       return res.status(500).json({ error: `Falha na validação com a Stripe: ${err.message}` });
     }
   });
 
-  // Webhook assíncrono para notificações de eventos Stripe
+  // Webhook assíncrono para notificações de eventos Stripe (Baixa automática de PIX e Cartão)
   app.post('/api/stripe-webhook', (req, res) => {
     try {
       const event = req.body;
       console.log(`[Stripe Webhook] Evento: ${event?.type || 'desconhecido'}`);
+      if (
+        event?.type === 'checkout.session.completed' ||
+        event?.type === 'checkout.session.async_payment_succeeded'
+      ) {
+        const session = event.data?.object;
+        if (session && session.payment_status === 'paid') {
+          const isPix = session.metadata?.paymentType === 'pix_online';
+          const isDebit = session.metadata?.paymentType === 'debito_online';
+          const label = isPix
+            ? 'PIX Online (Aprovado Automaticamente via Stripe)'
+            : isDebit
+            ? 'Cartão de DÉBITO Online (Aprovado via Stripe)'
+            : 'Cartão de CRÉDITO Online (Aprovado via Stripe)';
+          markOrderPaidByStripe(session.id, session.metadata, label);
+        }
+      } else if (event?.type === 'payment_intent.succeeded') {
+        const pi = event.data?.object;
+        if (pi?.metadata) {
+          markOrderPaidByStripe('', pi.metadata, 'PIX Online (Aprovado Automaticamente via Stripe)');
+        }
+      }
       res.json({ received: true });
     } catch (err: any) {
       res.status(400).send(`Webhook Error: ${err.message}`);
@@ -352,29 +629,10 @@ async function startServer() {
       
       const { items, orderDetails, discountAmount, storeOpen } = req.body;
 
-      // Validação de segurança de horário no servidor (São Paulo UTC-3: 18:30 às 22:30)
-      const spFormatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'America/Sao_Paulo',
-        weekday: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      });
-      const spParts = spFormatter.formatToParts(new Date());
-      const spWeekday = spParts.find(p => p.type === 'weekday')?.value || 'Sun';
-      const spHour = parseInt(spParts.find(p => p.type === 'hour')?.value || '00', 10) % 24;
-      const spMin = parseInt(spParts.find(p => p.type === 'minute')?.value || '00', 10);
-      const spMinutes = spHour * 60 + spMin;
-
-      const isMonday = spWeekday === 'Mon';
-      const isWithinHours = !isMonday && spMinutes >= (18 * 60 + 30) && spMinutes <= (22 * 60 + 30);
-
-      // Bloqueia tentativas fora do horário caso o frontend reporte fechado ou esteja fora da janela (exceto bypass de admin)
-      if ((storeOpen === false || !isWithinHours) && !req.body.adminBypass) {
+      // Bloqueia apenas se a loja estiver fechada (respeita abertura manual no Painel Admin)
+      if (storeOpen === false && !req.body.adminBypass) {
         return res.status(400).json({
-          error: isMonday
-            ? 'Hoje (Segunda-feira) o restaurante está fechado para descanso da equipe. Nosso atendimento é de terça a domingo das 18:30 às 22:30!'
-            : 'O restaurante está fechado no momento. Nosso horário de atendimento é das 18:30 às 22:30!'
+          error: 'O restaurante está fechado no momento.'
         });
       }
       
@@ -397,8 +655,6 @@ async function startServer() {
         };
       });
 
-      // Se houver desconto, aplica como um item com valor deduzido ou ajuste proporcional
-      // No Stripe Checkout, cupons ou descontos negativos podem ser tratados ou ajustados
       if (orderDetails?.deliveryFee && orderDetails.deliveryFee > 0) {
         lineItems.push({
           price_data: {
@@ -448,31 +704,46 @@ async function startServer() {
       origin = origin.replace(/\/+$/, '');
 
       const reqPaymentMethod = req.body.paymentMethod || orderDetails?.paymentMethod || '';
-      const isDebit = reqPaymentMethod === 'debit_online' || 
-                      reqPaymentMethod.toLowerCase().includes('débito') || 
-                      reqPaymentMethod.toLowerCase().includes('debito');
+      const isPix = reqPaymentMethod === 'pix_online' ||
+                    reqPaymentMethod.toLowerCase().includes('pix');
+      const isDebit = !isPix && (
+        reqPaymentMethod === 'debit_online' || 
+        reqPaymentMethod.toLowerCase().includes('débito') || 
+        reqPaymentMethod.toLowerCase().includes('debito')
+      );
 
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
+      const sessionParams: Stripe.Checkout.SessionCreateParams = {
+        payment_method_types: isPix ? ['pix'] : ['card'],
         line_items: lineItems,
         discounts: discounts,
         mode: 'payment',
         locale: 'pt-BR',
         payment_intent_data: {
-          description: isDebit
-            ? `Pedido #${orderDetails?.orderNumber || ''} [CARTÃO DE DÉBITO ONLINE - 3D SECURE] - Nickel Lanches`
-            : `Pedido #${orderDetails?.orderNumber || ''} [CARTÃO DE CRÉDITO ONLINE] - Nickel Lanches`,
-        },
-        payment_method_options: {
-          card: {
-            request_three_d_secure: isDebit ? 'any' : 'automatic'
+          description: `Pedido #${orderDetails?.orderNumber || ''} - Nickel Lanches`,
+          metadata: {
+            receiptAuthCode: orderDetails?.receiptAuthCode || '',
+            orderId: orderDetails?.orderId || '',
+            paymentType: isPix ? 'pix_online' : isDebit ? 'debito_online' : 'credito_online'
           }
         },
+        payment_method_options: isPix
+          ? {
+              pix: {
+                expires_after_seconds: 1800
+              }
+            }
+          : {
+              card: {
+                request_three_d_secure: isDebit ? 'any' : 'automatic'
+              }
+            },
         custom_text: {
           submit: {
-            message: isDebit 
-              ? '💳 OPÇÃO SELECIONADA: DÉBITO ONLINE. Na etapa de confirmação, seu banco (Nubank, Inter, Itaú, Bradesco, etc.) solicitará autenticação 3D Secure para debitar diretamente da conta corrente.' 
-              : '💳 OPÇÃO SELECIONADA: CRÉDITO ONLINE. Pagamento em cartão de crédito.'
+            message: isPix
+              ? 'Escaneie o QR Code ou utilize o código PIX Copia e Cola na próxima tela para concluir seu pedido.'
+              : isDebit 
+              ? 'Pagamento via Cartão de Débito.' 
+              : 'Pagamento via Cartão de Crédito.'
           }
         },
         success_url: `${origin}/?payment=success&session_id={CHECKOUT_SESSION_ID}`,
@@ -484,21 +755,49 @@ async function startServer() {
           name: orderDetails?.name || '',
           address: orderDetails?.address || '',
           region: orderDetails?.region || '',
-          orderNumber: orderDetails?.orderNumber || '',
+          orderNumber: orderDetails?.orderNumber ? String(orderDetails.orderNumber) : '',
+          orderId: orderDetails?.orderId || '',
           receiptAuthCode: orderDetails?.receiptAuthCode || '',
-          paymentType: isDebit ? 'debito_online' : 'credito_online',
+          paymentType: isPix ? 'pix_online' : isDebit ? 'debito_online' : 'credito_online',
           total: orderDetails?.totalToPay ? String(orderDetails.totalToPay) : ''
         }
-      });
+      };
 
-      res.json({ id: session.id, url: session.url });
+      try {
+        const session = await stripe.checkout.sessions.create(sessionParams);
+
+        // Vincula o stripeSessionId ao pedido armazenado para que o reconciliador em segundo plano dê baixa automática
+        if (orderDetails?.receiptAuthCode || orderDetails?.orderId) {
+          const currentOrders = getStoredOrders();
+          const idx = currentOrders.findIndex(o =>
+            (orderDetails.orderId && o.id === orderDetails.orderId) ||
+            (orderDetails.receiptAuthCode && o.receiptAuthCode === orderDetails.receiptAuthCode)
+          );
+          if (idx >= 0) {
+            currentOrders[idx].stripeSessionId = session.id;
+            saveStoredOrders(currentOrders);
+          }
+        }
+
+        return res.json({ id: session.id, url: session.url, paymentType: isPix ? 'pix_online' : 'card' });
+      } catch (stripeErr: any) {
+        const msg = String(stripeErr?.message || '');
+        if (isPix && (msg.includes('pix is invalid') || msg.includes('payment_method_types') || msg.includes('pix'))) {
+          return res.status(422).json({
+            pixNotEnabledInDashboard: true,
+            activationUrl: 'https://dashboard.stripe.com/settings/payment_methods',
+            error: 'Para usar o PIX Automático pela Stripe, falta apenas clicar em "Ativar" ao lado de "Pix" no seu Painel da Stripe (Configurações > Formas de pagamento).'
+          });
+        }
+        throw stripeErr;
+      }
     } catch (err: any) {
       console.error("Stripe error:", err);
       res.status(500).json({ error: err.message });
     }
   });
 
-  // Rota para conferir status da sessão Stripe e obter o tipo exato de cobrança efetuada (débito ou crédito)
+  // Rota para conferir status da sessão Stripe e obter o tipo exato de cobrança efetuada (PIX, débito ou crédito)
   app.get('/api/checkout-session/:id', async (req, res) => {
     try {
       const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -513,12 +812,16 @@ async function startServer() {
       let actualFunding = 'credit';
       let cardBrand = '';
       let cardLast4 = '';
+      let usedPix = session.metadata?.paymentType === 'pix_online' ||
+                    (session.payment_method_types && session.payment_method_types.includes('pix'));
 
       if (session.payment_intent && typeof session.payment_intent === 'object') {
         const pi = session.payment_intent as Stripe.PaymentIntent;
         if (pi.payment_method && typeof pi.payment_method === 'object') {
           const pm = pi.payment_method as Stripe.PaymentMethod;
-          if (pm.card) {
+          if (pm.type === 'pix') {
+            usedPix = true;
+          } else if (pm.card) {
             actualFunding = pm.card.funding; // 'debit' | 'credit' | 'prepaid'
             cardBrand = pm.card.brand ? pm.card.brand.toUpperCase() : '';
             cardLast4 = pm.card.last4 || '';
@@ -528,9 +831,16 @@ async function startServer() {
 
       const isRequestedDebit = session.metadata?.paymentType === 'debito_online';
 
-      const realMethodLabel = (isRequestedDebit || actualFunding === 'debit')
+      const realMethodLabel = usedPix
+        ? 'PIX Online (Aprovado Automaticamente via Stripe)'
+        : (isRequestedDebit || actualFunding === 'debit')
         ? `Cartão de DÉBITO Online (Aprovado via Stripe${cardBrand ? ` - ${cardBrand}` : ''}${cardLast4 ? ` *${cardLast4}` : ''})`
         : `Cartão de CRÉDITO Online (Aprovado via Stripe${cardBrand ? ` - ${cardBrand}` : ''}${cardLast4 ? ` *${cardLast4}` : ''})`;
+
+      // Se a sessão já está paga na Stripe, dá baixa automática imediatamente no banco de pedidos do servidor!
+      if (session.payment_status === 'paid') {
+        markOrderPaidByStripe(session.id, session.metadata, realMethodLabel);
+      }
 
       res.json({
         id: session.id,
@@ -540,6 +850,7 @@ async function startServer() {
         actualFunding,
         cardBrand,
         cardLast4,
+        usedPix,
         realMethodLabel,
         metadata: session.metadata
       });

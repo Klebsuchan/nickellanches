@@ -30,11 +30,34 @@ import { useToast } from './components/Toast';
 import { isStoreClosedMonday, getStoreStatus, STORE_CLOSED_MESSAGE, StoreHoursSettings, DEFAULT_STORE_HOURS } from './lib/storeHours';
 import { auth, signInWithGoogle, signOut, getNextOrderNumber } from './lib/firebase';
 import { User as FirebaseUser } from 'firebase/auth';
-import { subscribeToOrder, getLatestOrders, subscribeToProducts, subscribeToPromos, subscribeToStoreHours, seedDatabase, createUserProfile, getUserProfile, addXpToUser, saveOrder, UserProfile, Order, getPrinterSettings, subscribeToAllOrders, enqueueCloudPrintJob, DEFAULT_PRINTER_SETTINGS } from './lib/db';
+import { subscribeToOrder, getLatestOrders, subscribeToProducts, subscribeToPromos, subscribeToStoreHours, seedDatabase, createUserProfile, getUserProfile, addXpToUser, saveOrder, UserProfile, Order, getPrinterSettings, subscribeToAllOrders, enqueueCloudPrintJob, DEFAULT_PRINTER_SETTINGS, recordSiteVisit } from './lib/db';
 import { renderFullOrderToImage } from './lib/receiptCanvas';
 import { playSound } from './lib/audio';
 
+let hasRecordedPageOpen = false;
+
 export default function App() {
+  if (typeof window !== 'undefined' && !hasRecordedPageOpen) {
+    hasRecordedPageOpen = true;
+    const p = window.location.pathname.toLowerCase();
+    if (p !== '/impressao-automatica') {
+      try {
+        const navEntries = window.performance?.getEntriesByType?.('navigation') as PerformanceNavigationTiming[] | undefined;
+        const isPageReload = navEntries && navEntries.length > 0 && navEntries[0].type === 'reload';
+        const alreadyCountedInSession = sessionStorage.getItem('nickel_visit_session_active') === '1';
+
+        if (!alreadyCountedInSession && !isPageReload) {
+          sessionStorage.setItem('nickel_visit_session_active', '1');
+          recordSiteVisit().catch(() => {});
+        } else if (!alreadyCountedInSession) {
+          sessionStorage.setItem('nickel_visit_session_active', '1');
+        }
+      } catch {
+        recordSiteVisit().catch(() => {});
+      }
+    }
+  }
+
   const currentPath = window.location.pathname.toLowerCase();
   if (
     currentPath === '/admin' ||
@@ -327,9 +350,10 @@ export default function App() {
         // Garante que o status de pagamento online aprovado no Stripe seja registrado como PAGO
         details.isOnlinePayment = true;
         details.isPaid = true;
+        details.isStripeApproved = true;
         details.paymentStatus = 'pago';
         if (!details.paymentMethod || !details.paymentMethod.toLowerCase().includes('aprovado')) {
-          details.paymentMethod = `${details.paymentMethod || 'Cartão Online'} (Aprovado via Stripe)`;
+          details.paymentMethod = `${details.paymentMethod || 'Pagamento Online'} (Aprovado Automaticamente via Stripe)`;
         }
 
         // Se porventura orderItems estiver vazio (ex: reload sem localStorage), cria item sintético com o valor pago
@@ -337,7 +361,7 @@ export default function App() {
           orderItems = [{
             id: 'stripe-online-order',
             cartItemId: 'stripe-' + Date.now(),
-            name: 'Pedido Pago via Cartão (Stripe)',
+            name: 'Pedido Pago Online (Stripe)',
             price: details.totalToPay,
             quantity: 1,
             category: 'Lanches',
@@ -346,12 +370,14 @@ export default function App() {
           } as any];
         }
 
+        const isPixStripe = (details.paymentMethod || '').toLowerCase().includes('pix');
+
         // Confirmação final do pedido e redirecionamento para o minigame do cachorrinho
         await handleCheckout(details, orderItems, finalDiscount);
         playSound('powerup');
         addToast({
-          title: 'Pagamento Aprovado no Cartão!',
-          message: 'Seu pagamento foi confirmado pelo Stripe! Agora divirta-se no minigame enquanto preparamos seu lanche.',
+          title: isPixStripe ? 'PIX Confirmado Automaticamente!' : 'Pagamento Aprovado no Cartão!',
+          message: 'Seu pagamento foi confirmado automaticamente pela Stripe! Agora divirta-se no minigame enquanto preparamos seu lanche.',
           type: 'success'
         });
       };
@@ -684,12 +710,15 @@ export default function App() {
       const uid = user ? user.uid : 'guest';
       const methodLower = (details.paymentMethod || '').toLowerCase();
       const isPix = methodLower.includes('pix');
-      // PIX não inicia pago automaticamente: precisa ser confirmado no Painel Adm pela lancheria
+      const isStripeConfirmed = Boolean(
+        details.isStripeApproved === true ||
+        methodLower.includes('stripe') ||
+        methodLower.includes('aprovado')
+      );
+      // PIX pela Stripe já entra com baixa automática (isPaid = true); PIX manual aguarda confirmação no Painel Adm
       const isPaid = Boolean(
-        !isPix && (
-          details.isPaid === true || 
-          (details.isOnlinePayment && methodLower.includes('aprovado'))
-        )
+        isStripeConfirmed ||
+        (!isPix && details.isPaid === true)
       );
       const orderPayload: Omit<Order, 'createdAt' | 'id'> = {
         items: activeCart,
@@ -715,7 +744,7 @@ export default function App() {
 
       orderId = await saveOrder(uid, orderPayload);
 
-      // Enfileira comanda se já estiver pago (ex: Cartão aprovado)
+      // Enfileira comanda se já estiver pago (ex: PIX ou Cartão aprovado na Stripe)
       if (isPaid) {
         try {
           const pSettings = await getPrinterSettings().catch(() => DEFAULT_PRINTER_SETTINGS);
@@ -739,8 +768,14 @@ export default function App() {
       console.error("Error saving order", e);
     }
 
-    const isPixOrder = (details.paymentMethod || '').toLowerCase().includes('pix');
-    const isPaidFinal = Boolean(!isPixOrder && details.isPaid);
+    const methodLowerFinal = (details.paymentMethod || '').toLowerCase();
+    const isPixOrder = methodLowerFinal.includes('pix');
+    const isStripeApprovedFinal = Boolean(
+      details.isStripeApproved === true ||
+      methodLowerFinal.includes('stripe') ||
+      methodLowerFinal.includes('aprovado')
+    );
+    const isPaidFinal = Boolean(isStripeApprovedFinal || (!isPixOrder && details.isPaid));
 
     const newOrder: OrderInfo = {
       id: orderId,
@@ -785,7 +820,13 @@ export default function App() {
     navigateToView('game');
     window.scrollTo(0, 0);
     
-    if (isPixOrder) {
+    if (isPixOrder && isPaidFinal) {
+      addToast({
+        title: `Pedido #${orderNumber} Pago e Confirmado!`,
+        message: 'Pagamento PIX aprovado automaticamente pela Stripe! Seu pedido já foi liberado para a cozinha.',
+        type: 'success'
+      });
+    } else if (isPixOrder) {
       addToast({
         title: `Pedido #${orderNumber} Enviado!`,
         message: 'Aguardando confirmação do pagamento PIX pela lancheria no painel.',
