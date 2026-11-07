@@ -32,6 +32,7 @@ import { useToast } from './Toast';
 import { playSound } from '../lib/audio';
 import { determineRegionFromAddress, searchPassoFundoAddresses, AddressSuggestion } from '../lib/passoFundoAddresses';
 import { isStoreClosedMonday, getStoreStatus, STORE_CLOSED_MESSAGE, STORE_CLOSED_DESCRIPTION } from '../lib/storeHours';
+import { createCheckoutSessionResilient, retrieveCheckoutSessionResilient } from '../lib/stripeClientFallback';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -114,60 +115,13 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
     let isMounted = true;
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/checkout-session/${stripeSession.id}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.payment_status === 'paid' && isMounted) {
-            clearInterval(interval);
-            playSound('powerup');
-            const isPixPaid = Boolean(stripeSession.isPix || data?.usedPix);
-            addToast({
-              title: isPixPaid ? 'Pagamento PIX Confirmado!' : 'Pagamento Aprovado!',
-              message: 'Seu pagamento foi confirmado e seu pedido já foi enviado para a cozinha!',
-              type: 'success'
-            });
-            sessionStorage.removeItem('nickel_pending_stripe_order');
-            localStorage.removeItem('nickel_pending_stripe_order');
-            const updatedPayload = {
-              ...stripeSession.orderPayload,
-              paymentMethod:
-                data?.realMethodLabel ||
-                (isPixPaid
-                  ? 'PIX Online (Aprovado Automaticamente via Stripe)'
-                  : stripeSession.orderPayload.paymentMethod || 'Cartão Online (Aprovado via Stripe)'),
-              isOnlinePayment: true,
-              isPaid: true,
-              isStripeApproved: true,
-              paymentStatus: 'pago',
-              skipWhatsApp: isPixPaid
-            };
-            setStripeSession(null);
-            onConfirm(updatedPayload);
-          }
-        }
-      } catch (err) {
-        console.warn('Erro ao consultar status da sessão Stripe:', err);
-      }
-    }, 2500);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, [stripeSession, onConfirm, addToast]);
-
-  const handleCheckStripePaymentManually = async () => {
-    if (!stripeSession?.id) return;
-    setIsCheckingStripePayment(true);
-    try {
-      const res = await fetch(`/api/checkout-session/${stripeSession.id}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.payment_status === 'paid') {
+        const data = await retrieveCheckoutSessionResilient(stripeSession.id);
+        if (data && data.payment_status === 'paid' && isMounted) {
+          clearInterval(interval);
           playSound('powerup');
           const isPixPaid = Boolean(stripeSession.isPix || data?.usedPix);
           addToast({
-            title: isPixPaid ? 'Pagamento PIX Confirmado!' : 'Pagamento Confirmado!',
+            title: isPixPaid ? 'Pagamento PIX Confirmado!' : 'Pagamento Aprovado!',
             message: 'Seu pagamento foi confirmado e seu pedido já foi enviado para a cozinha!',
             type: 'success'
           });
@@ -188,14 +142,55 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
           };
           setStripeSession(null);
           onConfirm(updatedPayload);
-          return;
-        } else {
-          addToast({
-            title: 'Aguardando Confirmação na Stripe',
-            message: 'O pagamento ainda não consta como concluído na Stripe. Conclua o pagamento na aba da Stripe e aguarde alguns segundos.',
-            type: 'info'
-          });
         }
+      } catch (err) {
+        console.warn('Erro ao consultar status da sessão Stripe:', err);
+      }
+    }, 2500);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [stripeSession, onConfirm, addToast]);
+
+  const handleCheckStripePaymentManually = async () => {
+    if (!stripeSession?.id) return;
+    setIsCheckingStripePayment(true);
+    try {
+      const data = await retrieveCheckoutSessionResilient(stripeSession.id);
+      if (data && data.payment_status === 'paid') {
+        playSound('powerup');
+        const isPixPaid = Boolean(stripeSession.isPix || data?.usedPix);
+        addToast({
+          title: isPixPaid ? 'Pagamento PIX Confirmado!' : 'Pagamento Confirmado!',
+          message: 'Seu pagamento foi confirmado e seu pedido já foi enviado para a cozinha!',
+          type: 'success'
+        });
+        sessionStorage.removeItem('nickel_pending_stripe_order');
+        localStorage.removeItem('nickel_pending_stripe_order');
+        const updatedPayload = {
+          ...stripeSession.orderPayload,
+          paymentMethod:
+            data?.realMethodLabel ||
+            (isPixPaid
+              ? 'PIX Online (Aprovado Automaticamente via Stripe)'
+              : stripeSession.orderPayload.paymentMethod || 'Cartão Online (Aprovado via Stripe)'),
+          isOnlinePayment: true,
+          isPaid: true,
+          isStripeApproved: true,
+          paymentStatus: 'pago',
+          skipWhatsApp: isPixPaid
+        };
+        setStripeSession(null);
+        onConfirm(updatedPayload);
+        return;
+      } else {
+        addToast({
+          title: 'Aguardando Confirmação na Stripe',
+          message: 'O pagamento ainda não consta como concluído na Stripe. Conclua o pagamento na aba da Stripe e aguarde alguns segundos.',
+          type: 'info'
+        });
       }
     } catch (e) {
       addToast({
@@ -499,21 +494,15 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
           ? window.location.origin 
           : undefined;
 
-        const response = await fetch('/api/create-checkout-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            items: cart,
-            orderDetails: orderPayload,
-            discountAmount: discountAmount,
-            paymentMethod: paymentMethod,
-            origin: safeOrigin
-          })
+        const data = await createCheckoutSessionResilient({
+          items: cart,
+          orderDetails: orderPayload,
+          discountAmount: discountAmount,
+          paymentMethod: paymentMethod,
+          origin: safeOrigin
         });
 
-        const data = await response.json();
-
-        if (response.ok && data.url) {
+        if (data && data.url) {
           setIsProcessingStripe(false);
           setStripePixActive(true);
           setStripePixNeedsActivation(false);
@@ -545,7 +534,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
           return;
         } else {
           setIsProcessingStripe(false);
-          const errorMsg = data.error || 'Não foi possível gerar a cobrança online. Tente novamente ou conclua pelo WhatsApp.';
+          const errorMsg = 'Não foi possível gerar a cobrança online. Tente novamente.';
           setErrorMessage(errorMsg);
           addToast({
             title: 'Pagamento Online',
@@ -556,7 +545,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
         }
       } catch (err: any) {
         setIsProcessingStripe(false);
-        const errDesc = 'Instabilidade temporária na conexão de pagamento. Você pode tentar novamente ou concluir pelo WhatsApp.';
+        const errDesc = err?.message || 'Instabilidade temporária na conexão de pagamento. Tente novamente.';
         setErrorMessage(errDesc);
         addToast({
           title: 'Erro de Conexão',

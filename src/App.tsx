@@ -33,6 +33,7 @@ import { User as FirebaseUser } from 'firebase/auth';
 import { subscribeToOrder, getLatestOrders, subscribeToProducts, subscribeToPromos, subscribeToStoreHours, seedDatabase, createUserProfile, getUserProfile, addXpToUser, saveOrder, UserProfile, Order, getPrinterSettings, subscribeToAllOrders, enqueueCloudPrintJob, DEFAULT_PRINTER_SETTINGS, recordSiteVisit } from './lib/db';
 import { renderFullOrderToImage } from './lib/receiptCanvas';
 import { playSound } from './lib/audio';
+import { retrieveCheckoutSessionResilient } from './lib/stripeClientFallback';
 
 let hasRecordedPageOpen = false;
 
@@ -305,12 +306,11 @@ export default function App() {
           }
         }
 
-        // Consulta a sessão no backend para obter a bandeira/tipo do cartão e confirmar aprovação
+        // Consulta a sessão para obter a bandeira/tipo do cartão e confirmar aprovação
         if (sessionId) {
           try {
-            const res = await fetch(`/api/checkout-session/${sessionId}`);
-            if (res.ok) {
-              const sessionData = await res.json();
+            const sessionData = await retrieveCheckoutSessionResilient(sessionId);
+            if (sessionData) {
               if (!details && sessionData.metadata) {
                 details = {
                   name: sessionData.metadata.name || sessionData.customer_details?.name || 'Cliente Stripe',
