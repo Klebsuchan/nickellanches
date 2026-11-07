@@ -495,6 +495,10 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
         sessionStorage.setItem('nickel_pending_stripe_order', JSON.stringify(pendingData));
         localStorage.setItem('nickel_pending_stripe_order', JSON.stringify(pendingData));
 
+        const safeOrigin = (typeof window !== 'undefined' && window.location.origin && window.location.origin !== 'null' && window.location.origin.startsWith('http')) 
+          ? window.location.origin 
+          : undefined;
+
         const response = await fetch('/api/create-checkout-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -503,8 +507,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
             orderDetails: orderPayload,
             discountAmount: discountAmount,
             paymentMethod: paymentMethod,
-            origin: window.location.origin,
-            storeOpen: getStoreStatus().isOpen
+            origin: safeOrigin
           })
         });
 
@@ -540,25 +543,12 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
             type: 'info'
           });
           return;
-        } else if (data?.pixNotEnabledInDashboard && paymentMethod === 'pix_online') {
-          setIsProcessingStripe(false);
-          setStripePixActive(false);
-          setStripePixNeedsActivation(true);
-          setErrorMessage(
-            'Para o PIX gerar QR Code pela Stripe com baixa automática, clique em "Ativar" ao lado de "Pix" no seu Painel da Stripe (Configurações > Formas de Pagamento). Enquanto não ativar lá, você pode concluir usando o botão de PIX Direto abaixo!'
-          );
-          addToast({
-            title: 'Ative a opção PIX no Painel da Stripe',
-            message: 'Acesse Configurações > Formas de Pagamento no painel da Stripe e clique em "Ativar" ao lado de Pix.',
-            type: 'warning'
-          });
-          return;
         } else {
           setIsProcessingStripe(false);
-          const errorMsg = data.error || 'Não foi possível iniciar o Stripe Checkout. Tente novamente.';
+          const errorMsg = data.error || 'Não foi possível gerar a cobrança online. Tente novamente ou conclua pelo WhatsApp.';
           setErrorMessage(errorMsg);
           addToast({
-            title: 'Atenção com o Pagamento',
+            title: 'Pagamento Online',
             message: errorMsg,
             type: 'error'
           });
@@ -566,10 +556,10 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
         }
       } catch (err: any) {
         setIsProcessingStripe(false);
-        const errDesc = 'Erro ao conectar ao servidor do Stripe. Verifique sua conexão e tente novamente.';
+        const errDesc = 'Instabilidade temporária na conexão de pagamento. Você pode tentar novamente ou concluir pelo WhatsApp.';
         setErrorMessage(errDesc);
         addToast({
-          title: 'Erro de Comunicação',
+          title: 'Erro de Conexão',
           message: errDesc,
           type: 'error'
         });

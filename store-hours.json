@@ -1,0 +1,16 @@
+{
+  "mode": "open",
+  "closedTitle": "Loja Fechada no Momento",
+  "closedDescription": "Nosso horário de funcionamento é das 18:30 às 22:30.",
+  "bannerText": "",
+  "schedule": [
+    { "dayOfWeek": 0, "label": "Domingo", "enabled": true, "openTime": "18:30", "closeTime": "22:30" },
+    { "dayOfWeek": 1, "label": "Segunda-feira", "enabled": true, "openTime": "18:30", "closeTime": "22:30" },
+    { "dayOfWeek": 2, "label": "Terça-feira", "enabled": true, "openTime": "18:30", "closeTime": "22:30" },
+    { "dayOfWeek": 3, "label": "Quarta-feira", "enabled": true, "openTime": "18:30", "closeTime": "22:30" },
+    { "dayOfWeek": 4, "label": "Quinta-feira", "enabled": true, "openTime": "18:30", "closeTime": "22:30" },
+    { "dayOfWeek": 5, "label": "Sexta-feira", "enabled": true, "openTime": "18:30", "closeTime": "22:30" },
+    { "dayOfWeek": 6, "label": "Sábado", "enabled": true, "openTime": "18:30", "closeTime": "22:30" }
+  ],
+  "updatedAtMs": 1731000000000
+}

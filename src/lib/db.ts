@@ -436,6 +436,20 @@ import {
 } from "./storeHours";
 
 export const getStoreHoursSettings = async (): Promise<StoreHoursSettings> => {
+  // 1. Tenta carregar do backend local (/api/store-hours)
+  try {
+    const res = await fetch('/api/store-hours');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.schedule) {
+        const merged = { ...DEFAULT_STORE_HOURS, ...data } as StoreHoursSettings;
+        setCachedStoreHours(merged);
+        return merged;
+      }
+    }
+  } catch (_) {}
+
+  // 2. Tenta Firestore
   try {
     const docRef = doc(db, "settings", "store_hours");
     const snap = await getDoc(docRef);
@@ -452,7 +466,7 @@ export const getStoreHoursSettings = async (): Promise<StoreHoursSettings> => {
       return merged;
     }
   } catch (e) {
-    console.error("Erro ao buscar horário de funcionamento:", e);
+    // Silencia erro se Firestore estiver offline ou com cota excedida
   }
   return getCachedStoreHours();
 };
@@ -466,18 +480,46 @@ export const saveStoreHoursSettings = async (settings: StoreHoursSettings) => {
   try {
     localStorage.setItem("nickel_simular_segunda", payload.mode === "closed" ? "true" : "false");
   } catch {}
+
+  // 1. Persiste imediatamente no servidor local (/api/store-hours)
+  try {
+    await fetch('/api/store-hours', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  } catch (_) {}
+
+  // 2. Tenta persistir no Firestore se disponível
   try {
     const docRef = doc(db, "settings", "store_hours");
     await setDoc(docRef, payload, { merge: true });
   } catch (e) {
-    console.error("Erro ao salvar horário de funcionamento:", e);
-    throw e;
+    console.warn("Firestore offline/cota ao salvar horários, mantido local e no servidor:", e);
   }
 };
 
 export const subscribeToStoreHours = (callback: (settings: StoreHoursSettings) => void) => {
+  // Polling leve no backend do servidor para sincronizar status entre abas e dispositivos
+  const fetchServerHours = async () => {
+    try {
+      const res = await fetch('/api/store-hours');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.schedule) {
+          const merged = { ...DEFAULT_STORE_HOURS, ...data } as StoreHoursSettings;
+          setCachedStoreHours(merged);
+          callback(merged);
+        }
+      }
+    } catch (_) {}
+  };
+
+  fetchServerHours();
+  const intervalId = setInterval(fetchServerHours, 8000);
+
   const docRef = doc(db, "settings", "store_hours");
-  return onSnapshot(
+  const unsubscribe = onSnapshot(
     docRef,
     (snap) => {
       if (snap.exists()) {
@@ -503,6 +545,11 @@ export const subscribeToStoreHours = (callback: (settings: StoreHoursSettings) =
       callback(getCachedStoreHours());
     }
   );
+
+  return () => {
+    clearInterval(intervalId);
+    unsubscribe();
+  };
 };
 
 export const subscribeToProducts = (callback: (products: Product[]) => void) => {
@@ -1015,14 +1062,14 @@ export const DEFAULT_PAYMENT_SETTINGS: PaymentSettings = {
     key: '54999598389',
     merchantName: 'NICKEL LANCHES',
     merchantCity: 'PASSO FUNDO',
-    instructions: 'A chave PIX é o próprio número de WhatsApp da lanchonete: (54) 99959-8389. Faça o PIX no valor exato e anexe o comprovante na conversa para agilizar a preparação!'
+    instructions: 'A chave PIX é o próprio número de WhatsApp da lanchonete: (54) 99959-8389.'
   },
   cardOnline: {
     enabled: true,
     paymentLinkUrl: '',
     acceptCredit: true,
     acceptDebit: true,
-    instructions: 'Pague online com Cartão de Crédito ou Débito com segurança. O valor cai direto na conta da lanchonete.',
+    instructions: 'Pagamento rápido e seguro com Cartão de Crédito ou Débito.',
     customNote: 'Aceitamos as principais bandeiras: Visa, Mastercard, Elo e Hipercard.'
   },
   bankAccount: {

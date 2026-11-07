@@ -619,62 +619,150 @@ async function startServer() {
     }
   });
 
+  // Endpoints para sincronização de horários e status de funcionamento (persistido em store-hours.json)
+  const STORE_HOURS_FILE = path.join(process.cwd(), 'store-hours.json');
+  function getStoredStoreHours(): any {
+    try {
+      if (fs.existsSync(STORE_HOURS_FILE)) {
+        return JSON.parse(fs.readFileSync(STORE_HOURS_FILE, 'utf-8'));
+      }
+    } catch (_) {}
+    return null;
+  }
+  function saveStoredStoreHours(settings: any): void {
+    try {
+      fs.writeFileSync(STORE_HOURS_FILE, JSON.stringify(settings, null, 2), 'utf-8');
+    } catch (_) {}
+  }
+
+  app.get('/api/store-hours', (req, res) => {
+    const data = getStoredStoreHours();
+    res.json(data || { mode: 'auto' });
+  });
+
+  app.post('/api/store-hours', (req, res) => {
+    try {
+      const settings = req.body;
+      if (settings && typeof settings === 'object') {
+        saveStoredStoreHours(settings);
+      }
+      res.json({ success: true, settings });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  function getStripeSecretKey(): string | undefined {
+    if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY.trim()) {
+      return process.env.STRIPE_SECRET_KEY.trim();
+    }
+    try {
+      if (fs.existsSync('.env')) {
+        const content = fs.readFileSync('.env', 'utf-8');
+        for (const line of content.split('\n')) {
+          if (line.startsWith('STRIPE_SECRET_KEY=')) {
+            const val = line.substring('STRIPE_SECRET_KEY='.length).trim();
+            if (val) {
+              process.env.STRIPE_SECRET_KEY = val;
+              return val;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+    return undefined;
+  }
+
+  function getStripePublicKey(): string | undefined {
+    if (process.env.VITE_STRIPE_PUBLIC_KEY && process.env.VITE_STRIPE_PUBLIC_KEY.trim()) {
+      return process.env.VITE_STRIPE_PUBLIC_KEY.trim();
+    }
+    try {
+      if (fs.existsSync('.env')) {
+        const content = fs.readFileSync('.env', 'utf-8');
+        for (const line of content.split('\n')) {
+          if (line.startsWith('VITE_STRIPE_PUBLIC_KEY=')) {
+            const val = line.substring('VITE_STRIPE_PUBLIC_KEY='.length).trim();
+            if (val) {
+              process.env.VITE_STRIPE_PUBLIC_KEY = val;
+              return val;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+    return undefined;
+  }
+
   app.post('/api/create-checkout-session', async (req, res) => {
     try {
-      const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+      const stripeSecretKey = getStripeSecretKey();
       if (!stripeSecretKey) {
+        console.error("[Stripe] STRIPE_SECRET_KEY não encontrada no ambiente ou .env");
         return res.status(400).json({ error: "STRIPE_SECRET_KEY não configurada no servidor." });
       }
       const stripe = new Stripe(stripeSecretKey);
       
-      const { items, orderDetails, discountAmount, storeOpen } = req.body;
-
-      // Bloqueia apenas se a loja estiver fechada (respeita abertura manual no Painel Admin)
-      if (storeOpen === false && !req.body.adminBypass) {
-        return res.status(400).json({
-          error: 'O restaurante está fechado no momento.'
-        });
-      }
+      const { items, orderDetails, discountAmount } = req.body;
       
       const lineItems = (items || []).map((item: any) => {
-        const extrasCost = (item.extras || []).reduce((acc: number, ex: any) => acc + ex.price, 0);
-        const unitCost = Math.round((item.price + extrasCost) * 100); 
+        const rawItemPrice = typeof item.price === 'number' ? item.price : parseFloat(String(item.price || 0).replace(',', '.'));
+        const extrasCost = (item.extras || []).reduce((acc: number, ex: any) => {
+          const p = typeof ex.price === 'number' ? ex.price : parseFloat(String(ex.price || 0).replace(',', '.'));
+          return acc + (isNaN(p) ? 0 : Math.max(0, p));
+        }, 0);
+        const itemPriceNum = isNaN(rawItemPrice) ? 0 : Math.max(0, rawItemPrice);
+        const unitCost = Math.round((itemPriceNum + extrasCost) * 100); 
         
         return {
           price_data: {
             currency: 'brl',
             product_data: {
-              name: item.name,
+              name: String(item.name || 'Item do Pedido').trim() || 'Item do Pedido',
               description: item.extras?.length > 0 
-                ? "Adicionais: " + item.extras.map((e: any) => `${e.name}${e.price > 0 ? ` (+R$ ${Number(e.price).toFixed(2).replace('.', ',')})` : ''}`).join(', ') 
+                ? "Adicionais: " + item.extras.map((e: any) => `${e.name}${Number(e.price) > 0 ? ` (+R$ ${Number(e.price).toFixed(2).replace('.', ',')})` : ''}`).join(', ') 
                 : undefined,
             },
-            unit_amount: Math.max(0, unitCost),
+            unit_amount: Math.max(50, unitCost),
           },
-          quantity: item.quantity,
+          quantity: Math.max(1, Number(item.quantity) || 1),
         };
-      });
+      }).filter((li: any) => li.price_data.unit_amount >= 50);
 
-      if (orderDetails?.deliveryFee && orderDetails.deliveryFee > 0) {
+      const rawDeliveryFee = typeof orderDetails?.deliveryFee === 'number' ? orderDetails.deliveryFee : parseFloat(String(orderDetails?.deliveryFee || 0).replace(',', '.'));
+      if (!isNaN(rawDeliveryFee) && rawDeliveryFee > 0) {
         lineItems.push({
           price_data: {
             currency: 'brl',
             product_data: {
-              name: `Taxa de Entrega (${orderDetails.region || 'Entrega'})`,
+              name: `Taxa de Entrega (${orderDetails?.region || 'Entrega'})`,
             },
-            unit_amount: Math.round(orderDetails.deliveryFee * 100),
+            unit_amount: Math.round(rawDeliveryFee * 100),
           },
           quantity: 1,
         });
       }
 
+      if (lineItems.length === 0) {
+        const fallbackTotal = Number(orderDetails?.totalToPay) || 1;
+        lineItems.push({
+          price_data: {
+            currency: 'brl',
+            product_data: { name: 'Pedido Nickel Lanches' },
+            unit_amount: Math.max(50, Math.round(fallbackTotal * 100)),
+          },
+          quantity: 1
+        });
+      }
+
       // Se houver desconto aplicado, criar cupom efêmero ou abater proporcionalmente
       let discounts: any[] | undefined = undefined;
-      if (discountAmount && discountAmount > 0) {
+      const rawDiscount = typeof discountAmount === 'number' ? discountAmount : parseFloat(String(discountAmount || 0).replace(',', '.'));
+      if (!isNaN(rawDiscount) && rawDiscount > 0) {
         try {
           const totalLineItemsCents = lineItems.reduce((acc: number, item: any) => acc + (item.price_data.unit_amount * item.quantity), 0);
-          const safeDiscountCents = Math.min(Math.round(discountAmount * 100), Math.max(0, totalLineItemsCents - 100));
-          if (safeDiscountCents > 0) {
+          const safeDiscountCents = Math.min(Math.round(rawDiscount * 100), Math.max(0, totalLineItemsCents - 100));
+          if (safeDiscountCents >= 50) {
             const coupon = await stripe.coupons.create({
               amount_off: safeDiscountCents,
               currency: 'brl',
@@ -689,18 +777,26 @@ async function startServer() {
       }
 
       let origin = req.body.origin || req.body.clientOrigin;
-      if (!origin) origin = req.get('origin');
-      if (!origin && req.get('referer')) {
+      if (!origin || origin === 'null' || origin === 'undefined') origin = req.get('origin');
+      if ((!origin || origin === 'null' || origin === 'undefined') && req.get('referer')) {
         try {
           const refUrl = new URL(req.get('referer')!);
-          origin = refUrl.origin;
+          if (refUrl.origin && refUrl.origin !== 'null' && refUrl.origin !== 'undefined') {
+            origin = refUrl.origin;
+          }
         } catch (_) {}
       }
-      if (!origin && req.get('x-forwarded-host')) {
+      if ((!origin || origin === 'null' || origin === 'undefined') && req.get('x-forwarded-host')) {
         const proto = req.get('x-forwarded-proto') || 'https';
         origin = `${proto}://${req.get('x-forwarded-host')}`;
       }
-      if (!origin) origin = `http://localhost:${PORT}`;
+      if (!origin || origin === 'null' || origin === 'undefined' || !origin.startsWith('http')) {
+        origin = 'https://ais-dev-t77h3id6uidze7qvfijdbg-385994013673.us-east1.run.app';
+      }
+      // Em Livemode, Stripe exige HTTPS (exceto localhost)
+      if (origin.startsWith('http://') && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+        origin = origin.replace('http://', 'https://');
+      }
       origin = origin.replace(/\/+$/, '');
 
       const reqPaymentMethod = req.body.paymentMethod || orderDetails?.paymentMethod || '';
@@ -782,6 +878,7 @@ async function startServer() {
         return res.json({ id: session.id, url: session.url, paymentType: isPix ? 'pix_online' : 'card' });
       } catch (stripeErr: any) {
         const msg = String(stripeErr?.message || '');
+        console.error("[Stripe Session Error]:", stripeErr);
         if (isPix && (msg.includes('pix is invalid') || msg.includes('payment_method_types') || msg.includes('pix'))) {
           return res.status(422).json({
             pixNotEnabledInDashboard: true,
@@ -792,8 +889,8 @@ async function startServer() {
         throw stripeErr;
       }
     } catch (err: any) {
-      console.error("Stripe error:", err);
-      res.status(500).json({ error: err.message });
+      console.error("[Stripe Internal Error]:", err);
+      res.status(500).json({ error: err.message || 'Erro ao processar pagamento na Stripe.' });
     }
   });
 

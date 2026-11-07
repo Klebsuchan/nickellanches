@@ -64,13 +64,7 @@ export const getCachedStoreHours = (): StoreHoursSettings => {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed && Array.isArray(parsed.schedule) && parsed.schedule.length === 7) {
-          // Se for cache legado onde mode era 'open' por padrão ou com horários antigos, mescla com DEFAULT
-          const hasOldHours = parsed.schedule.some((d: any) => d.closeTime === '23:45' || d.closeTime === '23:59');
-          if (hasOldHours || (parsed.mode === 'open' && !parsed.updatedAtMs)) {
-            memoryStoreHours = { ...DEFAULT_STORE_HOURS, ...parsed, mode: 'auto' };
-          } else {
-            memoryStoreHours = { ...DEFAULT_STORE_HOURS, ...parsed };
-          }
+          memoryStoreHours = { ...DEFAULT_STORE_HOURS, ...parsed };
           return memoryStoreHours!;
         }
       }
