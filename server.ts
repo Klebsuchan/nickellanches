@@ -414,9 +414,9 @@ async function startServer() {
     return null;
   }
 
-  // Reconciliador automático em segundo plano: verifica sessões Stripe pendentes a cada 4s e dá baixa sozinho
+  // Reconciliador automático em segundo plano: verifica sessões e PaymentIntents Stripe pendentes a cada 4s e dá baixa sozinho
   setInterval(async () => {
-    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+    const stripeSecretKey = getStripeSecretKey();
     if (!stripeSecretKey) return;
     try {
       const currentOrders = getStoredOrders();
@@ -428,19 +428,26 @@ async function startServer() {
       const stripe = new Stripe(stripeSecretKey);
       for (const ord of pendingStripeOrders.slice(0, 10)) {
         try {
-          const session = await stripe.checkout.sessions.retrieve(ord.stripeSessionId, {
-            expand: ['payment_intent.payment_method']
-          });
-          if (session.payment_status === 'paid') {
-            const isPix = session.metadata?.paymentType === 'pix_online' ||
-              (session.payment_method_types && session.payment_method_types.includes('pix'));
-            const isDebit = session.metadata?.paymentType === 'debito_online';
-            const label = isPix
-              ? 'PIX Online (Aprovado Automaticamente via Stripe)'
-              : isDebit
-              ? 'Cartão de DÉBITO Online (Aprovado via Stripe)'
-              : 'Cartão de CRÉDITO Online (Aprovado via Stripe)';
-            markOrderPaidByStripe(session.id, session.metadata, label);
+          if (String(ord.stripeSessionId).startsWith('pi_')) {
+            const pi = await stripe.paymentIntents.retrieve(ord.stripeSessionId);
+            if (pi.status === 'succeeded') {
+              markOrderPaidByStripe(pi.id, pi.metadata, 'PIX Online (Aprovado Automaticamente via Stripe)');
+            }
+          } else {
+            const session = await stripe.checkout.sessions.retrieve(ord.stripeSessionId, {
+              expand: ['payment_intent.payment_method']
+            });
+            if (session.payment_status === 'paid') {
+              const isPix = session.metadata?.paymentType === 'pix_online' ||
+                (session.payment_method_types && session.payment_method_types.includes('pix'));
+              const isDebit = session.metadata?.paymentType === 'debito_online';
+              const label = isPix
+                ? 'PIX Online (Aprovado Automaticamente via Stripe)'
+                : isDebit
+                ? 'Cartão de DÉBITO Online (Aprovado via Stripe)'
+                : 'Cartão de CRÉDITO Online (Aprovado via Stripe)';
+              markOrderPaidByStripe(session.id, session.metadata, label);
+            }
           }
         } catch (_) {}
       }
@@ -862,8 +869,71 @@ async function startServer() {
         reqPaymentMethod.toLowerCase().includes('debito')
       );
 
+      const metadataObj: Record<string, string> = {
+        whatsapp: String(orderDetails?.whatsapp || ''),
+        name: String(orderDetails?.name || ''),
+        address: String(orderDetails?.address || ''),
+        region: String(orderDetails?.region || ''),
+        orderNumber: orderDetails?.orderNumber ? String(orderDetails.orderNumber) : '',
+        orderId: String(orderDetails?.orderId || ''),
+        receiptAuthCode: String(orderDetails?.receiptAuthCode || ''),
+        paymentType: isPix ? 'pix_online' : isDebit ? 'debito_online' : 'credito_online',
+        total: orderDetails?.totalToPay ? String(orderDetails.totalToPay) : ''
+      };
+
+      // Venda Direta PIX via Stripe PaymentIntent confirmado na hora (gera QR Code e Copia e Cola oficiais da Stripe imediatamente)
+      if (isPix) {
+        const totalLineItemsCents = lineItems.reduce(
+          (acc: number, item: any) => acc + item.price_data.unit_amount * item.quantity,
+          0
+        );
+        const discountCents = !isNaN(rawDiscount) && rawDiscount > 0 ? Math.round(rawDiscount * 100) : 0;
+        const finalAmountCents = Math.max(50, totalLineItemsCents - discountCents);
+
+        const pi = await stripe.paymentIntents.create({
+          amount: finalAmountCents,
+          currency: 'brl',
+          payment_method_types: ['pix'],
+          payment_method_data: {
+            type: 'pix'
+          },
+          payment_method_options: {
+            pix: {
+              expires_after_seconds: 1800
+            }
+          },
+          confirm: true,
+          description: `Pedido #${orderDetails?.orderNumber || ''} - Nickel Lanches`,
+          metadata: metadataObj
+        });
+
+        const qrObj = (pi.next_action as any)?.pix_display_qr_code;
+
+        if (orderDetails?.receiptAuthCode || orderDetails?.orderId) {
+          const currentOrders = getStoredOrders();
+          const idx = currentOrders.findIndex(o =>
+            (orderDetails.orderId && o.id === orderDetails.orderId) ||
+            (orderDetails.receiptAuthCode && o.receiptAuthCode === orderDetails.receiptAuthCode)
+          );
+          if (idx >= 0) {
+            currentOrders[idx].stripeSessionId = pi.id;
+            saveStoredOrders(currentOrders);
+          }
+        }
+
+        return res.json({
+          id: pi.id,
+          url: qrObj?.hosted_instructions_url || '',
+          pixQrCodePng: qrObj?.image_url_png || '',
+          pixQrCodeSvg: qrObj?.image_url_svg || '',
+          pixCopyPaste: qrObj?.data || '',
+          expiresAt: qrObj?.expires_at || 0,
+          paymentType: 'pix_online'
+        });
+      }
+
       const sessionParams: Stripe.Checkout.SessionCreateParams = {
-        payment_method_types: isPix ? ['pix'] : ['card'],
+        payment_method_types: ['card'],
         line_items: lineItems,
         discounts: discounts,
         mode: 'payment',
@@ -873,25 +943,17 @@ async function startServer() {
           metadata: {
             receiptAuthCode: orderDetails?.receiptAuthCode || '',
             orderId: orderDetails?.orderId || '',
-            paymentType: isPix ? 'pix_online' : isDebit ? 'debito_online' : 'credito_online'
+            paymentType: isDebit ? 'debito_online' : 'credito_online'
           }
         },
-        payment_method_options: isPix
-          ? {
-              pix: {
-                expires_after_seconds: 1800
-              }
-            }
-          : {
-              card: {
-                request_three_d_secure: isDebit ? 'any' : 'automatic'
-              }
-            },
+        payment_method_options: {
+          card: {
+            request_three_d_secure: isDebit ? 'any' : 'automatic'
+          }
+        },
         custom_text: {
           submit: {
-            message: isPix
-              ? 'Escaneie o QR Code ou utilize o código PIX Copia e Cola na próxima tela para concluir seu pedido.'
-              : isDebit 
+            message: isDebit 
               ? 'Pagamento via Cartão de Débito.' 
               : 'Pagamento via Cartão de Crédito.'
           }
@@ -900,55 +962,31 @@ async function startServer() {
         cancel_url: `${origin}/?payment=canceled`,
         customer_email: (orderDetails?.email && typeof orderDetails.email === 'string' && orderDetails.email.includes('@')) ? orderDetails.email : undefined,
         phone_number_collection: { enabled: true },
-        metadata: {
-          whatsapp: orderDetails?.whatsapp || '',
-          name: orderDetails?.name || '',
-          address: orderDetails?.address || '',
-          region: orderDetails?.region || '',
-          orderNumber: orderDetails?.orderNumber ? String(orderDetails.orderNumber) : '',
-          orderId: orderDetails?.orderId || '',
-          receiptAuthCode: orderDetails?.receiptAuthCode || '',
-          paymentType: isPix ? 'pix_online' : isDebit ? 'debito_online' : 'credito_online',
-          total: orderDetails?.totalToPay ? String(orderDetails.totalToPay) : ''
-        }
+        metadata: metadataObj
       };
 
-      try {
-        const session = await stripe.checkout.sessions.create(sessionParams);
+      const session = await stripe.checkout.sessions.create(sessionParams);
 
-        // Vincula o stripeSessionId ao pedido armazenado para que o reconciliador em segundo plano dê baixa automática
-        if (orderDetails?.receiptAuthCode || orderDetails?.orderId) {
-          const currentOrders = getStoredOrders();
-          const idx = currentOrders.findIndex(o =>
-            (orderDetails.orderId && o.id === orderDetails.orderId) ||
-            (orderDetails.receiptAuthCode && o.receiptAuthCode === orderDetails.receiptAuthCode)
-          );
-          if (idx >= 0) {
-            currentOrders[idx].stripeSessionId = session.id;
-            saveStoredOrders(currentOrders);
-          }
+      if (orderDetails?.receiptAuthCode || orderDetails?.orderId) {
+        const currentOrders = getStoredOrders();
+        const idx = currentOrders.findIndex(o =>
+          (orderDetails.orderId && o.id === orderDetails.orderId) ||
+          (orderDetails.receiptAuthCode && o.receiptAuthCode === orderDetails.receiptAuthCode)
+        );
+        if (idx >= 0) {
+          currentOrders[idx].stripeSessionId = session.id;
+          saveStoredOrders(currentOrders);
         }
-
-        return res.json({ id: session.id, url: session.url, paymentType: isPix ? 'pix_online' : 'card' });
-      } catch (stripeErr: any) {
-        const msg = String(stripeErr?.message || '');
-        console.error("[Stripe Session Error]:", stripeErr);
-        if (isPix && (msg.includes('pix is invalid') || msg.includes('payment_method_types') || msg.includes('pix'))) {
-          return res.status(422).json({
-            pixNotEnabledInDashboard: true,
-            activationUrl: 'https://dashboard.stripe.com/settings/payment_methods',
-            error: 'Para usar o PIX Automático pela Stripe, falta apenas clicar em "Ativar" ao lado de "Pix" no seu Painel da Stripe (Configurações > Formas de pagamento).'
-          });
-        }
-        throw stripeErr;
       }
+
+      return res.json({ id: session.id, url: session.url, paymentType: 'card' });
     } catch (err: any) {
       console.error("[Stripe Internal Error]:", err);
       res.status(500).json({ error: err.message || 'Erro ao processar pagamento na Stripe.' });
     }
   });
 
-  // Rota para conferir status da sessão Stripe e obter o tipo exato de cobrança efetuada (PIX, débito ou crédito)
+  // Rota para conferir status da sessão ou PaymentIntent Stripe e obter o tipo exato de cobrança efetuada (PIX, débito ou crédito)
   app.get('/api/checkout-session/:id', async (req, res) => {
     try {
       const stripeSecretKey = getStripeSecretKey();
@@ -956,7 +994,26 @@ async function startServer() {
         return res.status(400).json({ error: "STRIPE_SECRET_KEY não configurada." });
       }
       const stripe = new Stripe(stripeSecretKey);
-      const session = await stripe.checkout.sessions.retrieve(req.params.id, {
+      const targetId = req.params.id;
+
+      if (targetId.startsWith('pi_')) {
+        const pi = await stripe.paymentIntents.retrieve(targetId);
+        const isPaid = pi.status === 'succeeded';
+        const realMethodLabel = 'PIX Online (Aprovado Automaticamente via Stripe)';
+        if (isPaid) {
+          markOrderPaidByStripe(pi.id, pi.metadata, realMethodLabel);
+        }
+        return res.json({
+          id: pi.id,
+          status: pi.status,
+          payment_status: isPaid ? 'paid' : 'unpaid',
+          usedPix: true,
+          realMethodLabel,
+          metadata: pi.metadata
+        });
+      }
+
+      const session = await stripe.checkout.sessions.retrieve(targetId, {
         expand: ['payment_intent.payment_method']
       });
 

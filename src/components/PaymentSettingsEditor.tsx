@@ -308,21 +308,23 @@ export default function PaymentSettingsEditor({ initialSettings }: PaymentSettin
 
       <form onSubmit={handleSave} className="space-y-6">
         
-        {/* 1. SEÇÃO PIX DINÂMICO (VALOR EXATO NA CONTA DO PROPRIETÁRIO) */}
-        <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-6">
+        {/* 1. SEÇÃO PIX VENDA DIRETA (STRIPE OFICIAL - IGUAL AOS CARTÕES) */}
+        <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-stone-200 gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-green-100 text-green-700 flex items-center justify-center font-bold">
+              <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
                 <QrCode size={26} />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-black text-lg text-stone-900 uppercase">PIX Imediato (QR Code & Copia e Cola)</h3>
-                  <span className="bg-green-100 text-green-800 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
-                    Cai na Hora
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-black text-lg text-stone-900 uppercase">Venda Direta PIX (Stripe Oficial)</h3>
+                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase">
+                    100% Produção • Baixa Automática
                   </span>
                 </div>
-                <p className="text-xs text-stone-500 font-medium">O cliente paga no app do banco e cai direto na sua conta bancária</p>
+                <p className="text-xs text-stone-500 font-medium">
+                  Funciona exatamente igual aos cartões: gera o QR Code e PIX Copia e Cola oficiais da Stripe na hora e aprova o pedido sozinho assim que pago.
+                </p>
               </div>
             </div>
 
@@ -338,202 +340,37 @@ export default function PaymentSettingsEditor({ initialSettings }: PaymentSettin
                   })} 
                   className="sr-only peer" 
                 />
-                <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
               </label>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-            <div>
-              <label className="text-xs font-bold text-stone-700 uppercase block mb-1.5">
-                Tipo de Chave PIX
-              </label>
-              <select
-                value={settings.pix.keyType}
-                onChange={e => setSettings({
-                  ...settings,
-                  pix: { ...settings.pix, keyType: e.target.value as any }
-                })}
-                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-semibold text-stone-900 outline-none focus:border-[#F28B20] text-sm"
-              >
-                <option value="telefone">Telefone / Celular</option>
-                <option value="cpf">CPF</option>
-                <option value="cnpj">CNPJ</option>
-                <option value="email">E-mail</option>
-                <option value="aleatoria">Chave Aleatória (EVP)</option>
-              </select>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold text-stone-700 uppercase">
-                  Chave PIX da sua Conta Bancária *
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setSettings({
-                    ...settings,
-                    pix: {
-                      ...settings.pix,
-                      keyType: 'telefone',
-                      key: '54999598389',
-                      instructions: 'A chave PIX é o próprio número de WhatsApp da lanchonete: (54) 99959-8389. Ao fazer o PIX, anexe o comprovante na conversa do WhatsApp para agilizar a preparação!'
-                    }
-                  })}
-                  className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all cursor-pointer"
-                >
-                  <span>📱</span>
-                  <span>Usar WhatsApp da Loja (54) 99959-8389</span>
-                </button>
-              </div>
-              <input
-                type="text"
-                value={settings.pix.key}
-                onChange={e => setSettings({
-                  ...settings,
-                  pix: { ...settings.pix, key: e.target.value }
-                })}
-                placeholder="Ex: 54999598389 ou nickellanches@gmail.com"
-                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-semibold text-stone-900 outline-none focus:border-[#F28B20] text-sm"
-              />
-              <span className="text-[11px] text-stone-500 mt-1 block">
-                Para telefone/WhatsApp, o QR Code e o Copia e Cola são gerados automaticamente com o código internacional do Banco Central (+55).
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-emerald-50/70 border border-emerald-200 p-4 rounded-xl space-y-1">
+              <span className="text-xs font-black uppercase text-emerald-900 flex items-center gap-1.5">
+                <CheckCircle2 size={15} className="text-emerald-600" /> Cobrança Direta na Stripe
               </span>
+              <p className="text-[11px] text-stone-600 leading-relaxed">
+                Ao clicar em pagar com PIX, o sistema cria uma venda direta real na Stripe no valor exato do pedido + entrega.
+              </p>
             </div>
 
-            <div>
-              <label className="text-xs font-bold text-stone-700 uppercase block mb-1.5">
-                Nome do Titular da Conta *
-              </label>
-              <input
-                type="text"
-                value={settings.pix.merchantName}
-                onChange={e => setSettings({
-                  ...settings,
-                  pix: { ...settings.pix, merchantName: e.target.value }
-                })}
-                placeholder="Ex: NICKEL LANCHES ou BRAIAN CAMARGO"
-                maxLength={25}
-                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-semibold text-stone-900 outline-none focus:border-[#F28B20] text-sm"
-              />
-              <span className="text-[11px] text-stone-400 mt-1 block">
-                Nome que aparece no comprovante (máx. 25 letras).
+            <div className="bg-emerald-50/70 border border-emerald-200 p-4 rounded-xl space-y-1">
+              <span className="text-xs font-black uppercase text-emerald-900 flex items-center gap-1.5">
+                <QrCode size={15} className="text-emerald-600" /> QR Code &amp; Copia e Cola na Tela
               </span>
+              <p className="text-[11px] text-stone-600 leading-relaxed">
+                O cliente copia o código PIX ou escaneia o QR Code oficial da Stripe diretamente na tela, sem burocracia.
+              </p>
             </div>
 
-            <div>
-              <label className="text-xs font-bold text-stone-700 uppercase block mb-1.5">
-                Cidade da Conta Bancária *
-              </label>
-              <input
-                type="text"
-                value={settings.pix.merchantCity}
-                onChange={e => setSettings({
-                  ...settings,
-                  pix: { ...settings.pix, merchantCity: e.target.value }
-                })}
-                placeholder="Ex: PASSO FUNDO"
-                maxLength={15}
-                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-semibold text-stone-900 outline-none focus:border-[#F28B20] text-sm"
-              />
-              <span className="text-[11px] text-stone-400 mt-1 block">
-                Cidade da agência/conta (máx. 15 letras).
+            <div className="bg-emerald-50/70 border border-emerald-200 p-4 rounded-xl space-y-1">
+              <span className="text-xs font-black uppercase text-emerald-900 flex items-center gap-1.5">
+                <ShieldCheck size={15} className="text-emerald-600" /> Confirmação Igual aos Cartões
               </span>
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="text-xs font-bold text-stone-700 uppercase block mb-1.5">
-                Instruções do PIX para o Cliente
-              </label>
-              <input
-                type="text"
-                value={settings.pix.instructions}
-                onChange={e => setSettings({
-                  ...settings,
-                  pix: { ...settings.pix, instructions: e.target.value }
-                })}
-                placeholder="Ex: Pague o valor exato no app do banco e envie o comprovante pelo WhatsApp."
-                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 font-medium text-stone-900 outline-none focus:border-[#F28B20] text-sm"
-              />
-            </div>
-          </div>
-
-          {/* SIMULADOR EM TEMPO REAL DO PIX */}
-          <div className="bg-stone-50 p-5 rounded-2xl border border-stone-200 mt-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-4 border-b border-stone-200 gap-2">
-              <div className="flex items-center gap-2">
-                <Eye size={18} className="text-[#F28B20]" />
-                <h4 className="font-bold text-sm text-stone-900 uppercase">
-                  Simulação do PIX (Como o cliente verá no pedido)
-                </h4>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-stone-600">Simular valor: R$</span>
-                <input
-                  type="text"
-                  value={testAmount}
-                  onChange={e => setTestAmount(e.target.value)}
-                  className="w-20 bg-white border border-stone-300 rounded-lg px-2 py-1 text-xs font-bold text-center text-stone-900 outline-none focus:border-[#F28B20]"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-              {/* QR Code */}
-              <div className="flex flex-col items-center justify-center p-4 bg-white rounded-xl border border-stone-200 shadow-sm text-center">
-                {previewQrCodeUrl ? (
-                  <img 
-                    src={previewQrCodeUrl} 
-                    alt="Preview QR Code PIX" 
-                    className="w-44 h-44 object-contain rounded-lg"
-                  />
-                ) : (
-                  <div className="w-44 h-44 flex items-center justify-center bg-stone-100 rounded-lg text-stone-400 text-xs text-center p-4">
-                    Preencha a chave PIX acima para gerar o QR Code
-                  </div>
-                )}
-                <span className="mt-2 text-xs font-bold text-green-700 bg-green-50 px-2.5 py-1 rounded-full flex items-center gap-1">
-                  <CheckCircle2 size={13} />
-                  <span>Valor: R$ {parseFloat(testAmount.replace(',', '.') || '0').toFixed(2).replace('.', ',')}</span>
-                </span>
-              </div>
-
-              {/* Payload Copia e Cola */}
-              <div className="md:col-span-2 space-y-3">
-                <div>
-                  <label className="text-xs font-bold text-stone-700 uppercase block mb-1">
-                    Código Copia e Cola Gerado (BRCode Oficial com o Valor Exato)
-                  </label>
-                  <div className="flex gap-2">
-                    <input 
-                      type="text" 
-                      readOnly 
-                      value={previewPixPayload} 
-                      placeholder="Código PIX copia e cola oficial aparecerá aqui..."
-                      className="flex-1 bg-white border border-stone-200 rounded-xl px-3 py-2.5 text-xs font-mono text-stone-600 select-all outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleCopyPayload(previewPixPayload)}
-                      disabled={!previewPixPayload}
-                      className="bg-stone-900 hover:bg-stone-800 disabled:bg-stone-200 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer"
-                    >
-                      {copiedPayload ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-                      <span>{copiedPayload ? 'Copiado!' : 'Testar Cópia'}</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="p-3.5 bg-orange-50/70 border border-orange-200 rounded-xl text-xs text-stone-700 space-y-1">
-                  <span className="font-bold text-stone-900 block flex items-center gap-1">
-                    <ShieldCheck size={14} className="text-[#F28B20]" />
-                    Como funciona no checkout do cliente?
-                  </span>
-                  <p className="text-[11px] leading-relaxed text-stone-600">
-                    O sistema soma automaticamente os lanches + adicionais + frete da região. O QR Code e o Copia e Cola são gerados no valor exato, sem que o cliente precise digitar o valor manualmente no app do banco. O dinheiro cai instantaneamente na sua conta cadastrada na chave PIX!
-                  </p>
-                </div>
-              </div>
+              <p className="text-[11px] text-stone-600 leading-relaxed">
+                Assim que o cliente paga no banco, a Stripe confirma o pagamento automaticamente e o pedido já entra como PAGO no painel e na impressora.
+              </p>
             </div>
           </div>
         </div>

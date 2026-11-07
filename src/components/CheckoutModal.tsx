@@ -79,13 +79,16 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
   const [copiedKey, setCopiedKey] = useState(false);
   const [copiedBankField, setCopiedBankField] = useState<string | null>(null);
 
-  // Sessão ativa do Stripe Checkout para evitar tela em branco por bloqueio de iframe
+  // Sessão ativa do Stripe (PIX Venda Direta com QR Code/Copia e Cola instantâneo ou Cartão)
   const [stripeSession, setStripeSession] = useState<{
     id: string;
     url: string;
     orderPayload: any;
     isPix?: boolean;
+    pixQrCodePng?: string;
+    pixCopyPaste?: string;
   } | null>(null);
+  const [copiedStripePix, setCopiedStripePix] = useState(false);
   const [isCheckingStripePayment, setIsCheckingStripePayment] = useState(false);
   const [stripePixActive, setStripePixActive] = useState<boolean>(true);
   const [stripePixNeedsActivation, setStripePixNeedsActivation] = useState<boolean>(false);
@@ -502,33 +505,38 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
           origin: safeOrigin
         });
 
-        if (data && data.url) {
+        if (data && (data.url || data.pixCopyPaste)) {
           setIsProcessingStripe(false);
           setStripePixActive(true);
           setStripePixNeedsActivation(false);
           const isPixSession = paymentMethod === 'pix_online';
           setStripeSession({
             id: data.id,
-            url: data.url,
+            url: data.url || '',
             orderPayload,
-            isPix: isPixSession
+            isPix: isPixSession,
+            pixQrCodePng: data.pixQrCodePng,
+            pixCopyPaste: data.pixCopyPaste
           });
 
-          try {
-            if (window.top === window.self) {
-              window.location.href = data.url;
-            } else {
+          // Para Cartão de Crédito/Débito, abre a página oficial do cartão na Stripe imediatamente
+          if (!isPixSession && data.url) {
+            try {
+              if (window.top === window.self) {
+                window.location.href = data.url;
+              } else {
+                window.open(data.url, '_blank', 'noopener,noreferrer');
+              }
+            } catch (_) {
               window.open(data.url, '_blank', 'noopener,noreferrer');
             }
-          } catch (_) {
-            window.open(data.url, '_blank', 'noopener,noreferrer');
           }
 
           addToast({
-            title: isPixSession ? 'Pagamento PIX Aberto' : 'Página de Pagamento Aberta',
+            title: isPixSession ? 'PIX Gerado!' : 'Página de Pagamento Aberta',
             message: isPixSession
-              ? 'Escaneie o QR Code ou copie o código PIX para concluir seu pedido.'
-              : 'Conclua o pagamento na página aberta para confirmar seu pedido.',
+              ? 'Copie o código PIX Copia e Cola ou escaneie o QR Code para pagar.'
+              : 'Conclua o pagamento no cartão para confirmar seu pedido.',
             type: 'info'
           });
           return;
@@ -618,29 +626,89 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
             transition={{ type: "spring", bounce: 0, duration: 0.4 }}
             className="w-full h-full md:h-auto md:max-h-[92vh] md:max-w-2xl bg-[#FCF9F5] md:rounded-3xl shadow-2xl relative z-10 flex flex-col overflow-hidden"
           >
-            {/* Stripe Checkout Safe Window */}
+            {/* Tela de Pagamento Direto Stripe (PIX Instantâneo com QR Code/Copia e Cola ou Cartão) */}
             {stripeSession && (
-              <div className="absolute inset-0 bg-[#FCF9F5] z-50 flex flex-col p-6 overflow-y-auto animate-in fade-in duration-200">
-                <div className="max-w-md mx-auto my-auto w-full space-y-5 text-center">
-                  <div className={`w-16 h-16 ${stripeSession.isPix ? 'bg-emerald-100 text-emerald-700' : 'bg-purple-100 text-purple-700'} rounded-2xl flex items-center justify-center mx-auto shadow-sm`}>
-                    {stripeSession.isPix ? <QrCode size={32} /> : <CreditCard size={32} />}
-                  </div>
-
+              <div className="absolute inset-0 bg-[#FCF9F5] z-50 flex flex-col p-5 md:p-6 overflow-y-auto animate-in fade-in duration-200">
+                <div className="max-w-md mx-auto my-auto w-full space-y-4 text-center">
                   <div>
-                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${stripeSession.isPix ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'} text-xs font-black uppercase mb-2`}>
+                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${stripeSession.isPix ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'} text-xs font-black uppercase mb-1.5`}>
                       <Lock size={12} /> Pagamento Seguro
                     </div>
-                    <h3 className="text-2xl font-black uppercase text-stone-900 tracking-tight">
-                      {stripeSession.isPix ? 'Pagamento via PIX' : 'Pagamento no Cartão'}
+                    <h3 className="text-xl md:text-2xl font-black uppercase text-stone-900 tracking-tight">
+                      {stripeSession.isPix ? 'Pague com PIX' : 'Pagamento no Cartão'}
                     </h3>
-                    <p className="text-xs text-stone-600 mt-1 max-w-sm mx-auto">
+                    <p className="text-xs text-stone-600 mt-0.5 max-w-sm mx-auto">
                       {stripeSession.isPix
-                        ? 'Escaneie o QR Code ou utilize o PIX Copia e Cola na página de pagamento para concluir seu pedido.'
+                        ? 'Copie o código PIX Copia e Cola abaixo ou escaneie o QR Code no aplicativo do seu banco.'
                         : 'Conclua o pagamento na página segura para confirmar seu pedido.'}
                     </p>
                   </div>
 
-                  <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm text-left space-y-2">
+                  {/* QR Code Oficial da Stripe quando for PIX */}
+                  {stripeSession.isPix && stripeSession.pixQrCodePng && (
+                    <div className="bg-white p-4 rounded-2xl border-2 border-emerald-500/30 shadow-md inline-flex flex-col items-center mx-auto">
+                      <img
+                        src={stripeSession.pixQrCodePng}
+                        alt="QR Code PIX"
+                        className="w-44 h-44 md:w-48 md:h-48 object-contain rounded-lg"
+                      />
+                      <span className="text-[11px] font-bold text-emerald-700 mt-2">
+                        Escaneie com o app do seu banco
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Código PIX Copia e Cola Oficial da Stripe */}
+                  {stripeSession.isPix && stripeSession.pixCopyPaste && (
+                    <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-sm text-left space-y-2">
+                      <label className="text-[11px] font-black uppercase text-stone-700 block">
+                        PIX Copia e Cola:
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={stripeSession.pixCopyPaste}
+                          className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-xs font-mono text-stone-600 select-all outline-none"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (stripeSession.pixCopyPaste) {
+                            navigator.clipboard.writeText(stripeSession.pixCopyPaste);
+                            playSound('coin');
+                            setCopiedStripePix(true);
+                            addToast({
+                              title: 'Código PIX Copiado!',
+                              message: 'Abra o app do seu banco, escolha PIX Copia e Cola e conclua o pagamento.',
+                              type: 'success'
+                            });
+                            setTimeout(() => setCopiedStripePix(false), 3500);
+                          }
+                        }}
+                        className={`w-full py-3.5 px-4 rounded-xl font-black uppercase tracking-wider text-sm flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] cursor-pointer ${
+                          copiedStripePix
+                            ? 'bg-emerald-700 text-white'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        }`}
+                      >
+                        {copiedStripePix ? (
+                          <>
+                            <Check size={18} className="stroke-[3]" />
+                            <span>Código PIX Copiado!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={18} />
+                            <span>Copiar Código PIX (Copia e Cola)</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-sm text-left space-y-1.5">
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-stone-500 font-bold uppercase">
                         Total a Pagar:
@@ -653,22 +721,24 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                       <span className="text-stone-500 font-medium">Status:</span>
                       <span className="flex items-center gap-1.5 text-amber-600 font-bold text-[11px]">
                         <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-                        Aguardando confirmação do pagamento...
+                        Aguardando confirmação automática...
                       </span>
                     </div>
                   </div>
 
                   {/* Botões de Ação */}
-                  <div className="space-y-3 pt-2">
-                    <a
-                      href={stripeSession.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`w-full ${stripeSession.isPix ? 'bg-emerald-600 hover:bg-emerald-700 hover:shadow-emerald-500/25' : 'bg-purple-700 hover:bg-purple-800 hover:shadow-purple-500/25'} text-white font-black uppercase tracking-wider py-4 px-6 rounded-2xl shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-base cursor-pointer`}
-                    >
-                      <span>{stripeSession.isPix ? 'Abrir QR Code PIX' : 'Abrir Página de Pagamento'}</span>
-                      <ExternalLink size={18} />
-                    </a>
+                  <div className="space-y-2.5 pt-1">
+                    {!stripeSession.isPix && stripeSession.url && (
+                      <a
+                        href={stripeSession.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full bg-purple-700 hover:bg-purple-800 text-white font-black uppercase tracking-wider py-4 px-6 rounded-2xl shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-base cursor-pointer"
+                      >
+                        <span>Abrir Página de Pagamento</span>
+                        <ExternalLink size={18} />
+                      </a>
+                    )}
 
                     <button
                       type="button"

@@ -1,5 +1,5 @@
 // src/lib/stripeClientFallback.ts
-// Garante funcionamento 100% contínuo do Stripe Checkout (PIX e Cartão) em qualquer hospedagem (Vercel, Cloud Run, domínio próprio)
+// Garante funcionamento 100% contínuo do Stripe (PIX Venda Direta com QR Code/Copia e Cola instantâneo + Cartão) em qualquer hospedagem (Vercel, Cloud Run, domínio próprio)
 
 const SK_FALLBACK_CHUNKS = [
   'N3dzNjNaYzUwMGln',
@@ -67,17 +67,20 @@ export interface CreateCheckoutPayload {
   origin?: string;
 }
 
-/**
- * Cria sessão do Stripe Checkout tentando:
- * 1) Rota Serverless local (/api/create-checkout-session na Vercel ou servidor local)
- * 2) Backend Cloud Run redundante
- * 3) Comunicação HTTPS direta com api.stripe.com (zero dependência de backend intermediário)
- */
-export async function createCheckoutSessionResilient(payload: CreateCheckoutPayload): Promise<{
+export interface StripeCheckoutResponse {
   id: string;
   url: string;
   paymentType: string;
-}> {
+  pixQrCodePng?: string;
+  pixQrCodeSvg?: string;
+  pixCopyPaste?: string;
+  expiresAt?: number;
+}
+
+/**
+ * Cria cobrança de Venda Direta na Stripe (PIX instantâneo com QR Code/Copia e Cola oficial da Stripe ou Checkout de Cartão)
+ */
+export async function createCheckoutSessionResilient(payload: CreateCheckoutPayload): Promise<StripeCheckoutResponse> {
   // 1. Tenta rota local /api/create-checkout-session (Vercel Serverless ou Express local)
   try {
     const res = await fetch('/api/create-checkout-session', {
@@ -88,15 +91,13 @@ export async function createCheckoutSessionResilient(payload: CreateCheckoutPayl
     const contentType = res.headers.get('content-type') || '';
     if (res.ok && contentType.includes('application/json')) {
       const data = await res.json();
-      if (data && data.url && data.id) {
+      if (data && data.id && (data.url || data.pixCopyPaste)) {
         return data;
       }
     }
-  } catch (_) {
-    // Prossegue para o fallback automático
-  }
+  } catch (_) {}
 
-  // 2. Tenta backends Cloud Run se não estivermos neles
+  // 2. Tenta backends Cloud Run redundantes
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
   for (const base of CLOUD_RUN_BACKENDS) {
     if (currentOrigin && currentOrigin.includes(base)) continue;
@@ -109,22 +110,18 @@ export async function createCheckoutSessionResilient(payload: CreateCheckoutPayl
       const contentType = res.headers.get('content-type') || '';
       if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
-        if (data && data.url && data.id) {
+        if (data && data.id && (data.url || data.pixCopyPaste)) {
           return data;
         }
       }
     } catch (_) {}
   }
 
-  // 3. Fallback direto para a API oficial da Stripe (api.stripe.com suporta CORS direto via HTTPS)
+  // 3. Comunicação HTTPS direta com a API oficial da Stripe (api.stripe.com)
   return await createStripeSessionDirectAPI(payload);
 }
 
-async function createStripeSessionDirectAPI(payload: CreateCheckoutPayload): Promise<{
-  id: string;
-  url: string;
-  paymentType: string;
-}> {
+async function createStripeSessionDirectAPI(payload: CreateCheckoutPayload): Promise<StripeCheckoutResponse> {
   const secretKey = getClientStripeSecretFallback();
   if (!secretKey) {
     throw new Error('Chave da Stripe não configurada.');
@@ -139,7 +136,6 @@ async function createStripeSessionDirectAPI(payload: CreateCheckoutPayload): Pro
     reqPaymentMethod.toLowerCase().includes('debito')
   );
 
-  // Calcula itens
   const lineItems: Array<{ name: string; description?: string; unit_amount: number; quantity: number }> = [];
 
   for (const item of items || []) {
@@ -183,12 +179,63 @@ async function createStripeSessionDirectAPI(payload: CreateCheckoutPayload): Pro
     });
   }
 
-  // Se houver desconto, aplica cupom dinâmico ou abate proporcionalmente
-  let couponId: string | undefined = undefined;
   const rawDiscount = typeof discountAmount === 'number' ? discountAmount : parseFloat(String(discountAmount || 0).replace(',', '.'));
-  if (!isNaN(rawDiscount) && rawDiscount > 0) {
-    const totalLineItemsCents = lineItems.reduce((acc, item) => acc + item.unit_amount * item.quantity, 0);
-    const safeDiscountCents = Math.min(Math.round(rawDiscount * 100), Math.max(0, totalLineItemsCents - 100));
+  const totalLineItemsCents = lineItems.reduce((acc, item) => acc + item.unit_amount * item.quantity, 0);
+  const discountCents = !isNaN(rawDiscount) && rawDiscount > 0 ? Math.round(rawDiscount * 100) : 0;
+  const finalAmountCents = Math.max(50, totalLineItemsCents - discountCents);
+
+  const paymentType = isPix ? 'pix_online' : isDebit ? 'debito_online' : 'credito_online';
+
+  // Venda Direta PIX via Stripe PaymentIntent confirmado na hora (gera QR Code e Copia e Cola oficiais da Stripe imediatamente)
+  if (isPix) {
+    const piParams = new URLSearchParams();
+    piParams.append('amount', String(finalAmountCents));
+    piParams.append('currency', 'brl');
+    piParams.append('payment_method_types[0]', 'pix');
+    piParams.append('payment_method_data[type]', 'pix');
+    piParams.append('payment_method_options[pix][expires_after_seconds]', '1800');
+    piParams.append('confirm', 'true');
+    piParams.append('description', `Pedido #${orderDetails?.orderNumber || ''} - Nickel Lanches`);
+    piParams.append('metadata[whatsapp]', String(orderDetails?.whatsapp || ''));
+    piParams.append('metadata[name]', String(orderDetails?.name || ''));
+    piParams.append('metadata[address]', String(orderDetails?.address || ''));
+    piParams.append('metadata[region]', String(orderDetails?.region || ''));
+    piParams.append('metadata[orderNumber]', orderDetails?.orderNumber ? String(orderDetails.orderNumber) : '');
+    piParams.append('metadata[orderId]', String(orderDetails?.orderId || ''));
+    piParams.append('metadata[receiptAuthCode]', String(orderDetails?.receiptAuthCode || ''));
+    piParams.append('metadata[paymentType]', 'pix_online');
+    piParams.append('metadata[total]', orderDetails?.totalToPay ? String(orderDetails.totalToPay) : '');
+
+    const piRes = await fetch('https://api.stripe.com/v1/payment_intents', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${secretKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: piParams.toString()
+    });
+
+    const piData = await piRes.json();
+    if (!piRes.ok || !piData?.id) {
+      throw new Error(piData?.error?.message || 'Erro ao gerar PIX direto na Stripe.');
+    }
+
+    const qrObj = piData.next_action?.pix_display_qr_code;
+    return {
+      id: piData.id,
+      url: qrObj?.hosted_instructions_url || '',
+      pixQrCodePng: qrObj?.image_url_png || '',
+      pixQrCodeSvg: qrObj?.image_url_svg || '',
+      pixCopyPaste: qrObj?.data || '',
+      expiresAt: qrObj?.expires_at || 0,
+      paymentType: 'pix_online'
+    };
+  }
+
+  // Para Cartão de Crédito ou Débito: cria sessão Stripe Checkout
+  let couponId: string | undefined = undefined;
+  if (discountCents >= 50) {
+    const safeDiscountCents = Math.min(discountCents, Math.max(0, totalLineItemsCents - 100));
     if (safeDiscountCents >= 50) {
       try {
         const couponParams = new URLSearchParams();
@@ -224,24 +271,14 @@ async function createStripeSessionDirectAPI(payload: CreateCheckoutPayload): Pro
   const params = new URLSearchParams();
   params.append('mode', 'payment');
   params.append('locale', 'pt-BR');
-  params.append('payment_method_types[0]', isPix ? 'pix' : 'card');
+  params.append('payment_method_types[0]', 'card');
   params.append('phone_number_collection[enabled]', 'true');
   params.append('success_url', `${origin}/?payment=success&session_id={CHECKOUT_SESSION_ID}`);
   params.append('cancel_url', `${origin}/?payment=canceled`);
-
-  if (isPix) {
-    params.append('payment_method_options[pix][expires_after_seconds]', '1800');
-  } else {
-    params.append('payment_method_options[card][request_three_d_secure]', isDebit ? 'any' : 'automatic');
-  }
-
+  params.append('payment_method_options[card][request_three_d_secure]', isDebit ? 'any' : 'automatic');
   params.append(
     'custom_text[submit][message]',
-    isPix
-      ? 'Escaneie o QR Code ou utilize o código PIX Copia e Cola na próxima tela para concluir seu pedido.'
-      : isDebit
-      ? 'Pagamento via Cartão de Débito.'
-      : 'Pagamento via Cartão de Crédito.'
+    isDebit ? 'Pagamento via Cartão de Débito.' : 'Pagamento via Cartão de Crédito.'
   );
 
   lineItems.forEach((li, index) => {
@@ -258,7 +295,6 @@ async function createStripeSessionDirectAPI(payload: CreateCheckoutPayload): Pro
     params.append('discounts[0][coupon]', couponId);
   }
 
-  const paymentType = isPix ? 'pix_online' : isDebit ? 'debito_online' : 'credito_online';
   params.append('payment_intent_data[description]', `Pedido #${orderDetails?.orderNumber || ''} - Nickel Lanches`);
   params.append('payment_intent_data[metadata][receiptAuthCode]', String(orderDetails?.receiptAuthCode || ''));
   params.append('payment_intent_data[metadata][orderId]', String(orderDetails?.orderId || ''));
@@ -295,12 +331,12 @@ async function createStripeSessionDirectAPI(payload: CreateCheckoutPayload): Pro
   return {
     id: session.id,
     url: session.url,
-    paymentType: isPix ? 'pix_online' : 'card'
+    paymentType: 'card'
   };
 }
 
 /**
- * Consulta o status de uma sessão do Stripe com fallback direto para api.stripe.com
+ * Consulta o status de uma cobrança Stripe (PaymentIntent pi_... de PIX ou Session cs_... de Cartão)
  */
 export async function retrieveCheckoutSessionResilient(sessionId: string): Promise<any> {
   // 1. Tenta rota local /api/checkout-session/:id
@@ -328,6 +364,23 @@ export async function retrieveCheckoutSessionResilient(sessionId: string): Promi
   // 3. Consulta direta na API da Stripe
   const secretKey = getClientStripeSecretFallback();
   if (!secretKey) throw new Error('Chave Stripe não disponível');
+
+  if (sessionId.startsWith('pi_')) {
+    const piRes = await fetch(`https://api.stripe.com/v1/payment_intents/${encodeURIComponent(sessionId)}`, {
+      headers: { 'Authorization': `Bearer ${secretKey}` }
+    });
+    if (!piRes.ok) throw new Error('Erro ao consultar PIX na Stripe');
+    const pi = await piRes.json();
+    const isPaid = pi.status === 'succeeded';
+    return {
+      id: pi.id,
+      status: pi.status,
+      payment_status: isPaid ? 'paid' : 'unpaid',
+      usedPix: true,
+      realMethodLabel: 'PIX Online (Aprovado Automaticamente via Stripe)',
+      metadata: pi.metadata
+    };
+  }
 
   const stripeRes = await fetch(
     `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}?expand[]=payment_intent.payment_method`,
