@@ -704,8 +704,9 @@ async function startServer() {
   }
 
   function getStripeSecretKey(): string | undefined {
-    if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY.trim()) {
-      return process.env.STRIPE_SECRET_KEY.trim();
+    const envVal = process.env.STRIPE_SECRET_KEY?.trim();
+    if (envVal && (envVal.startsWith('sk_live_') || envVal.startsWith('rk_live_'))) {
+      return envVal;
     }
     try {
       if (fs.existsSync('.env')) {
@@ -713,7 +714,7 @@ async function startServer() {
         for (const line of content.split('\n')) {
           if (line.startsWith('STRIPE_SECRET_KEY=')) {
             const val = line.substring('STRIPE_SECRET_KEY='.length).trim();
-            if (val) {
+            if (val && (val.startsWith('sk_live_') || val.startsWith('rk_live_'))) {
               process.env.STRIPE_SECRET_KEY = val;
               return val;
             }
@@ -730,8 +731,9 @@ async function startServer() {
   }
 
   function getStripePublicKey(): string | undefined {
-    if (process.env.VITE_STRIPE_PUBLIC_KEY && process.env.VITE_STRIPE_PUBLIC_KEY.trim()) {
-      return process.env.VITE_STRIPE_PUBLIC_KEY.trim();
+    const envVal = process.env.VITE_STRIPE_PUBLIC_KEY?.trim();
+    if (envVal && envVal.startsWith('pk_live_')) {
+      return envVal;
     }
     try {
       if (fs.existsSync('.env')) {
@@ -739,7 +741,7 @@ async function startServer() {
         for (const line of content.split('\n')) {
           if (line.startsWith('VITE_STRIPE_PUBLIC_KEY=')) {
             const val = line.substring('VITE_STRIPE_PUBLIC_KEY='.length).trim();
-            if (val) {
+            if (val && val.startsWith('pk_live_')) {
               process.env.VITE_STRIPE_PUBLIC_KEY = val;
               return val;
             }

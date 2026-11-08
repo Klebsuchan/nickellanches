@@ -37,8 +37,11 @@ function decodeKey(chunks: string[]): string {
 export function getClientStripeSecretFallback(): string {
   try {
     const custom = localStorage.getItem('nickel_stripe_secret_override');
-    if (custom && (custom.startsWith('sk_') || custom.startsWith('rk_'))) {
+    if (custom && (custom.startsWith('sk_live_') || custom.startsWith('rk_live_'))) {
       return custom.trim();
+    }
+    if (custom && (custom.startsWith('sk_test_') || custom.startsWith('rk_test_'))) {
+      localStorage.removeItem('nickel_stripe_secret_override');
     }
   } catch (_) {}
   return decodeKey(SK_FALLBACK_CHUNKS);
@@ -47,8 +50,11 @@ export function getClientStripeSecretFallback(): string {
 export function getClientStripePublicFallback(): string {
   try {
     const custom = localStorage.getItem('nickel_stripe_public_override');
-    if (custom && custom.startsWith('pk_')) {
+    if (custom && custom.startsWith('pk_live_')) {
       return custom.trim();
+    }
+    if (custom && custom.startsWith('pk_test_')) {
+      localStorage.removeItem('nickel_stripe_public_override');
     }
   } catch (_) {}
   return decodeKey(PK_FALLBACK_CHUNKS);
@@ -77,10 +83,27 @@ export interface StripeCheckoutResponse {
   expiresAt?: number;
 }
 
+function isValidLiveStripeResponse(data: any, isPix: boolean): boolean {
+  if (!data || !data.id) return false;
+  if (String(data.id).startsWith('cs_test_')) return false;
+  if (isPix) {
+    const code = String(data.pixCopyPaste || '').trim();
+    // Código oficial EMVCo do Banco Central do Brasil começa obrigatoriamente com "000201" e nunca contém "developer.stripe.com"
+    if (!code.startsWith('000201') || code.includes('developer.stripe.com')) {
+      return false;
+    }
+    return true;
+  }
+  return Boolean(data.url);
+}
+
 /**
  * Cria cobrança de Venda Direta na Stripe (PIX instantâneo com QR Code/Copia e Cola oficial da Stripe ou Checkout de Cartão)
  */
 export async function createCheckoutSessionResilient(payload: CreateCheckoutPayload): Promise<StripeCheckoutResponse> {
+  const reqPaymentMethod = payload.paymentMethod || payload.orderDetails?.paymentMethod || '';
+  const isPix = reqPaymentMethod === 'pix_online' || reqPaymentMethod.toLowerCase().includes('pix');
+
   // 1. Tenta rota local /api/create-checkout-session (Vercel Serverless ou Express local)
   try {
     const res = await fetch('/api/create-checkout-session', {
@@ -91,7 +114,7 @@ export async function createCheckoutSessionResilient(payload: CreateCheckoutPayl
     const contentType = res.headers.get('content-type') || '';
     if (res.ok && contentType.includes('application/json')) {
       const data = await res.json();
-      if (data && data.id && (data.url || data.pixCopyPaste)) {
+      if (isValidLiveStripeResponse(data, isPix)) {
         return data;
       }
     }
@@ -110,14 +133,14 @@ export async function createCheckoutSessionResilient(payload: CreateCheckoutPayl
       const contentType = res.headers.get('content-type') || '';
       if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
-        if (data && data.id && (data.url || data.pixCopyPaste)) {
+        if (isValidLiveStripeResponse(data, isPix)) {
           return data;
         }
       }
     } catch (_) {}
   }
 
-  // 3. Comunicação HTTPS direta com a API oficial da Stripe (api.stripe.com)
+  // 3. Comunicação HTTPS direta com a API oficial da Stripe (api.stripe.com) em modo Produção Live
   return await createStripeSessionDirectAPI(payload);
 }
 

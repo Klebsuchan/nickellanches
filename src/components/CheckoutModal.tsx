@@ -668,15 +668,31 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                         <input
                           type="text"
                           readOnly
-                          value={stripeSession.pixCopyPaste}
+                          value={stripeSession.pixCopyPaste.trim()}
+                          onClick={(e) => (e.target as HTMLInputElement).select()}
                           className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-xs font-mono text-stone-600 select-all outline-none"
                         />
                       </div>
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={async () => {
                           if (stripeSession.pixCopyPaste) {
-                            navigator.clipboard.writeText(stripeSession.pixCopyPaste);
+                            const cleanPixCode = stripeSession.pixCopyPaste.trim();
+                            try {
+                              await navigator.clipboard.writeText(cleanPixCode);
+                            } catch (_) {
+                              const textArea = document.createElement('textarea');
+                              textArea.value = cleanPixCode;
+                              textArea.style.position = 'fixed';
+                              textArea.style.left = '-9999px';
+                              document.body.appendChild(textArea);
+                              textArea.focus();
+                              textArea.select();
+                              try {
+                                document.execCommand('copy');
+                              } catch (_) {}
+                              document.body.removeChild(textArea);
+                            }
                             playSound('coin');
                             setCopiedStripePix(true);
                             addToast({
