@@ -55,6 +55,20 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const addressContainerRef = useRef<HTMLDivElement>(null);
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const POPULAR_BAIRROS = [
+    'Centro',
+    'Petrópolis',
+    'Boqueirão',
+    'São Cristóvão',
+    'Vila Rodrigues',
+    'Vera Cruz',
+    'Lucas Araújo',
+    'Vila Luíza',
+    'Nenê Graeff',
+    'Planaltina'
+  ];
   
   // Métodos de pagamento
   const [paymentMethod, setPaymentMethod] = useState<
@@ -94,6 +108,17 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
   const [stripePixNeedsActivation, setStripePixNeedsActivation] = useState<boolean>(false);
 
   const { addToast } = useToast();
+
+  // Trava a rolagem da página de fundo no celular enquanto o modal estiver aberto para evitar conflito de toque
+  useEffect(() => {
+    if (isOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isOpen]);
 
   // Garante que uma nova sessão seja sempre gerada ao abrir o checkout e verifica status do PIX na Stripe
   useEffect(() => {
@@ -624,7 +649,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: '100%' }}
             transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-            className="w-full h-full md:h-auto md:max-h-[92vh] md:max-w-2xl bg-[#FCF9F5] md:rounded-3xl shadow-2xl relative z-10 flex flex-col overflow-hidden"
+            className="w-full h-[100dvh] md:h-auto md:max-h-[92vh] md:max-w-2xl bg-[#FCF9F5] md:rounded-3xl shadow-2xl relative z-10 flex flex-col overflow-hidden"
           >
             {/* Tela de Pagamento Direto Stripe (PIX Instantâneo com QR Code/Copia e Cola ou Cartão) */}
             {stripeSession && (
@@ -811,8 +836,15 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
             )}
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
-              <form id="checkout-form" onSubmit={handleWhatsAppCheckout} noValidate className="space-y-5">
+            <div 
+              ref={scrollContainerRef}
+              onScroll={() => {
+                if (showSuggestions) setShowSuggestions(false);
+              }}
+              className="flex-1 overflow-y-auto overscroll-contain p-4 md:p-6 custom-scrollbar touch-pan-y"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
+              <form id="checkout-form" onSubmit={handleWhatsAppCheckout} noValidate className="space-y-5 pb-36 md:pb-6">
                 
                 {/* Resumo do Pedido com Valores */}
                 <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm">
@@ -895,6 +927,12 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                       required
                       value={name} 
                       onChange={e => { setName(e.target.value); if (errorMessage) setErrorMessage(''); }} 
+                      onFocus={e => {
+                        if (errorMessage) setErrorMessage('');
+                        setTimeout(() => {
+                          e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 120);
+                      }}
                       placeholder="Ex: João da Silva" 
                       className={`w-full bg-stone-50 border rounded-xl px-4 py-3 font-medium outline-none focus:border-[#F28B20] focus:ring-4 focus:ring-orange-100 transition-all text-stone-900 text-sm ${
                         submittedAttempt && name.trim().length < 2 ? 'border-red-500 ring-2 ring-red-100 bg-red-50/30' : 'border-stone-200'
@@ -912,6 +950,12 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                       required
                       value={whatsapp} 
                       onChange={e => { setWhatsapp(e.target.value); if (errorMessage) setErrorMessage(''); }} 
+                      onFocus={e => {
+                        if (errorMessage) setErrorMessage('');
+                        setTimeout(() => {
+                          e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 120);
+                      }}
                       placeholder="Ex: (54) 99999-9999" 
                       className={`w-full bg-stone-50 border rounded-xl px-4 py-3 font-medium outline-none focus:border-[#F28B20] focus:ring-4 focus:ring-orange-100 transition-all text-stone-900 text-sm ${
                         submittedAttempt && whatsapp.replace(/\D/g, '').length < 8 ? 'border-red-500 ring-2 ring-red-100 bg-red-50/30' : 'border-stone-200'
@@ -936,8 +980,12 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                         required
                         value={address} 
                         onChange={e => handleAddressChange(e.target.value)} 
-                        onFocus={() => {
+                        onFocus={e => {
+                          if (errorMessage) setErrorMessage('');
                           if (addressSuggestions.length > 0) setShowSuggestions(true);
+                          setTimeout(() => {
+                            e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          }, 120);
                         }}
                         placeholder="Digite o nome da rua (Ex: Rua Uruguai, Av. Brasil, Lava Pés...)" 
                         className={`w-full bg-stone-50 border rounded-xl px-4 py-3 pl-10 font-medium outline-none focus:border-[#F28B20] focus:ring-4 focus:ring-orange-100 transition-all text-stone-900 text-sm ${
@@ -964,7 +1012,13 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                         >
                           <div className="px-3 py-1.5 bg-stone-50 text-[10px] font-bold text-stone-500 uppercase tracking-wider flex items-center justify-between">
                             <span>Ruas encontradas em Passo Fundo</span>
-                            <span className="text-stone-400 font-normal">Toque para selecionar</span>
+                            <button
+                              type="button"
+                              onClick={() => setShowSuggestions(false)}
+                              className="text-stone-500 hover:text-stone-800 text-[11px] font-bold underline"
+                            >
+                              Fechar
+                            </button>
                           </div>
                           {addressSuggestions.map((sug, idx) => (
                             <button
@@ -1003,6 +1057,12 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                         required
                         value={addressNumber} 
                         onChange={e => { setAddressNumber(e.target.value); if (errorMessage) setErrorMessage(''); }} 
+                        onFocus={e => {
+                          if (errorMessage) setErrorMessage('');
+                          setTimeout(() => {
+                            e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          }, 120);
+                        }}
                         placeholder="Ex: 500, Apto 302" 
                         className={`w-full bg-stone-50 border rounded-xl px-4 py-3 font-medium outline-none focus:border-[#F28B20] focus:ring-4 focus:ring-orange-100 transition-all text-stone-900 text-sm ${
                           submittedAttempt && !addressNumber.trim() ? 'border-red-500 ring-2 ring-red-100 bg-red-50/30' : 'border-stone-200'
@@ -1020,11 +1080,43 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                         required
                         value={neighborhood} 
                         onChange={e => { setNeighborhood(e.target.value); if (errorMessage) setErrorMessage(''); }} 
+                        onFocus={e => {
+                          if (errorMessage) setErrorMessage('');
+                          setTimeout(() => {
+                            e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          }, 120);
+                        }}
                         placeholder="Ex: Centro, Petrópolis, Boqueirão..." 
                         className={`w-full bg-stone-50 border rounded-xl px-4 py-3 font-medium outline-none focus:border-[#F28B20] focus:ring-4 focus:ring-orange-100 transition-all text-stone-900 text-sm ${
                           submittedAttempt && neighborhood.trim().length < 2 ? 'border-red-500 ring-2 ring-red-100 bg-red-50/30' : 'border-stone-200'
                         }`}
                       />
+                      {/* Bairros Populares de Passo Fundo em 1 Toque */}
+                      <div className="mt-2">
+                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-1">
+                          Bairros em Passo Fundo (toque para escolher):
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {POPULAR_BAIRROS.map((b) => (
+                            <button
+                              key={b}
+                              type="button"
+                              onClick={() => {
+                                setNeighborhood(b);
+                                if (errorMessage) setErrorMessage('');
+                                playSound('coin');
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                neighborhood.toLowerCase().trim() === b.toLowerCase().trim()
+                                  ? 'bg-[#F28B20] text-white shadow-xs scale-105'
+                                  : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
+                              }`}
+                            >
+                              {b}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -1197,9 +1289,22 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
             </div>
 
             {/* Rodapé com botão de confirmação */}
-            <div className="p-4 md:p-6 border-t border-stone-200 bg-white shrink-0">
-              {/* Resumo Financeiro Final (Frete calculado automaticamente pelo endereço) */}
-              <div className="bg-stone-50 border border-stone-200/90 rounded-2xl p-3.5 space-y-1.5 text-xs mb-3 shadow-2xs">
+            <div className="p-3.5 md:p-6 border-t border-stone-200 bg-white/98 backdrop-blur-md shrink-0 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+              {/* Barra Compacta de Total Exclusiva para Mobile (libera até 150px de tela para rolagem fluida) */}
+              <div className="flex md:hidden items-center justify-between pb-2 mb-2 border-b border-stone-100">
+                <div>
+                  <span className="text-[10px] font-black text-stone-400 uppercase tracking-wider block">Total com Entrega:</span>
+                  <span className="text-[11px] font-bold text-stone-600">
+                    {deliveryFee > 0 ? `Taxa Entrega: + R$ ${deliveryFee.toFixed(2).replace('.', ',')}` : '🚚 Frete Grátis'}
+                  </span>
+                </div>
+                <span className="text-xl font-black text-[#F28B20]">
+                  R$ {currentFinalTotal.toFixed(2).replace('.', ',')}
+                </span>
+              </div>
+
+              {/* Resumo Financeiro Detalhado para Telas Maiores (Desktop/Tablet) */}
+              <div className="hidden md:block bg-stone-50 border border-stone-200/90 rounded-2xl p-3.5 space-y-1.5 text-xs mb-3 shadow-2xs">
                 <div className="flex justify-between text-stone-600 font-semibold">
                   <span>Subtotal dos itens:</span>
                   <span>R$ {(total + discountAmount).toFixed(2).replace('.', ',')}</span>
@@ -1238,13 +1343,13 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, discountAm
                   <button 
                     type="button"
                     disabled
-                    className="w-full bg-stone-300 border-2 border-stone-400 text-stone-600 rounded-2xl py-4 px-4 font-black uppercase tracking-wider cursor-not-allowed flex items-center justify-center gap-3 text-base shadow-none opacity-90"
+                    className="w-full bg-stone-300 border-2 border-stone-400 text-stone-600 rounded-2xl py-3.5 md:py-4 px-4 font-black uppercase tracking-wider cursor-not-allowed flex items-center justify-center gap-3 text-sm md:text-base shadow-none opacity-90"
                   >
-                    <Lock size={22} className="shrink-0 text-stone-500" />
+                    <Lock size={20} className="shrink-0 text-stone-500" />
                     <span>{getStoreStatus().title}</span>
                   </button>
-                  <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
-                    <p className="text-xs text-red-700 font-bold">
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-2.5 text-center">
+                    <p className="text-[11px] md:text-xs text-red-700 font-bold">
                       🚫 {getStoreStatus().description}
                     </p>
                   </div>

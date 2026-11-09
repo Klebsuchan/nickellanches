@@ -219,38 +219,18 @@ export default function CartDrawer({
                     <button 
                       type="button"
                       disabled
-                      className="w-full py-3.5 bg-stone-300 border-2 border-stone-400 text-stone-600 font-display tracking-widest uppercase rounded-xl cursor-not-allowed flex items-center justify-center gap-2 text-sm opacity-90 shadow-none"
+                      className="w-full py-4 bg-stone-300 border-2 border-stone-400 text-stone-600 font-display tracking-widest uppercase rounded-xl cursor-not-allowed flex items-center justify-center gap-2 text-sm opacity-90 shadow-none"
                     >
                       <Lock size={16} /> Loja Fechada
                     </button>
-
-                    {/* Botão de teste mesmo com loja fechada */}
-                    <button 
-                      type="button"
-                      onClick={() => onCheckout(true)}
-                      className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-stone-950 font-black uppercase tracking-wider rounded-xl border-2 border-black shadow-[3px_3px_0px_#000] flex items-center justify-center gap-2 text-xs transition-all cursor-pointer"
-                    >
-                      <Sparkles size={16} className="fill-stone-950" />
-                      <span>🧪 Testar Pedido (Pular Pagamento)</span>
-                    </button>
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div>
                     <button 
                       onClick={() => onCheckout(false)}
                       className="w-full py-4 bg-yellow-400 border-2 border-black text-black font-display tracking-widest uppercase rounded-xl hover:bg-yellow-500 shadow-[4px_4px_0px_#000] hover:shadow-[6px_6px_0px_#000] hover:-translate-y-1 transition-all flex items-center justify-center gap-2 text-lg cursor-pointer"
                     >
                       Finalizar Pedido
-                    </button>
-
-                    {/* Botão de teste direto no carrinho */}
-                    <button 
-                      type="button"
-                      onClick={() => onCheckout(true)}
-                      className="w-full py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-black uppercase tracking-wider rounded-xl border border-emerald-300 flex items-center justify-center gap-2 text-xs transition-all cursor-pointer"
-                    >
-                      <Sparkles size={14} className="text-emerald-600" />
-                      <span>🧪 Modo Teste: Pular Pagamento & Imprimir</span>
                     </button>
                   </div>
                 )}
