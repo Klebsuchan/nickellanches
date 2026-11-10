@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manual Operacional Oficial • Ecossistema Nickel Lanches</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+    :root {
+      --primary: #4E2A84;
+      --accent: #F28B20;
+      --dark: #09090B;
+      --border: #E2E8F0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: #0F172A;
+      color: #F8FAFC;
+      padding: 25px 15px;
+    }
+    .toolbar {
+      max-width: 900px;
+      margin: 0 auto 24px auto;
+      background: #1E293B;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    .toolbar h1 {
+      font-size: 16px;
+      font-weight: 800;
+      color: #FACC15;
+    }
+    .toolbar p {
+      font-size: 12px;
+      color: #94A3B8;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 13px;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+    .btn-orange { background: #F28B20; color: #FFF; }
+    .btn-orange:hover { background: #D97706; transform: translateY(-1px); }
+    .btn-outline { background: #334155; color: #FFF; }
+    .btn-outline:hover { background: #475569; }
+    .pages-wrapper {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+    .page-card {
+      background: #FFF;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+      border: 1px solid #334155;
+    }
+    .page-card img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    @media print {
+      body { background: #FFF; padding: 0; }
+      .toolbar { display: none; }
+      .pages-wrapper { gap: 0; max-width: 100%; }
+      .page-card { border: none; box-shadow: none; border-radius: 0; page-break-after: always; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <div>
+      <h1>MANUAL OFICIAL DO SISTEMA • NICKEL LANCHES (9 PÁGINAS)</h1>
+      <p>Pré-visualização fiel de alta definição das 9 páginas do Manual Operacional</p>
+    </div>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+      <a href="/download/MANUAL_OPERACIONAL_NICKEL_LANCHES.pdf" class="btn btn-orange" download>
+        📥 Baixar PDF Oficial (2.3 MB)
+      </a>
+      <button onclick="window.print()" class="btn btn-outline">
+        🖨️ Imprimir Direto
+      </button>
+    </div>
+  </div>
+
+  <div class="pages-wrapper">
+    <div class="page-card"><img src="/docs/.preview/page_1.png" alt="Página 1 - Capa Oficial"></div>
+    <div class="page-card"><img src="/docs/.preview/page_2.png" alt="Página 2 - Cardápio Digital"></div>
+    <div class="page-card"><img src="/docs/.preview/page_3.png" alt="Página 3 - Checkout PIX Stripe"></div>
+    <div class="page-card"><img src="/docs/.preview/page_4.png" alt="Página 4 - Painel Administrativo"></div>
+    <div class="page-card"><img src="/docs/.preview/page_5.png" alt="Página 5 - Fluxo de Comandas"></div>
+    <div class="page-card"><img src="/docs/.preview/page_6.png" alt="Página 6 - Impressora Térmica e AutoPrint"></div>
+    <div class="page-card"><img src="/docs/.preview/page_7.png" alt="Página 7 - Gestão de Produtos e Pausar Item"></div>
+    <div class="page-card"><img src="/docs/.preview/page_8.png" alt="Página 8 - Horários, Cupons e Banners"></div>
+    <div class="page-card"><img src="/docs/.preview/page_9.png" alt="Página 9 - Histórico de Clientes e Solução de Dúvidas"></div>
+  </div>
+</body>
+</html>

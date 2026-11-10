@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dossiê Contratual & Técnico • Nickel Lanches</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+    :root {
+      --primary: #4E2A84;
+      --accent: #F28B20;
+      --dark: #1C1917;
+      --border: #E7E5E4;
+      --bg: #FAFAF9;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: #292524;
+      line-height: 1.6;
+      padding: 40px 20px;
+    }
+    .wrapper {
+      max-width: 950px;
+      margin: 0 auto;
+      background: #FFF;
+      border-radius: 24px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.06);
+      border: 1px solid var(--border);
+      padding: 50px 45px;
+    }
+    .nav-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+      padding-bottom: 25px;
+      margin-bottom: 35px;
+      border-bottom: 2px solid var(--border);
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 13.5px;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+    .btn-purple { background: var(--primary); color: #FFF; }
+    .btn-purple:hover { background: #3C1E69; transform: translateY(-1px); }
+    .btn-orange { background: var(--accent); color: #FFF; }
+    .btn-orange:hover { background: #D97706; transform: translateY(-1px); }
+    .btn-outline { background: #FFF; border: 1px solid var(--border); color: #44403C; }
+    .btn-outline:hover { background: #F5F5F4; }
+    
+    .tag {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--accent);
+    }
+    h1 { font-size: 32px; font-weight: 900; color: var(--primary); margin: 6px 0 10px 0; }
+    .subtitle { color: #78716C; font-size: 15px; margin-bottom: 30px; }
+    
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      margin-bottom: 40px;
+    }
+    .doc-card {
+      background: #F5F5F4;
+      border: 1px solid var(--border);
+      padding: 16px;
+      border-radius: 16px;
+      display: flex;
+      flex-col;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .doc-card h3 { font-size: 14px; font-weight: 800; color: var(--dark); }
+    .doc-card p { font-size: 12px; color: #57534E; }
+    
+    .doc-section {
+      margin-top: 50px;
+      padding-top: 40px;
+      border-top: 2px dashed var(--border);
+    }
+    .doc-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 800;
+      background: #EDE9FE;
+      color: var(--primary);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    h2 { font-size: 24px; font-weight: 900; color: var(--dark); margin-bottom: 15px; }
+    h3 { font-size: 17px; font-weight: 800; color: var(--primary); margin: 25px 0 10px 0; }
+    p { margin-bottom: 14px; font-size: 14.5px; }
+    ul { margin: 12px 0 20px 20px; font-size: 14px; }
+    li { margin-bottom: 8px; }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0 30px 0;
+      font-size: 13.5px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    th { background: var(--primary); color: #FFF; padding: 12px 14px; text-align: left; }
+    td { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+    tr:nth-child(even) { background: #FAFAF9; }
+    
+    .callout {
+      background: #FFF7ED;
+      border-left: 5px solid var(--accent);
+      padding: 18px 20px;
+      border-radius: 0 14px 14px 0;
+      margin: 20px 0 25px 0;
+      font-size: 13.5px;
+      color: #7C2D12;
+    }
+    .callout strong { color: #9A3412; display: block; margin-bottom: 4px; font-size: 14px; }
+    
+    .signatures {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      margin-top: 50px;
+      padding-top: 30px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+    .sign-line { border-top: 1px solid #78716C; margin-bottom: 8px; }
+    
+    @media print {
+      body { background: #FFF; padding: 0; }
+      .wrapper { border: none; box-shadow: none; padding: 10px; max-width: 100%; }
+      .nav-bar, .card-grid { display: none; }
+      .doc-section { page-break-before: always; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="wrapper">
+    <div class="nav-bar">
+      <div>
+        <span class="tag">Dossiê Técnico Contratual</span>
+        <div style="font-weight: 800; font-size: 15px; color: var(--dark);">Nickel Lanches • Passo Fundo / RS</div>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <a href="/docs/CONTRATO_NICKEL_LANCHES.docx" class="btn btn-orange" download>
+          ✍️ Baixar Contrato Word (.docx)
+        </a>
+        <a href="/docs/contrato.html" target="_blank" class="btn btn-purple">
+          📄 Abrir Contrato / Assinar
+        </a>
+        <a href="/docs/PACOTE_COMPLETO_CONTRATUAL_NICKEL_LANCHES.docx" class="btn btn-outline" download>
+          📦 Pacote Completo (.docx)
+        </a>
+        <button onclick="window.print()" class="btn btn-outline">
+          🖨️ Imprimir Tudo
+        </button>
+      </div>
+    </div>
+
+    <span class="tag">Contrato Fechado: 10x de R$ 300,00</span>
+    <h1>PACOTE DE DOCUMENTOS TÉCNICOS & CONTRATUAIS</h1>
+    <div class="subtitle">
+      Conjunto oficial: Contrato Formal de Prestação de Serviços & Cessão, Kickoff (Repactuação), PRD (Especificação do Produto), System Instructions (Manual) e DoD (Termo de Aceite).
+    </div>
+
+    <!-- Grade de Downloads Individuais em Word -->
+    <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+      <div class="doc-card" style="border: 2px solid var(--accent); background: #FFFBF5;">
+        <div>
+          <span style="font-size: 10px; font-weight: 800; background: var(--accent); color: #FFF; padding: 2px 6px; border-radius: 4px;">PARA ASSINAR</span>
+          <h3 style="margin-top: 4px; color: #9A3412;">Contrato Formal</h3>
+          <p>Entrega "as-is", 10x R$ 300, R$ 56 pós, novos orçamentos e SLA 21h.</p>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <a href="/docs/CONTRATO_NICKEL_LANCHES.docx" class="btn btn-orange" style="font-size: 12px; padding: 7px 10px; text-align: center; justify-content: center;" download>Baixar (.docx)</a>
+          <a href="/docs/contrato.html" target="_blank" class="btn btn-outline" style="font-size: 11.5px; padding: 6px 8px; text-align: center; justify-content: center;">Visualizar / PDF</a>
+        </div>
+      </div>
+      <div class="doc-card">
+        <div>
+          <h3>01. Kickoff</h3>
+          <p>Alinhamento de escopo, parcelas (10x R$ 300) e regras de suporte.</p>
+        </div>
+        <a href="/docs/01_KICKOFF_NICKEL_LANCHES.docx" class="btn btn-outline" download>Baixar Word (.docx)</a>
+      </div>
+      <div class="doc-card">
+        <div>
+          <h3>02. PRD</h3>
+          <p>Requisitos de produto, personas, arquitetura e 26 mil linhas.</p>
+        </div>
+        <a href="/docs/02_PRD_NICKEL_LANCHES.docx" class="btn btn-outline" download>Baixar Word (.docx)</a>
+      </div>
+      <div class="doc-card">
+        <div>
+          <h3>03. System Instructions</h3>
+          <p>Manual operacional diário para o Sérgio, caixa, cozinha e garçons.</p>
+        </div>
+        <a href="/docs/03_SYSTEM_INSTRUCTIONS_NICKEL_LANCHES.docx" class="btn btn-outline" download>Baixar Word (.docx)</a>
+      </div>
+      <div class="doc-card">
+        <div>
+          <h3>04. DoD (Aceite)</h3>
+          <p>Matriz de 15 testes de homologação e encerramento de desenvolvimento.</p>
+        </div>
+        <a href="/docs/04_DOD_NICKEL_LANCHES.docx" class="btn btn-outline" download>Baixar Word (.docx)</a>
+      </div>
+    </div>
+
+    <!-- DOCUMENTO 1: KICKOFF -->
+    <div class="doc-section" id="kickoff">
+      <span class="doc-badge">Documento 01 / 04</span>
+      <h2>KICKOFF & TERMO DE REPACTUAÇÃO DE ESCOPO</h2>
+      <div class="callout">
+        <strong>RESUMO DO ACORDO COMERCIAL FIRMADO</strong>
+        Formalização do saldo de desenvolvimento técnico do ecossistema Nickel Lanches (ERP, Stripe Live PIX, Impressão Térmica 1-bit, Kanban e Modo Garçom) no valor final acordado de <strong>10 parcelas mensais de R$ 300,00 (Trezentos Reais)</strong>.
+      </div>
+      <h3>1. Identificação das Partes</h3>
+      <ul>
+        <li><strong>Contratante / Proprietário:</strong> Sérgio Nickel Da Costa — Nickel Lanches (Passo Fundo - RS).</li>
+        <li><strong>Responsável Técnico / Engenheiro de Software:</strong> Braian Kleber Camargo.</li>
+      </ul>
+      <h3>2. Histórico da Evolução e Escopo Entregue</h3>
+      <p>O escopo original firmado no valor de R$ 750,00 contemplava apenas um cardápio digital básico conectado ao WhatsApp. Durante o ciclo de 3 meses, o sistema foi transformado em um ERP de alta performance:</p>
+      <ul>
+        <li><strong>Gateway Bancário Stripe Live:</strong> Baixa automática de PIX Banco Central (código oficial 000201...) em menos de 3 segundos, sem comprovante manual.</li>
+        <li><strong>Motor 1-Bit de Impressão Térmica:</strong> Impressão direta nas bobinas de 80mm e 58mm sem abrir caixas de diálogo no Windows.</li>
+        <li><strong>Painel Kanban em Tempo Real com Sirene:</strong> Linha de produção da chapa sincronizada via Firestore WebSockets.</li>
+        <li><strong>Módulo Garçom / Salão:</strong> Atendimento de mesas e balcão com vias dedicadas.</li>
+        <li><strong>Geolocalização Passo Fundo:</strong> Malha urbana completa e seleção rápida em 1 toque para bairros e Centro.</li>
+      </ul>
+      <h3>3. Condições Comerciais e Prazos</h3>
+      <table>
+        <thead><tr><th>Condição Acordada</th><th>Valor</th><th>Periodicidade / Vencimento</th></tr></thead>
+        <tbody>
+          <tr><td>Saldo de Engenharia ERP</td><td>10x de R$ 300,00 (Total R$ 3.000,00)</td><td>Mensal (data a combinar)</td></tr>
+          <tr><td>Suporte Operacional e Servidores</td><td>R$ 56,00 a R$ 150,00</td><td>Mensal recorrente</td></tr>
+          <tr><td>Novas Funcionalidades Simples</td><td>Até R$ 150,00 por funcionalidade simples</td><td>Sob demanda e aprovação prévia</td></tr>
+        </tbody>
+      </table>
+      <h3>4. Níveis de Serviço (SLA) & Horários de Atendimento</h3>
+      <ul>
+        <li><strong>Horário de Atendimento Comercial:</strong> Segunda a Sexta-feira, das 09:00 até às 21:00.</li>
+        <li><strong>Finais de Semana e Madrugadas:</strong> Operação 100% autônoma na nuvem, sem necessidade de intervenção manual.</li>
+      </ul>
+    </div>
+
+    <!-- DOCUMENTO 2: PRD -->
+    <div class="doc-section" id="prd">
+      <span class="doc-badge">Documento 02 / 04</span>
+      <h2>PRD — PRODUCT REQUIREMENTS DOCUMENT</h2>
+      <div class="callout">
+        <strong>VISÃO DO PRODUTO</strong>
+        Prover autonomia comercial total ao Nickel Lanches, eliminando comissões abusivas de intermediários (iFood, Keta, 99Food) através de uma esteira digital fluida de vendas, pagamentos e expedição na chapa.
+      </div>
+      <h3>Personas e Casos de Uso</h3>
+      <ul>
+        <li><strong>Cliente Delivery:</strong> Autoatendimento no smartphone com seleção de lanches, adicionais, endereço facilitado de Passo Fundo, pagamento PIX instantâneo e entretenimento com o mini-game retrô.</li>
+        <li><strong>Chapeiro / Cozinha:</strong> Visualiza pedidos no Kanban e recebe o papel térmico impresso em alto contraste.</li>
+        <li><strong>Garçom / Salão:</strong> Lança pedidos de salão rapidamente sem burocracia de login.</li>
+      </ul>
+      <h3>Módulos de Arquitetura Entregues</h3>
+      <table>
+        <thead><tr><th>Módulo</th><th>Tecnologia</th><th>Comportamento</th></tr></thead>
+        <tbody>
+          <tr><td>Checkout PIX & Cartão</td><td>Stripe API / React</td><td>Gera QR Code Banco Central e confirmação em 3 segundos.</td></tr>
+          <tr><td>Motor Térmico 1-Bit</td><td>Canvas 2D / ESC-POS</td><td>Gera comandos brutos GS v 0 sem borrar fontes térmicas.</td></tr>
+          <tr><td>Kanban Cozinha</td><td>Firestore WebSockets</td><td>Colunas dinâmicas (Recebido, Preparo, Pronto, Entregue) com alerta sonoro.</td></tr>
+          <tr><td>Modo Garçom</td><td>React Component</td><td>Vias separadas para copa e cozinha.</td></tr>
+          <tr><td>Search Console</td><td>Banco NoSQL</td><td>Gráficos de acessos diários únicos e fontes de tráfego.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- DOCUMENTO 3: SYSTEM INSTRUCTIONS -->
+    <div class="doc-section" id="instructions">
+      <span class="doc-badge">Documento 03 / 04</span>
+      <h2>SYSTEM INSTRUCTIONS — MANUAL OPERACIONAL</h2>
+      <div class="callout">
+        <strong>ROUTINA BÁSICA DO EXPEDIENTE</strong>
+        Basta ligar o PC da lanchonete, a impressora térmica e abrir o Painel Admin. Mantenha o volume alto para ouvir o alerta de novos pedidos. O sistema gerencia as vendas e as baixas automaticamente.
+      </div>
+      <h3>1. Horários Automáticos e Pausa Manual</h3>
+      <p>O delivery funciona automaticamente de terça a domingo das 18:30 às 22:30. Se precisar pausar a loja por alta demanda na chapa, basta clicar no botão <strong>"FECHAR LOJA"</strong> no menu lateral do Admin.</p>
+      <h3>2. Como Funciona a Baixa Automática do PIX</h3>
+      <p>O cliente paga no app do banco dele e a Stripe confirma o crédito diretamente. O pedido entra automaticamente na coluna "Recebido" com a tarja verde "PAGO". Nenhum atendente precisa pedir print de comprovante.</p>
+      <h3>3. Reimpressão de Vias de Comanda</h3>
+      <p>Caso o papel da impressora acabe, abra o card do pedido no Kanban e clique em "Imprimir Comanda" para gerar uma nova via física instantaneamente.</p>
+    </div>
+
+    <!-- DOCUMENTO 4: DOD -->
+    <div class="doc-section" id="dod">
+      <span class="doc-badge">Documento 04 / 04</span>
+      <h2>DEFINITION OF DONE (DoD) — TERMO DE HOMOLOGAÇÃO</h2>
+      <div class="callout">
+        <strong>CERTIFICAÇÃO DE CONCLUSÃO DE ENGENHARIA</strong>
+        Atesta que todos os módulos técnicos foram testados, validados e homologados em ambiente de produção real (Live), encerrando oficialmente a fase de desenvolvimento e iniciando a fase de suporte contratual.
+      </div>
+      <h3>Matriz de Homologação Final</h3>
+      <table>
+        <thead><tr><th>Funcionalidade</th><th>Ambiente</th><th>Resultado</th></tr></thead>
+        <tbody>
+          <tr><td>PIX Stripe Live Oficial (000201)</td><td>Produção (Live)</td><td>HOMOLOGADO (15 testes práticos com sucesso)</td></tr>
+          <tr><td>Impressora Térmica 1-Bit Monocromática</td><td>Hardware Físico</td><td>HOMOLOGADO (Bitmap ESC/POS sem falhas)</td></tr>
+          <tr><td>Kanban com Alerta Acústico</td><td>Navegador</td><td>HOMOLOGADO (WebSockets em tempo real)</td></tr>
+          <tr><td>Modo Garçom Salão / Balcão</td><td>Mobile / Tablet</td><td>HOMOLOGADO (Vias de bar e chapa)</td></tr>
+          <tr><td>Navegação Mobile Fluida</td><td>iOS / Android</td><td>HOMOLOGADO (Auto-scroll e botões de Passo Fundo)</td></tr>
+        </tbody>
+      </table>
+
+      <div class="signatures">
+        <div>
+          <div class="sign-line"></div>
+          <strong>SÉRGIO NICKEL DA COSTA</strong><br>
+          <span style="font-size: 12px; color: #78716C;">Proprietário • Nickel Lanches</span>
+        </div>
+        <div>
+          <div class="sign-line"></div>
+          <strong>BRAIAN KLEBER CAMARGO</strong><br>
+          <span style="font-size: 12px; color: #78716C;">Responsável Técnico • Engenharia de Software</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>

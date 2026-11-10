@@ -122,6 +122,19 @@ async function startServer() {
     }
   }
 
+  // Rota de download direto com Content-Disposition: attachment forçado para o navegador baixar na hora
+  app.get('/download/:filename', (req, res) => {
+    const filename = path.basename(req.params.filename);
+    const filePath = path.join(process.cwd(), 'public', 'docs', filename);
+    if (fs.existsSync(filePath)) {
+      return res.download(filePath, filename);
+    }
+    return res.status(404).send('Arquivo não encontrado');
+  });
+
+  // Servir arquivos estáticos da pasta docs diretamente com headers corretos
+  app.use('/docs', express.static(path.join(process.cwd(), 'public', 'docs')));
+
   // Endpoints para sincronização persistente de pedidos
   app.get('/api/orders', (req, res) => {
     const orders = getStoredOrders();

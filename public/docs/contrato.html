@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contrato de Cessão de Uso de Software e Suporte • Nickel Lanches</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+    :root {
+      --primary: #1E1B4B;
+      --accent: #F28B20;
+      --dark: #111827;
+      --border: #D1D5DB;
+      --bg: #F9FAFB;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: #1F2937;
+      line-height: 1.6;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 840px;
+      margin: 0 auto;
+      background: #FFF;
+      border-radius: 16px;
+      box-shadow: 0 4px 25px rgba(0,0,0,0.06);
+      border: 1px solid var(--border);
+      padding: 50px 45px;
+    }
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding-bottom: 20px;
+      margin-bottom: 25px;
+      border-bottom: 2px solid #E5E7EB;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 18px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 13px;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+    .btn-primary { background: #1E1B4B; color: #FFF; }
+    .btn-primary:hover { background: #312E81; }
+    .btn-orange { background: #F28B20; color: #FFF; }
+    .btn-orange:hover { background: #D97706; }
+    .btn-outline { background: #FFF; border: 1px solid var(--border); color: #374151; }
+    .btn-outline:hover { background: #F3F4F6; }
+
+    .tag {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #4338CA;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 900;
+      color: var(--primary);
+      text-align: center;
+      margin: 15px 0 6px 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .subtitle {
+      text-align: center;
+      font-size: 13px;
+      color: #6B7280;
+      font-style: italic;
+      margin-bottom: 25px;
+    }
+    .parties-box {
+      background: #F3F4F6;
+      border-left: 4px solid #4338CA;
+      padding: 14px 18px;
+      border-radius: 0 10px 10px 0;
+      margin-bottom: 22px;
+      font-size: 13.5px;
+    }
+    .parties-box strong { color: #111827; }
+
+    .clause {
+      margin-bottom: 18px;
+      text-align: justify;
+      font-size: 13.5px;
+    }
+    .clause-title {
+      font-weight: 800;
+      font-size: 14px;
+      color: #1E1B4B;
+      margin: 18px 0 6px 0;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .clause p { margin-bottom: 8px; }
+    .clause ul {
+      margin: 8px 0 12px 24px;
+    }
+    .clause li {
+      margin-bottom: 4px;
+    }
+
+    .highlight-card {
+      background: #EFF6FF;
+      border: 1px solid #BFDBFE;
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin: 12px 0;
+      font-size: 13px;
+      color: #1E40AF;
+    }
+    .highlight-card strong { color: #1E3A8A; }
+
+    .signatures {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 35px;
+      margin-top: 40px;
+      padding-top: 25px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+    .sign-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .sign-line {
+      width: 100%;
+      border-top: 1px solid #4B5563;
+      margin-bottom: 8px;
+    }
+    .sign-name {
+      font-size: 13.5px;
+      font-weight: 800;
+      color: #111827;
+    }
+    .sign-role {
+      font-size: 12px;
+      color: #4B5563;
+    }
+    .sign-doc {
+      font-size: 11px;
+      color: #9CA3AF;
+    }
+
+    .witness-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 35px;
+      margin-top: 30px;
+      text-align: center;
+    }
+
+    @media print {
+      body { background: #FFF; padding: 0; }
+      .container { border: none; box-shadow: none; padding: 15px; max-width: 100%; }
+      .header-bar { display: none; }
+      .clause { font-size: 12.5px; }
+      h1 { font-size: 19px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header-bar">
+      <div>
+        <span class="tag">Instrumento Jurídico de Prestação de Serviços</span>
+        <div style="font-weight: 800; font-size: 14px; color: var(--dark);">Nickel Lanches • Passo Fundo / RS</div>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <a href="/docs/CONTRATO_NICKEL_LANCHES.docx" class="btn btn-primary" download>
+          📄 Baixar Contrato Word (.docx)
+        </a>
+        <button onclick="window.print()" class="btn btn-orange">
+          🖨️ Imprimir / Salvar em PDF
+        </button>
+      </div>
+    </div>
+
+    <h1>CONTRATO DE CESSÃO DE USO DE SOFTWARE E SUPORTE TÉCNICO</h1>
+    <div class="subtitle">Instrumento Particular de Prestação de Serviços Tecnológicos e Manutenção Operacional</div>
+
+    <div class="parties-box">
+      <p><strong>DAS PARTES:</strong></p>
+      <p><strong>CONTRATADA:</strong> <strong>BRAIAN KLEBER CAMARGO</strong>, Desenvolvedor de Software e Engenheiro Responsável pela plataforma, doravante denominado simplesmente <strong>DESENVOLVEDOR</strong>.</p>
+      <p style="margin-top: 6px;"><strong>CONTRATANTE:</strong> <strong>SÉRGIO NICKEL DA COSTA</strong>, titular do estabelecimento comercial <strong>NICKEL LANCHES</strong>, doravante denominado simplesmente <strong>CLIENTE</strong>.</p>
+    </div>
+
+    <p style="font-size: 13.5px; margin-bottom: 12px;">As partes acima qualificadas têm, entre si, justo e acordado o presente Contrato, que se regerá pelas cláusulas e condições seguintes:</p>
+
+    <!-- CLÁUSULA 1 -->
+    <div class="clause">
+      <div class="clause-title">CLÁUSULA PRIMEIRA – DO OBJETO E DA ENTREGA DO SISTEMA ("AS-IS")</div>
+      <p>1.1. O presente contrato tem por objeto a cessão de direito de uso e a entrega formal da plataforma tecnológica web/ERP "Nickel Lanches", no exato estado funcional e operacional em que se encontra nesta data (versão 2.3.0), totalmente testada e em produção.</p>
+      <p>1.2. O <strong>CLIENTE</strong> declara ciência e concordância de que recebe o sistema completo, incluindo expressamente:</p>
+      <ul>
+        <li><strong>Cardápio Digital Interativo:</strong> Catálogo de produtos com fotos, seleção de adicionais/ingredientes, carrinho, cálculo dinâmico de frete por raio de entrega e checkout;</li>
+        <li><strong>Painel Administrativo & Gestão de Cozinha (KDS):</strong> Kanban de pedidos em tempo real, controle de comandas, mesas de salão, histórico de vendas e controle de estoque de insumos;</li>
+        <li><strong>Gateway de Pagamento PIX Automático:</strong> Integração oficial Stripe com geração de QR Code/Copia e Cola e baixa instantânea via webhook do Banco Central;</li>
+        <li><strong>Módulo de Impressão Térmica:</strong> Impressão direta de vias de produção e entrega para bobinas de 58mm e 80mm via conexões USB e Rede local;</li>
+        <li><strong>Sistema de Alertas Sonoros e Sintetização de Voz:</strong> Notificação sonora e de voz sintetizada alertando a chegada de novos pedidos no painel;</li>
+        <li><strong>Módulo de Gamificação:</strong> Jogo interativo promocional integrado ao cardápio para retenção e engajamento dos clientes.</li>
+      </ul>
+    </div>
+
+    <!-- CLÁUSULA 2 -->
+    <div class="clause">
+      <div class="clause-title">CLÁUSULA SEGUNDA – DO VALOR E FORMA DE PAGAMENTO</div>
+      <p>2.1. Pela totalidade dos serviços de desenvolvimento, engenharia de software, integrações e implantação da plataforma ora entregue, o <strong>CLIENTE</strong> pagará ao <strong>DESENVOLVEDOR</strong> o valor total de <strong>R$ 3.000,00 (três mil reais)</strong>.</p>
+      <p>2.2. O montante estipulado no item 2.1 será quitado de forma parcelada, em exatamente <strong>10 (dez) parcelas mensais, fixas e sucessivas de R$ 300,00 (trezentos reais)</strong> cada.</p>
+      <p>2.3. O pagamento das parcelas será efetuado via chave PIX ou transferência bancária indicada pelo DESENVOLVEDOR, com vencimento todo dia 10 de cada mês subsequente ao início da vigência deste contrato.</p>
+    </div>
+
+    <!-- CLÁUSULA 3 -->
+    <div class="clause">
+      <div class="clause-title">CLÁUSULA TERCEIRA – DA MENSALIDADE DE SUPORTE BÁSICO PÓS-PARCELAS</div>
+      <p>3.1. Após a quitação integral das 10 (dez) parcelas de R$ 300,00 (trezentos reais) previstas na Cláusula Segunda, a relação contratual passará a vigorar sob regime de <strong>Suporte Básico Mensal</strong> no valor fixo de <strong>R$ 56,00 (cinquenta e seis reais) mensais</strong>.</p>
+      <p>3.2. A mensalidade básica de R$ 56,00 destina-se estritamente à manutenção preventiva da infraestrutura, cobrindo:</p>
+      <ul>
+        <li>Monitoramento e garantia de disponibilidade da aplicação ativa em nuvem (Cloud);</li>
+        <li>Manutenção corretiva básica nas integrações nativas existentes (PIX Stripe, impressora homologada e banco de dados);</li>
+        <li>Rotinas de segurança e backups periódicos do banco de dados e cadastros.</li>
+      </ul>
+    </div>
+
+    <!-- CLÁUSULA 4 -->
+    <div class="clause">
+      <div class="clause-title">CLÁUSULA QUARTA – DO ESCOPO, ALTERAÇÕES E DESENVOLVIMENTOS FUTUROS</div>
+      <p>4.1. O <strong>CLIENTE</strong> recebe a plataforma no formato em que se encontra hoje. Fica expressamente estipulado que o valor acordado e a mensalidade de suporte de R$ 56,00 cobrem tão somente a manutenção da estrutura já existente.</p>
+      <p>4.2. Quaisquer solicitações de alterações fora do que foi construído — incluindo, mas não se limitando a: criação de novas telas, adição de novas colunas no banco de dados, novos modelos de relatórios, novos módulos ou novas integrações externas — <strong>NÃO estão inclusas</strong> no suporte básico e serão consideradas desenvolvimento novo.</p>
+      <p>4.3. Toda e qualquer nova funcionalidade demandada pelo CLIENTE será objeto de <strong>orçamento e valores à parte</strong>, que serão previamente alinhados e aprovados antes do início dos trabalhos técnicos.</p>
+    </div>
+
+    <!-- CLÁUSULA 5 -->
+    <div class="clause">
+      <div class="clause-title">CLÁUSULA QUINTA – DOS HORÁRIOS DE ATENDIMENTO E SUPORTE TÉCNICO (SLA)</div>
+      <p>5.1. O atendimento técnico do DESENVOLVEDOR para esclarecimento de dúvidas e suporte operacional ocorrerá nos seguintes dias e horários:</p>
+      <div class="highlight-card">
+        <strong>⏰ HORÁRIO OFICIAL DE SUPORTE TÉCNICO:</strong><br>
+        • De <strong>Segunda a Sexta-feira</strong>, das <strong>09h00 até às 21h00</strong>.
+      </div>
+      <p>5.2. <strong>Aos sábados, domingos e feriados NÃO haverá suporte técnico ativo.</strong> A plataforma opera em infraestrutura em nuvem de nível corporativo (Cloud 24/7), rodando de forma 100% autônoma para receber pedidos, processar pagamentos e imprimir comandas sem necessidade de intervenção técnica humana diária.</p>
+      <p>5.3. Chamados ou solicitações abertas aos finais de semana ou fora do horário estipulado serão respondidos a partir do primeiro dia útil subsequente.</p>
+    </div>
+
+    <!-- CLÁUSULA 6 -->
+    <div class="clause">
+      <div class="clause-title">CLÁUSULA SEXTA – DAS DISPOSIÇÕES FINAIS E ASSINATURAS</div>
+      <p>6.1. O presente instrumento tem validade jurídica integral, sendo aceita a assinatura eletrônica por meio de plataformas digitais (Gov.br, DocuSign, ZapSign), e-mail ou confirmação expressa por aplicativo de mensagens WhatsApp.</p>
+      <p>6.2. As partes elegem o foro da Comarca de Passo Fundo / RS para dirimir quaisquer dúvidas oriundas deste instrumento.</p>
+    </div>
+
+    <p style="text-align: right; margin: 25px 0; font-size: 13px; font-weight: 700; color: #4B5563;">
+      Passo Fundo / RS, _____ de ____________________ de 2026.
+    </p>
+
+    <!-- ASSINATURAS -->
+    <div class="signatures">
+      <div class="sign-box">
+        <div class="sign-line"></div>
+        <div class="sign-name">SÉRGIO NICKEL DA COSTA</div>
+        <div class="sign-role">CONTRATANTE • Nickel Lanches</div>
+        <div class="sign-doc">CPF/CNPJ: ________________________</div>
+      </div>
+      <div class="sign-box">
+        <div class="sign-line"></div>
+        <div class="sign-name">BRAIAN KLEBER CAMARGO</div>
+        <div class="sign-role">CONTRATADA • Desenvolvedor Responsável</div>
+        <div class="sign-doc">Engenharia de Software</div>
+      </div>
+    </div>
+
+    <!-- TESTEMUNHAS -->
+    <div class="witness-grid">
+      <div class="sign-box">
+        <div class="sign-line" style="border-top-style: dashed;"></div>
+        <div class="sign-name" style="font-size: 12px;">Testemunha 1: ______________________</div>
+        <div class="sign-doc">CPF: ___________________</div>
+      </div>
+      <div class="sign-box">
+        <div class="sign-line" style="border-top-style: dashed;"></div>
+        <div class="sign-name" style="font-size: 12px;">Testemunha 2: ______________________</div>
+        <div class="sign-doc">CPF: ___________________</div>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>
