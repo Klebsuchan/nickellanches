@@ -30,7 +30,7 @@ import { useToast } from './components/Toast';
 import { isStoreClosedMonday, getStoreStatus, STORE_CLOSED_MESSAGE, StoreHoursSettings, DEFAULT_STORE_HOURS } from './lib/storeHours';
 import { auth, signInWithGoogle, signOut, getNextOrderNumber } from './lib/firebase';
 import { User as FirebaseUser } from 'firebase/auth';
-import { subscribeToOrder, getLatestOrders, subscribeToProducts, subscribeToPromos, subscribeToStoreHours, seedDatabase, createUserProfile, getUserProfile, addXpToUser, saveOrder, UserProfile, Order, getPrinterSettings, subscribeToAllOrders, enqueueCloudPrintJob, DEFAULT_PRINTER_SETTINGS, recordSiteVisit } from './lib/db';
+import { subscribeToOrder, getLatestOrders, subscribeToProducts, sortMenuItemsForTodos, subscribeToPromos, subscribeToStoreHours, seedDatabase, createUserProfile, getUserProfile, addXpToUser, saveOrder, UserProfile, Order, getPrinterSettings, subscribeToAllOrders, enqueueCloudPrintJob, DEFAULT_PRINTER_SETTINGS, recordSiteVisit } from './lib/db';
 import { renderFullOrderToImage } from './lib/receiptCanvas';
 import { playSound } from './lib/audio';
 import { retrieveCheckoutSessionResilient } from './lib/stripeClientFallback';
@@ -1035,7 +1035,7 @@ export default function App() {
 
           {renderProductGrid(
             selectedCategory === 'Todos' 
-               ? menuItems 
+               ? sortMenuItemsForTodos(menuItems) 
                : selectedCategory === 'Xis'
                  ? xisItems
                : selectedCategory === 'Cachorro Quente'

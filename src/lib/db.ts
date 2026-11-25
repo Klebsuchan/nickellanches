@@ -552,11 +552,52 @@ export const subscribeToStoreHours = (callback: (settings: StoreHoursSettings) =
   };
 };
 
+export const sortMenuItemsForTodos = (items: Product[]): Product[] => {
+  const getRank = (item: Product): number => {
+    const id = (item.id || '').trim().toLowerCase();
+    const name = (item.name || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    const cat = (item.category || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    // 1. Lanches Autorais (ordem exata)
+    if (id === '31' || name.includes('olympus')) return 0;
+    if (id === '32' || name.includes('magma')) return 1;
+    if (id === '33' || name.includes('cemuche') || name.includes('semushi')) return 2;
+    if (id === '34' || name.includes('nickel mix')) return 3;
+    if (id === '35' || name.includes('bomba')) return 4;
+    if (id === '36' || (name.includes('prime') && cat !== 'bebidas' && !cat.includes('porc'))) return 5;
+
+    // 2. Combos (ordem exata)
+    if (id === 'c1' || name.includes('combo familia')) return 10;
+    if (id === 'c2' || name.includes('combo kids')) return 11;
+    if (id === 'c3' || name.includes('nickel trio')) return 12;
+    if (id === 'c4' || name.includes('combo casal')) return 13;
+    if (cat === 'combos' || cat.includes('combo') || /^c\d+$/.test(id) || name.includes('combo') || name.includes('trio')) return 14;
+
+    // 5. Líquidos / Bebidas
+    if (cat === 'bebidas' || cat.includes('bebida') || /^b(_|\d+)/.test(id)) return 40;
+
+    // 4. Batatas e Porções
+    if (cat.includes('porc') || /^p\d+$/.test(id) || name.includes('batata') || name.includes('porcao')) return 30;
+
+    // 3. Outros Lanches (Xis, Strogonoff, Cachorro Quente, etc.)
+    if (name.includes('cachorro')) return 21;
+    return 20;
+  };
+
+  return [...items].sort((a, b) => getRank(a) - getRank(b));
+};
+
 export const subscribeToProducts = (callback: (products: Product[]) => void) => {
   const productsRef = collection(db, "products");
   return onSnapshot(productsRef, (snap) => {
     if (snap.empty) {
-      callback(MENU_ITEMS);
+      callback(sortMenuItemsForTodos(MENU_ITEMS));
       return;
     }
     const firestoreMap = new Map(snap.docs.map(d => [d.id, { ...d.data(), id: d.id } as Product]));
@@ -586,7 +627,9 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
       }
     }
 
-    const finalProducts = merged.filter(p => p.id !== 'teste_pagamento_10cts' && p.id !== 'teste_pix_1real');
+    const finalProducts = sortMenuItemsForTodos(
+      merged.filter(p => p.id !== 'teste_pagamento_10cts' && p.id !== 'teste_pix_1real')
+    );
     try {
       localStorage.setItem('nickel_cached_products', JSON.stringify(finalProducts));
     } catch {}
@@ -598,11 +641,11 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
         const parsed: Product[] = JSON.parse(cached).filter((p: any) => p.id !== 'teste_pagamento_10cts' && p.id !== 'teste_pix_1real');
         const cachedIds = new Set(parsed.map(p => p.id));
         const missing = MENU_ITEMS.filter(m => !cachedIds.has(m.id));
-        callback([...missing, ...parsed]);
+        callback(sortMenuItemsForTodos([...missing, ...parsed]));
         return;
       }
     } catch {}
-    callback(MENU_ITEMS);
+    callback(sortMenuItemsForTodos(MENU_ITEMS));
   });
 };
 

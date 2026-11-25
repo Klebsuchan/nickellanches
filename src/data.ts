@@ -24,6 +24,326 @@ export const DISCOUNT_CODES: Record<string, number> = {
 
 export const MENU_ITEMS: Product[] = [
   {
+    "id": "31",
+    "name": "Xis Olympus",
+    "description": "Carne, queijo, bacon, ovo, anéis de cebola, alface, tomate, barbecue e maionese caseira",
+    "price": 34,
+    "points": 51,
+    "emoji": "🍔",
+    "image": "/olympus.jpg",
+    "category": "lanches"
+  },
+  {
+    "id": "32",
+    "name": "Xis Magma",
+    "description": "Carne, queijo muçarela, provolone, cheddar, calabresa, milho, tomate, maionese caseira.",
+    "price": 34,
+    "points": 51,
+    "emoji": "🍔",
+    "image": "/magma.jpg",
+    "category": "lanches"
+  },
+  {
+    "id": "33",
+    "name": "Xis Cemuche",
+    "description": "2 carnes, cebola caramelizada, 2 queijos muçarela, dupla cheddar, molho especial apimentado, alface, maionese caseira.",
+    "price": 40,
+    "points": 60,
+    "emoji": "🍔",
+    "image": "/cemuche.jpg",
+    "category": "lanches"
+  },
+  {
+    "id": "34",
+    "name": "Xis Nickel Mix",
+    "description": "Carne, frango, coração de frango, bacon, calabresa, queijo muçarela, presunto, ovo, milho, ervilha, alface, tomate, maionese, mostarda, ketchup.",
+    "price": 43,
+    "points": 65,
+    "emoji": "🍔",
+    "image": "/images/xisnickelmix-1.jpg",
+    "category": "lanches"
+  },
+  {
+    "id": "35",
+    "name": "Xis Bomba",
+    "description": "Carne, queijo muçarela, cheddar, milho, ervilha, bacon, batata frita, barbecue, maionese caseira.",
+    "price": 34,
+    "points": 51,
+    "emoji": "🍔",
+    "image": "/bomba.jpg",
+    "category": "lanches"
+  },
+  {
+    "id": "36",
+    "name": "Filé Prime",
+    "description": "Cortes nobres de filé mignon grelhados, queijo muçarela derretido, presunto, ovo, milho, ervilha, alface, tomate, maionese artesanal e tempero especial da casa.",
+    "price": 42,
+    "points": 63,
+    "emoji": "🥩",
+    "image": "/images/filéprime.jpeg",
+    "category": "lanches"
+  },
+  {
+    "id": "c1",
+    "name": "Combo Família",
+    "description": "4 Xis Especiais + GANHA 1 refri 2 litros CHARRA",
+    "price": 99,
+    "points": 149,
+    "emoji": "🍔",
+    "image": "/images/combofamilia.jpg",
+    "category": "combos"
+  },
+  {
+    "id": "c2",
+    "name": "Combo Kids",
+    "description": "Xis Pão+Carne+Queijo + Fritas Sorriso (6 unidades) + Refri 200ml",
+    "price": 28,
+    "points": 42,
+    "emoji": "🍟",
+    "image": "/images/combokids.jpeg",
+    "category": "combos"
+  },
+  {
+    "id": "c3",
+    "name": "Nickel Trio",
+    "description": "1 xis especial + 1 batatinha + 1 refri lata",
+    "price": 38,
+    "points": 57,
+    "emoji": "🥤",
+    "image": "/images/nickeltrio.jpeg",
+    "category": "combos"
+  },
+  {
+    "id": "c4",
+    "name": "Combo Casal",
+    "description": "2 Xis Especiais + Batata Frita M + Refri 600ml",
+    "price": 74,
+    "points": 111,
+    "emoji": "❤️",
+    "image": "/images/combocasal.avif",
+    "category": "combos"
+  },
+  {
+    "id": "22",
+    "name": "Xis Simples",
+    "description": "Carne, queijo muçarela, alface, tomate, maionese, mostarda, ketchup.",
+    "price": 20,
+    "points": 30,
+    "emoji": "🍔",
+    "image": "/simples.jpeg",
+    "category": "lanches"
+  },
+  {
+    "id": "23",
+    "name": "Xis Especial",
+    "description": "Carne, queijo muçarela, presunto, ovo, milho, ervilha, alface, tomate, maionese, mostarda, ketchup.",
+    "price": 25,
+    "points": 38,
+    "emoji": "🍔",
+    "image": "/images/xisespecial.jpeg",
+    "category": "lanches"
+  },
+  {
+    "id": "24",
+    "name": "Xis Duplo",
+    "description": "2 carnes, 2 queijos muçarela, presunto, ovo, milho, ervilha, alface, tomate, maionese, mostarda, ketchup.",
+    "price": 33,
+    "points": 50,
+    "emoji": "🍔",
+    "image": "/images/duplo-1.png",
+    "category": "lanches"
+  },
+  {
+    "id": "25",
+    "name": "Xis Coração",
+    "description": "Coração de frango, queijo muçarela, presunto, ovo, milho, ervilha, alface, tomate, maionese, mostarda, ketchup.",
+    "price": 30,
+    "points": 45,
+    "emoji": "🍔",
+    "image": "/images/xiscoração-1.jpg",
+    "category": "lanches"
+  },
+  {
+    "id": "26",
+    "name": "Xis Bacon",
+    "description": "Carne, bacon, queijo muçarela, presunto, ovo, milho, ervilha, alface, tomate, maionese, mostarda, ketchup.",
+    "price": 30,
+    "points": 45,
+    "emoji": "🍔",
+    "image": "/images/xisbacon-1.avif",
+    "category": "lanches"
+  },
+  {
+    "id": "27",
+    "name": "Xis Frango",
+    "description": "Peito de frango, queijo muçarela, presunto, ovo, milho, ervilha, alface, tomate, maionese, mostarda, ketchup.",
+    "price": 27,
+    "points": 41,
+    "emoji": "🍔",
+    "image": "/images/xisfrango-1.jpg",
+    "category": "lanches"
+  },
+  {
+    "id": "28",
+    "name": "Xis Calabresa",
+    "description": "Calabresa, queijo muçarela, presunto, ovo, milho, ervilha, alface, tomate, maionese, mostarda, ketchup.",
+    "price": 27,
+    "points": 41,
+    "emoji": "🍔",
+    "image": "/images/xiscalabresa-1.avif",
+    "category": "lanches"
+  },
+  {
+    "id": "29",
+    "name": "Xis Strogonoff de Frango",
+    "description": "Strogonoff de frango, queijo muçarela, batata palha, milho, maionese, mostarda, ketchup.",
+    "price": 29,
+    "points": 44,
+    "emoji": "🍔",
+    "image": "/images/xisestrogonofefrango-1.jpg",
+    "category": "lanches"
+  },
+  {
+    "id": "30",
+    "name": "Xis Filé",
+    "description": "Filé, queijo muçarela, presunto, ovo, milho, ervilha, alface, tomate, maionese, mostarda, ketchup.",
+    "price": 39,
+    "points": 59,
+    "emoji": "🍔",
+    "image": "/filé.jpeg",
+    "category": "lanches"
+  },
+  {
+    "id": "37",
+    "name": "Strogonoff de Carne",
+    "description": "Suculento strogonoff de carne bovina em tiras macias com molho cremoso especial, queijo muçarela, batata palha crocante, milho e maionese.",
+    "price": 36,
+    "points": 54,
+    "emoji": "🥘",
+    "image": "/estrogonofe-carne.jpg",
+    "category": "lanches"
+  },
+  {
+    "id": "1",
+    "name": "Cachorro Quente Tradicional",
+    "description": "Pão, salsicha, molho vermelho, milho, ervilha, tomate, queijo muçarela, batata palha, maionese, mostarda, ketchup.",
+    "price": 23,
+    "points": 35,
+    "emoji": "🌭",
+    "image": "/images/nickeldog-1.avif",
+    "category": "lanches"
+  },
+  {
+    "id": "2",
+    "name": "Cachorro Quente Coração",
+    "description": "Pão, coração de frango, molho vermelho, milho, ervilha, tomate, queijo muçarela, batata palha, maionese, mostarda, ketchup.",
+    "price": 27,
+    "points": 41,
+    "emoji": "🌭",
+    "image": "/images/nickeldog-1.avif",
+    "category": "lanches"
+  },
+  {
+    "id": "3",
+    "name": "Cachorro Quente Bacon",
+    "description": "Pão, salsicha, molho vermelho, milho, ervilha, tomate, queijo muçarela, batata palha, maionese, mostarda, ketchup e bacon.",
+    "price": 27,
+    "points": 41,
+    "emoji": "🌭",
+    "image": "/images/nickeldog-1.avif",
+    "category": "lanches"
+  },
+  {
+    "id": "4",
+    "name": "Cachorro Quente Frango",
+    "description": "Pão, frango grelhado, molho vermelho, milho, ervilha, tomate, queijo muçarela, batata palha, maionese, mostarda, ketchup.",
+    "price": 24,
+    "points": 36,
+    "emoji": "🌭",
+    "image": "/images/nickeldog-1.avif",
+    "category": "lanches"
+  },
+  {
+    "id": "5",
+    "name": "Cachorro Quente Calabresa",
+    "description": "Pão, linguiça calabresa, molho vermelho, milho, ervilha, tomate, queijo muçarela, batata palha, maionese, mostarda, ketchup.",
+    "price": 24,
+    "points": 36,
+    "emoji": "🌭",
+    "image": "/images/nickeldog-1.avif",
+    "category": "lanches"
+  },
+  {
+    "id": "6",
+    "name": "Cachorro Quente Strogonoff de Frango",
+    "description": "Pão, strogonoff de frango, molho vermelho, milho, ervilha, tomate, queijo muçarela, batata palha, maionese, mostarda, ketchup.",
+    "price": 28,
+    "points": 42,
+    "emoji": "🌭",
+    "image": "/images/nickeldog-1.avif",
+    "category": "lanches"
+  },
+  {
+    "id": "p1",
+    "name": "Batata Frita P",
+    "description": "Porção pequena de batata frita bem crocante",
+    "price": 12,
+    "points": 18,
+    "emoji": "🍟",
+    "image": "/images/batatafritap.avif",
+    "category": "porcoes"
+  },
+  {
+    "id": "p2",
+    "name": "Batata Frita M",
+    "description": "Porção média de batata frita bem crocante",
+    "price": 20,
+    "points": 30,
+    "emoji": "🍟",
+    "image": "/images/batafritam.avif",
+    "category": "porcoes"
+  },
+  {
+    "id": "p3",
+    "name": "Batata Frita G",
+    "description": "Porção grande de batata frita, serve até 3 pessoas",
+    "price": 30,
+    "points": 45,
+    "emoji": "🍟",
+    "image": "/images/batatafritag.avif",
+    "category": "porcoes"
+  },
+  {
+    "id": "p4",
+    "name": "Batata Frita P com Cheddar e Bacon",
+    "description": "Porção pequena de batata frita com cheddar e bacon crocante em cubos",
+    "price": 21,
+    "points": 32,
+    "emoji": "🍟",
+    "image": "/images/batatacheddarbacon.jpg",
+    "category": "porcoes"
+  },
+  {
+    "id": "p5",
+    "name": "Batata Frita M com Cheddar e Bacon",
+    "description": "Porção média de batata frita com cheddar e bacon crocante em cubos",
+    "price": 29,
+    "points": 44,
+    "emoji": "🍟",
+    "image": "/images/batatafritambacon.jpg",
+    "category": "porcoes"
+  },
+  {
+    "id": "p6",
+    "name": "Batata Frita G com Cheddar e Bacon",
+    "description": "Porção grande de batata frita com muito cheddar e bacon crocante em cubos",
+    "price": 40,
+    "points": 60,
+    "emoji": "🍟",
+    "image": "/images/batatafritagcheddar.jpg",
+    "category": "porcoes"
+  },
+  {
     "id": "b_agua",
     "name": "Água Mineral",
     "description": "Água mineral 500ml.",
@@ -115,327 +435,7 @@ export const MENU_ITEMS: Product[] = [
     "emoji": "🍺",
     "image": "/images/latão-1.jpg",
     "category": "bebidas"
-  },
-  {
-    "id": "1",
-    "name": "Cachorro Quente Tradicional",
-    "description": "Pão, salsicha, molho vermelho, milho, ervilha, tomate, queijo muçarela, batata palha, maionese, mostarda, ketchup.",
-    "price": 23,
-    "points": 35,
-    "emoji": "🌭",
-    "image": "/images/nickeldog-1.avif",
-    "category": "lanches"
-  },
-  {
-    "id": "2",
-    "name": "Cachorro Quente Coração",
-    "description": "Pão, coração de frango, molho vermelho, milho, ervilha, tomate, queijo muçarela, batata palha, maionese, mostarda, ketchup.",
-    "price": 27,
-    "points": 41,
-    "emoji": "🌭",
-    "image": "/images/nickeldog-1.avif",
-    "category": "lanches"
-  },
-  {
-    "id": "3",
-    "name": "Cachorro Quente Bacon",
-    "description": "Pão, salsicha, molho vermelho, milho, ervilha, tomate, queijo muçarela, batata palha, maionese, mostarda, ketchup e bacon.",
-    "price": 27,
-    "points": 41,
-    "emoji": "🌭",
-    "image": "/images/nickeldog-1.avif",
-    "category": "lanches"
-  },
-  {
-    "id": "4",
-    "name": "Cachorro Quente Frango",
-    "description": "Pão, frango grelhado, molho vermelho, milho, ervilha, tomate, queijo muçarela, batata palha, maionese, mostarda, ketchup.",
-    "price": 24,
-    "points": 36,
-    "emoji": "🌭",
-    "image": "/images/nickeldog-1.avif",
-    "category": "lanches"
-  },
-  {
-    "id": "5",
-    "name": "Cachorro Quente Calabresa",
-    "description": "Pão, linguiça calabresa, molho vermelho, milho, ervilha, tomate, queijo muçarela, batata palha, maionese, mostarda, ketchup.",
-    "price": 24,
-    "points": 36,
-    "emoji": "🌭",
-    "image": "/images/nickeldog-1.avif",
-    "category": "lanches"
-  },
-  {
-    "id": "6",
-    "name": "Cachorro Quente Strogonoff de Frango",
-    "description": "Pão, strogonoff de frango, molho vermelho, milho, ervilha, tomate, queijo muçarela, batata palha, maionese, mostarda, ketchup.",
-    "price": 28,
-    "points": 42,
-    "emoji": "🌭",
-    "image": "/images/nickeldog-1.avif",
-    "category": "lanches"
-  },
-{
-    "id": "22",
-    "name": "Xis Simples",
-    "description": "Carne, queijo muçarela, alface, tomate, maionese, mostarda, ketchup.",
-    "price": 20,
-    "points": 30,
-    "emoji": "🍔",
-    "image": "/simples.jpeg",
-    "category": "lanches"
-  },
-  {
-    "id": "23",
-    "name": "Xis Especial",
-    "description": "Carne, queijo muçarela, presunto, ovo, milho, ervilha, alface, tomate, maionese, mostarda, ketchup.",
-    "price": 25,
-    "points": 38,
-    "emoji": "🍔",
-    "image": "/images/xisespecial.jpeg",
-    "category": "lanches"
-  },
-  {
-    "id": "24",
-    "name": "Xis Duplo",
-    "description": "2 carnes, 2 queijos muçarela, presunto, ovo, milho, ervilha, alface, tomate, maionese, mostarda, ketchup.",
-    "price": 33,
-    "points": 50,
-    "emoji": "🍔",
-    "image": "/images/duplo-1.png",
-    "category": "lanches"
-  },
-  {
-    "id": "25",
-    "name": "Xis Coração",
-    "description": "Coração de frango, queijo muçarela, presunto, ovo, milho, ervilha, alface, tomate, maionese, mostarda, ketchup.",
-    "price": 30,
-    "points": 45,
-    "emoji": "🍔",
-    "image": "/images/xiscoração-1.jpg",
-    "category": "lanches"
-  },
-  {
-    "id": "26",
-    "name": "Xis Bacon",
-    "description": "Carne, bacon, queijo muçarela, presunto, ovo, milho, ervilha, alface, tomate, maionese, mostarda, ketchup.",
-    "price": 30,
-    "points": 45,
-    "emoji": "🍔",
-    "image": "/images/xisbacon-1.avif",
-    "category": "lanches"
-  },
-  {
-    "id": "27",
-    "name": "Xis Frango",
-    "description": "Peito de frango, queijo muçarela, presunto, ovo, milho, ervilha, alface, tomate, maionese, mostarda, ketchup.",
-    "price": 27,
-    "points": 41,
-    "emoji": "🍔",
-    "image": "/images/xisfrango-1.jpg",
-    "category": "lanches"
-  },
-  {
-    "id": "28",
-    "name": "Xis Calabresa",
-    "description": "Calabresa, queijo muçarela, presunto, ovo, milho, ervilha, alface, tomate, maionese, mostarda, ketchup.",
-    "price": 27,
-    "points": 41,
-    "emoji": "🍔",
-    "image": "/images/xiscalabresa-1.avif",
-    "category": "lanches"
-  },
-  {
-    "id": "29",
-    "name": "Xis Strogonoff de Frango",
-    "description": "Strogonoff de frango, queijo muçarela, batata palha, milho, maionese, mostarda, ketchup.",
-    "price": 29,
-    "points": 44,
-    "emoji": "🍔",
-    "image": "/images/xisestrogonofefrango-1.jpg",
-    "category": "lanches"
-  },
-  {
-    "id": "30",
-    "name": "Xis Filé",
-    "description": "Filé, queijo muçarela, presunto, ovo, milho, ervilha, alface, tomate, maionese, mostarda, ketchup.",
-    "price": 39,
-    "points": 59,
-    "emoji": "🍔",
-    "image": "/filé.jpeg",
-    "category": "lanches"
-  },
-  {
-    "id": "31",
-    "name": "Xis Olympus",
-    "description": "Carne, queijo, bacon, ovo, anéis de cebola, alface, tomate, barbecue e maionese caseira",
-    "price": 34,
-    "points": 51,
-    "emoji": "🍔",
-    "image": "/olympus.jpg",
-    "category": "lanches"
-  },
-  {
-    "id": "32",
-    "name": "Xis Magma",
-    "description": "Carne, queijo muçarela, provolone, cheddar, calabresa, milho, tomate, maionese caseira.",
-    "price": 34,
-    "points": 51,
-    "emoji": "🍔",
-    "image": "/magma.jpg",
-    "category": "lanches"
-  },
-  {
-    "id": "33",
-    "name": "Xis Cemuche",
-    "description": "2 carnes, cebola caramelizada, 2 queijos muçarela, dupla cheddar, molho especial apimentado, alface, maionese caseira.",
-    "price": 40,
-    "points": 60,
-    "emoji": "🍔",
-    "image": "/cemuche.jpg",
-    "category": "lanches"
-  },
-  {
-    "id": "34",
-    "name": "Xis Nickel Mix",
-    "description": "Carne, frango, coração de frango, bacon, calabresa, queijo muçarela, presunto, ovo, milho, ervilha, alface, tomate, maionese, mostarda, ketchup.",
-    "price": 43,
-    "points": 65,
-    "emoji": "🍔",
-    "image": "/images/xisnickelmix-1.jpg",
-    "category": "lanches"
-  },
-  {
-    "id": "35",
-    "name": "Xis Bomba",
-    "description": "Carne, queijo muçarela, cheddar, milho, ervilha, bacon, batata frita, barbecue, maionese caseira.",
-    "price": 34,
-    "points": 51,
-    "emoji": "🍔",
-    "image": "/bomba.jpg",
-    "category": "lanches"
-  },
-  {
-    "id": "36",
-    "name": "Filé Prime",
-    "description": "Cortes nobres de filé mignon grelhados, queijo muçarela derretido, presunto, ovo, milho, ervilha, alface, tomate, maionese artesanal e tempero especial da casa.",
-    "price": 42,
-    "points": 63,
-    "emoji": "🥩",
-    "image": "/images/filéprime.jpeg",
-    "category": "lanches"
-  },
-  {
-    "id": "37",
-    "name": "Strogonoff de Carne",
-    "description": "Suculento strogonoff de carne bovina em tiras macias com molho cremoso especial, queijo muçarela, batata palha crocante, milho e maionese.",
-    "price": 36,
-    "points": 54,
-    "emoji": "🥘",
-    "image": "/estrogonofe-carne.jpg",
-    "category": "lanches"
-  },
-  {
-  "id": "c1",
-  "name": "Combo Família",
-  "description": "4 Xis Especiais + GANHA 1 refri 2 litros CHARRA",
-  "price": 99,
-  "points": 149,
-  "emoji": "🍔",
-  "image": "/images/combofamilia.jpg",
-  "category": "combos"
-},
-  {
-  "id": "c2",
-  "name": "Combo Kids",
-  "description": "Xis Pão+Carne+Queijo + Fritas Sorriso (6 unidades) + Refri 200ml",
-  "price": 28,
-  "points": 42,
-  "emoji": "🍟",
-  "image": "/images/combokids.jpeg",
-  "category": "combos"
-},
-  {
-  "id": "c3",
-  "name": "Nickel Trio",
-  "description": "1 xis especial + 1 batatinha + 1 refri lata",
-  "price": 38,
-  "points": 57,
-  "emoji": "🥤",
-  "image": "/images/nickeltrio.jpeg",
-  "category": "combos"
-},
-  {
-  "id": "c4",
-  "name": "Combo Casal",
-  "description": "2 Xis Especiais + Batata Frita M + Refri 600ml",
-  "price": 74,
-  "points": 111,
-  "emoji": "❤️",
-  "image": "/images/combocasal.avif",
-  "category": "combos"
-},
-{
-  "id": "p1",
-  "name": "Batata Frita P",
-  "description": "Porção pequena de batata frita bem crocante",
-  "price": 12,
-  "points": 18,
-  "emoji": "🍟",
-  "image": "/images/batatafritap.avif",
-  "category": "porcoes"
-},
-{
-  "id": "p2",
-  "name": "Batata Frita M",
-  "description": "Porção média de batata frita bem crocante",
-  "price": 20,
-  "points": 30,
-  "emoji": "🍟",
-  "image": "/images/batafritam.avif",
-  "category": "porcoes"
-},
-{
-  "id": "p3",
-  "name": "Batata Frita G",
-  "description": "Porção grande de batata frita, serve até 3 pessoas",
-  "price": 30,
-  "points": 45,
-  "emoji": "🍟",
-  "image": "/images/batatafritag.avif",
-  "category": "porcoes"
-},
-{
-  "id": "p4",
-  "name": "Batata Frita P com Cheddar e Bacon",
-  "description": "Porção pequena de batata frita com cheddar e bacon crocante em cubos",
-  "price": 21,
-  "points": 32,
-  "emoji": "🍟",
-  "image": "/images/batatacheddarbacon.jpg",
-  "category": "porcoes"
-},
-{
-  "id": "p5",
-  "name": "Batata Frita M com Cheddar e Bacon",
-  "description": "Porção média de batata frita com cheddar e bacon crocante em cubos",
-  "price": 29,
-  "points": 44,
-  "emoji": "🍟",
-  "image": "/images/batatafritambacon.jpg",
-  "category": "porcoes"
-},
-{
-  "id": "p6",
-  "name": "Batata Frita G com Cheddar e Bacon",
-  "description": "Porção grande de batata frita com muito cheddar e bacon crocante em cubos",
-  "price": 40,
-  "points": 60,
-  "emoji": "🍟",
-  "image": "/images/batatafritagcheddar.jpg",
-  "category": "porcoes"
-}
+  }
 ];
 
 export const RANKING_DATA: FriendRanking[] = [
