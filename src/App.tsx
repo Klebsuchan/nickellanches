@@ -80,6 +80,7 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<'cardapio' | 'historia' | 'cozinha' | 'comunidade'>('cardapio');
   const [selectedCategory, setSelectedCategory] = useState<'Todos' | 'Xis' | 'Cachorro Quente' | 'Combos' | 'Porções' | 'Bebidas'>('Todos');
+  const [menuSearchQuery, setMenuSearchQuery] = useState('');
   const [view, setView] = useState<'menu' | 'store' | 'game' | 'admin' | 'about' | 'profile'>('menu');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -864,75 +865,106 @@ export default function App() {
   const portionItems = menuItems.filter(i => i.name.toLowerCase().includes('batata frita') && !i.name.toLowerCase().includes('combo') && !i.name.toLowerCase().includes('trio'));
   const extraItems = menuItems.filter(i => !i.name.toLowerCase().includes('xis') && !i.name.toLowerCase().includes('cachorro quente') && !i.name.toLowerCase().includes('batata frita') && !i.id.startsWith('c') && !i.name.toLowerCase().includes('combo') && !i.name.toLowerCase().includes('trio'));
 
-    const renderProductGrid = (items: Product[], title: string) => {
+  const renderProductGrid = (items: Product[], title: string) => {
     if (items.length === 0) return null;
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6 pb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6 pb-8">
         {items.map((item, index) => {
           const isPaused = Boolean(item.paused);
-          let badge = null;
+          let mobileBadge = null;
+          let desktopBadge = null;
+
           if (isPaused) {
-            badge = <span className="bg-red-600 text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Indisponível</span>;
+            mobileBadge = <span className="inline-block bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider mb-1">Indisponível</span>;
+            desktopBadge = <span className="bg-red-600 text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Indisponível</span>;
           } else if (item.badge) {
-            badge = <span className="bg-emerald-600 text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm animate-pulse">{item.badge}</span>;
-          } else if (index === 0) badge = <span className="bg-[#4E2A84] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Bestseller</span>;
-          else if (index === 1) badge = <span className="bg-[#F28B20] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Popular</span>;
-          else if (index === 2) badge = <span className="bg-[#4E2A84] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Save 15%</span>;
+            mobileBadge = <span className="inline-block bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider mb-1">{item.badge}</span>;
+            desktopBadge = <span className="bg-emerald-600 text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm animate-pulse">{item.badge}</span>;
+          } else if (index === 0) {
+            mobileBadge = <span className="inline-block bg-[#4E2A84] text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider mb-1">Mais Pedido</span>;
+            desktopBadge = <span className="bg-[#4E2A84] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Bestseller</span>;
+          } else if (index === 1) {
+            mobileBadge = <span className="inline-block bg-[#F28B20] text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider mb-1">Popular</span>;
+            desktopBadge = <span className="bg-[#F28B20] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Popular</span>;
+          } else if (index === 2) {
+            mobileBadge = <span className="inline-block bg-[#4E2A84] text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider mb-1">Destaque</span>;
+            desktopBadge = <span className="bg-[#4E2A84] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest absolute top-4 left-4 z-20 shadow-sm">Save 15%</span>;
+          }
 
           return (
             <motion.div
               key={item.id}
-              whileHover={isPaused ? undefined : { y: -5 }}
-              className={`bg-white rounded-2xl md:rounded-3xl p-3 md:p-5 flex flex-col justify-between shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative border ${
-                isPaused ? 'opacity-70 grayscale-[45%] cursor-not-allowed border-stone-200' : 'cursor-pointer border-stone-100'
+              whileHover={isPaused ? undefined : { y: -4 }}
+              className={`bg-white rounded-2xl md:rounded-3xl p-3.5 md:p-5 flex flex-row md:flex-col items-stretch justify-between gap-3 md:gap-0 shadow-xs md:shadow-[0_6px_24px_rgb(0,0,0,0.06)] relative border md:border-2 ${
+                isPaused ? 'opacity-70 grayscale-[45%] cursor-not-allowed border-stone-200' : 'cursor-pointer border-stone-200 hover:border-stone-300 active:bg-stone-50 md:active:bg-white'
               }`}
               onClick={() => handleProductClick(item)}
             >
-              {badge}
-              <div className="absolute top-4 right-4 z-20">
+              {/* Desktop badge & favorite */}
+              <div className="hidden md:block">
+                {desktopBadge}
+              </div>
+              <div className="hidden md:block absolute top-4 right-4 z-20">
                 <button 
                   onClick={(e) => toggleFavorite(item.id, e)} 
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-stone-400 hover:text-red-500 transition-colors bg-white/50 backdrop-blur-sm"
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-stone-400 hover:text-red-500 transition-colors bg-white/70 backdrop-blur-sm"
                 >
                   <Heart size={22} className={favorites.includes(item.id) ? 'fill-red-500 text-red-500' : ''} strokeWidth={2} />
                 </button>
               </div>
               
-              <div className="h-44 w-full bg-[#FCF9F5] rounded-[24px] mb-5 flex items-center justify-center relative overflow-hidden group">
+              {/* Imagem: direita no mobile (estilo iFood), topo no desktop */}
+              <div className="order-2 md:order-1 w-28 h-28 sm:w-32 sm:h-32 md:w-full md:h-44 shrink-0 bg-[#FCF9F5] rounded-xl md:rounded-[24px] md:mb-4 flex items-center justify-center relative overflow-hidden group border border-stone-200/70 md:border-0 self-center md:self-auto">
                  {item.image ? (
-                   <img loading="lazy" decoding="async"  src={item.image} alt={item.name} className={`w-full h-full object-cover transition-transform duration-300 ${isPaused ? '' : 'group-hover:scale-105'}`} />
+                   <img loading="lazy" decoding="async" src={item.image} alt={item.name} className={`w-full h-full object-cover transition-transform duration-300 ${isPaused ? '' : 'group-hover:scale-105'}`} />
                  ) : (
-                   <span className={`text-8xl transition-transform duration-300 drop-shadow-xl translate-y-2 ${isPaused ? '' : 'group-hover:scale-110'}`}>
+                   <span className={`text-5xl md:text-8xl transition-transform duration-300 drop-shadow-xl md:translate-y-2 ${isPaused ? '' : 'group-hover:scale-110'}`}>
                       {item.emoji}
                    </span>
                  )}
+                 <button
+                   onClick={(e) => toggleFavorite(item.id, e)}
+                   className="md:hidden absolute top-1.5 right-1.5 z-20 w-7 h-7 rounded-full flex items-center justify-center text-stone-500 bg-white/85 backdrop-blur-xs shadow-xs"
+                   aria-label="Favoritar"
+                 >
+                   <Heart size={15} className={favorites.includes(item.id) ? 'fill-red-500 text-red-500' : ''} strokeWidth={2.2} />
+                 </button>
                  {isPaused && (
-                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                     <span className="bg-black/80 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border border-white/20">
-                       Pausado Hoje
+                   <div className="absolute inset-0 bg-black/45 flex items-center justify-center p-1">
+                     <span className="bg-black/85 text-white text-[9px] md:text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-md border border-white/20 text-center">
+                       Pausado
                      </span>
                    </div>
                  )}
               </div>
               
-              <div className="flex flex-col gap-1 z-10 relative px-1">
-                <h4 className="font-bold text-stone-900 leading-tight line-clamp-2 md:line-clamp-1 text-sm md:text-lg tracking-tight h-10 md:h-auto"><RenderWithNickel text={item.name} /></h4>
-                <p className="hidden md:block text-xs text-stone-500 line-clamp-2 min-h-[2rem] leading-relaxed font-medium mb-1.5">{item.description}</p>
+              {/* Infos: esquerda no mobile (estilo iFood), embaixo no desktop */}
+              <div className="order-1 md:order-2 flex-1 min-w-0 flex flex-col justify-between gap-1 z-10 relative md:px-1">
+                <div>
+                  <div className="md:hidden">{mobileBadge}</div>
+                  <h4 className="font-extrabold md:font-bold text-stone-900 leading-snug line-clamp-2 md:line-clamp-1 text-[15px] md:text-lg tracking-tight">
+                    <RenderWithNickel text={item.name} />
+                  </h4>
+                  <p className="text-xs text-stone-600 md:text-stone-500 line-clamp-2 leading-relaxed font-medium mt-1 md:min-h-[2rem] mb-1.5">
+                    {item.description}
+                  </p>
+                </div>
                 
-                <div className="flex items-center justify-between mt-auto md:mt-4">
-                  <span className="text-base md:text-2xl font-black text-stone-900 tracking-tighter">
+                <div className="flex items-center justify-between mt-1 md:mt-3 pt-1 md:pt-0">
+                  <span className="text-base md:text-2xl font-black text-stone-900 tracking-tight">
                     R$ {item.price.toFixed(2).replace('.', ',')}
                   </span>
                   <button 
                     onClick={(e) => { e.stopPropagation(); handleProductClick(item); }}
                     disabled={isPaused}
-                    className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-transform ${
+                    className={`h-8 px-3 md:px-0 md:w-10 md:h-10 rounded-full flex items-center justify-center gap-1 transition-transform text-xs font-black uppercase ${
                       isPaused
                         ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
-                        : 'bg-[#F28B20] text-white hover:bg-orange-500 hover:scale-105 shadow-[0_4px_15px_rgba(242,139,32,0.4)]'
+                        : 'bg-[#F28B20] text-white hover:bg-orange-500 hover:scale-105 shadow-xs md:shadow-[0_4px_15px_rgba(242,139,32,0.4)]'
                     }`}
                   >
-                    <Plus size={16} strokeWidth={3} className="md:w-5 md:h-5" />
+                    <Plus size={15} strokeWidth={3} className="md:w-5 md:h-5" />
+                    <span className="md:hidden">Pedir</span>
                   </button>
                 </div>
               </div>
@@ -959,8 +991,35 @@ export default function App() {
       });
     }
 
+    const categoryItems =
+      selectedCategory === 'Todos'
+        ? sortMenuItemsForTodos(menuItems)
+        : selectedCategory === 'Xis'
+          ? xisItems
+        : selectedCategory === 'Cachorro Quente'
+          ? hotDogItems
+        : selectedCategory === 'Combos'
+          ? menuItems.filter(item => item.category === 'combos')
+        : selectedCategory === 'Porções'
+          ? menuItems.filter(item => item.category === 'porcoes' || item.category === 'porções')
+        : menuItems.filter(item => item.category === selectedCategory.toLowerCase());
+
+    const normalizedSearch = menuSearchQuery
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    const displayedItems = normalizedSearch
+      ? categoryItems.filter(item => {
+          const itemName = (item.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          const itemDesc = (item.description || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          return itemName.includes(normalizedSearch) || itemDesc.includes(normalizedSearch);
+        })
+      : categoryItems;
+
     return (
-      <div className="w-full pb-0 bg-transparent min-h-screen">
+      <div className="w-full pb-0 bg-white min-h-screen">
         {/* Aviso de Loja Fechada no Cardápio */}
         {!getStoreStatus().isOpen && (
           <div className="bg-red-600 text-white py-2 px-4 text-center text-xs sm:text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm">
@@ -970,18 +1029,18 @@ export default function App() {
         )}
 
         {/* Header Store */}
-        <header className="sticky top-0 z-50 bg-white border-b border-stone-100 shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 py-4 flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <button onClick={() => { navigateToView('menu'); window.scrollTo(0,0); }} className="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center text-stone-900 hover:bg-stone-200 transition-colors">
-                <ArrowRight size={20} className="rotate-180" />
+        <header className="sticky top-0 z-50 bg-white border-b border-stone-200 shadow-sm">
+          <div className="max-w-7xl mx-auto px-3.5 md:px-8 xl:px-0 py-2.5 md:py-4 flex justify-between items-center">
+            <div className="flex items-center gap-3 md:gap-4">
+              <button onClick={() => { navigateToView('menu'); window.scrollTo(0,0); }} className="w-9 h-9 md:w-10 md:h-10 bg-stone-100 rounded-full flex items-center justify-center text-stone-900 hover:bg-stone-200 transition-colors border border-stone-200">
+                <ArrowRight size={18} className="rotate-180 md:w-5 md:h-5" />
               </button>
-              <h1 className="text-xl md:text-2xl font-black text-[#4E2A84] font-display uppercase tracking-widest leading-none mt-1">VOLTAR AO INÍCIO</h1>
+              <h1 className="text-base sm:text-xl md:text-2xl font-black text-[#4E2A84] font-display uppercase tracking-wider md:tracking-widest leading-none mt-0.5">VOLTAR AO INÍCIO</h1>
             </div>
             
             <div className="flex items-center gap-2 md:gap-3">
-              <button onClick={() => openCart()} className="w-10 h-10 md:w-12 md:h-12 bg-[#F28B20] rounded-full flex items-center justify-center text-white relative shadow-md hover:bg-orange-500 transition-colors">
-                <ShoppingBag size={20} />
+              <button onClick={() => openCart()} className="w-9 h-9 md:w-12 md:h-12 bg-[#F28B20] rounded-full flex items-center justify-center text-white relative shadow-md hover:bg-orange-500 transition-colors">
+                <ShoppingBag size={18} className="md:w-5 md:h-5" />
                 {cart.reduce((sum, item) => sum + item.quantity, 0) > 0 && (
                   <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#4E2A84] rounded-full flex items-center justify-center text-[10px] text-white font-bold border-2 border-white">
                     {cart.reduce((sum, item) => sum + item.quantity, 0)}
@@ -996,61 +1055,107 @@ export default function App() {
           <AutoMarquee items={lastOrderedProducts} onItemClick={openProduct} />
         )}
 
-        <div id="cardapio" className="max-w-7xl mx-auto px-4 md:px-8 xl:px-0 py-12">
-          <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-            <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-stone-900">Nosso Cardápio</h2>
-            <div className="bg-white rounded-full px-4 py-2 shadow-sm border border-stone-200 flex items-center w-full md:w-auto">
-              <Search size={18} className="text-stone-400 mr-2" />
-              <input type="text" placeholder="Buscar..." className="bg-transparent border-none outline-none text-stone-900 w-full font-medium placeholder:text-stone-400 text-sm" />
+        <div id="cardapio" className="max-w-7xl mx-auto px-3.5 md:px-8 xl:px-0 pt-4 pb-24 md:py-10">
+          <div className="bg-stone-50 border-2 border-stone-200 rounded-2xl md:rounded-3xl p-3.5 sm:p-6 mb-5 md:mb-8 shadow-xs md:shadow-sm">
+            <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center mb-3.5 md:mb-6 gap-3 md:gap-4">
+              <div className="flex items-center gap-2.5 md:gap-3">
+                <span className="w-2 h-7 sm:h-11 rounded-full bg-gradient-to-b from-[#4E2A84] to-[#F28B20] shrink-0" />
+                <div>
+                  <h2 className="text-xl sm:text-4xl font-black uppercase tracking-tight text-stone-900 leading-none">Nosso Cardápio</h2>
+                  <p className="text-[11px] sm:text-sm font-bold text-stone-600 mt-0.5 md:mt-1">Selecione uma categoria ou busque pelo nome</p>
+                </div>
+              </div>
+              <div className="bg-white rounded-xl md:rounded-2xl px-3.5 md:px-4 py-2 md:py-2.5 shadow-2xs md:shadow-sm border-2 border-stone-300 focus-within:border-[#F28B20] focus-within:ring-4 focus-within:ring-[#F28B20]/15 flex items-center w-full md:w-80 transition-all">
+                <Search size={18} className="text-stone-700 mr-2 shrink-0" strokeWidth={2.5} />
+                <input
+                  type="text"
+                  value={menuSearchQuery}
+                  onChange={(e) => setMenuSearchQuery(e.target.value)}
+                  placeholder="Buscar no cardápio..."
+                  className="bg-transparent border-none outline-none text-stone-900 w-full font-bold placeholder:text-stone-500 text-sm"
+                />
+                {menuSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setMenuSearchQuery('')}
+                    className="ml-2 text-xs font-black text-stone-600 hover:text-stone-900 px-1.5 py-0.5 rounded-md bg-stone-100 cursor-pointer"
+                    aria-label="Limpar busca"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex md:grid md:grid-cols-6 overflow-x-auto gap-2 md:gap-3 pb-1 md:pb-0 hide-scrollbar">
+              {[
+                { id: 'Todos', emoji: '🍔', label: 'Todos' },
+                { id: 'Xis', emoji: '🍔', label: 'Xis' },
+                { id: 'Cachorro Quente', emoji: '🌭', label: 'Cachorros' },
+                { id: 'Combos', emoji: '🥤', label: 'Combos' },
+                { id: 'Porções', emoji: '🍟', label: 'Porções' },
+                { id: 'Bebidas', emoji: '🥤', label: 'Bebidas' }
+              ].map(cat => {
+                const isActive = selectedCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id as any)}
+                    className={`shrink-0 flex flex-row md:flex-col items-center justify-center gap-2 px-3 py-2 md:py-3 md:px-2 rounded-xl md:rounded-2xl border-2 transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-[#FFF5E6] border-[#F28B20] shadow-[0_3px_0_#F28B20] md:shadow-[0_4px_0_#F28B20] md:-translate-y-0.5'
+                        : 'bg-white hover:bg-stone-100/70 border-stone-300 hover:border-stone-500 shadow-[0_2px_0_#d6d3d1] md:shadow-[0_3px_0_#d6d3d1] active:translate-y-0.5'
+                    }`}
+                  >
+                    <div className={`w-7 h-7 md:w-12 md:h-12 rounded-lg md:rounded-xl flex items-center justify-center text-lg md:text-3xl border ${
+                      isActive ? 'bg-white border-[#F28B20]/40' : 'bg-stone-50 border-stone-200'
+                    }`}>
+                      {cat.emoji}
+                    </div>
+                    <span className={`text-xs md:text-sm font-black uppercase tracking-wide leading-tight whitespace-nowrap ${
+                      isActive ? 'text-[#4E2A84]' : 'text-stone-900'
+                    }`}>
+                      {cat.label}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <div className="flex overflow-x-auto gap-4 mb-10 pb-2 hide-scrollbar">
-            {[
-              { id: 'Todos', emoji: '🍔', label: 'Todos' },
-              { id: 'Xis', emoji: '🍔', label: 'Xis' },
-              { id: 'Cachorro Quente', emoji: '🌭', label: 'Cachorros' },
-              { id: 'Combos', emoji: '🥤', label: 'Combos' },
-              { id: 'Porções', emoji: '🍟', label: 'Porções' },
-              { id: 'Bebidas', emoji: '🥤', label: 'Bebidas' }
-            ].map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id as any)}
-                className="flex flex-col items-center gap-2 group shrink-0"
-              >
-                <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center text-3xl transition-all shadow-sm ${
-                  selectedCategory === cat.id ? 'bg-[#FCF5E3] ring-2 ring-[#F28B20]' : 'bg-white hover:bg-stone-50 border border-stone-100'
-                }`}>
-                  {cat.emoji}
-                </div>
-                <span className={`text-sm font-bold transition-colors uppercase tracking-wider ${
-                  selectedCategory === cat.id ? 'text-[#F28B20]' : 'text-stone-500'
-                }`}>
-                  {cat.label}
-                </span>
-              </button>
-            ))}
+          <div className="flex items-center justify-between mb-3 md:mb-5 px-0.5">
+            <h3 className="text-sm md:text-lg font-black uppercase tracking-wide text-stone-900">
+              {selectedCategory === 'Todos' ? 'Todos os Lanches' : selectedCategory}
+            </h3>
+            <span className="text-xs font-bold text-stone-600 bg-stone-100 border border-stone-200 px-2.5 py-1 rounded-full">
+              {displayedItems.length} {displayedItems.length === 1 ? 'item' : 'itens'}
+            </span>
           </div>
 
-          {renderProductGrid(
-            selectedCategory === 'Todos' 
-               ? sortMenuItemsForTodos(menuItems) 
-               : selectedCategory === 'Xis'
-                 ? xisItems
-               : selectedCategory === 'Cachorro Quente'
-                 ? hotDogItems
-               : selectedCategory === 'Combos'
-                 ? menuItems.filter(item => item.category === 'combos')
-               : selectedCategory === 'Porções'
-                 ? menuItems.filter(item => item.category === 'porcoes' || item.category === 'porções')
-               : menuItems.filter(item => item.category === selectedCategory.toLowerCase()),
-            selectedCategory === 'Todos' ? 'Todos os Lanches' : selectedCategory
+          {displayedItems.length > 0 ? (
+            renderProductGrid(
+              displayedItems,
+              selectedCategory === 'Todos' ? 'Todos os Lanches' : selectedCategory
+            )
+          ) : (
+            <div className="bg-stone-50 border-2 border-stone-200 rounded-3xl p-10 text-center">
+              <p className="text-lg font-black text-stone-800 uppercase">Nenhum item encontrado</p>
+              <p className="text-sm font-medium text-stone-600 mt-1">Tente buscar outro nome ou limpar o filtro.</p>
+              {menuSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setMenuSearchQuery('')}
+                  className="mt-4 px-5 py-2.5 bg-[#4E2A84] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#3d2069] transition-colors cursor-pointer"
+                >
+                  Limpar Busca
+                </button>
+              )}
+            </div>
           )}
         </div>
-    </div>
-  );
-};
+      </div>
+    );
+  };
 
 
   const renderMenu = () => (
@@ -1241,8 +1346,8 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-[#FCF9F5] relative overflow-hidden text-stone-900">
-      <div style={{ display: view === 'about' || view === 'profile' ? 'none' : 'block' }} className="fixed inset-0 pointer-events-none z-0">
+    <div className={`min-h-screen relative overflow-hidden text-stone-900 ${view === 'store' ? 'bg-white' : 'bg-[#FCF9F5]'}`}>
+      <div style={{ display: view === 'about' || view === 'profile' || view === 'store' ? 'none' : 'block' }} className="fixed inset-0 pointer-events-none z-0">
         {/* Parallax Background */}
         <div className="absolute inset-0 game-bg opacity-20" style={{ backgroundAttachment: 'fixed', backgroundPosition: 'center' }}></div>
         <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(255, 255, 0, 0.1) 0%, transparent 70%)', backgroundAttachment: 'fixed' }}></div>
